@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
-import type { Element, LineElement, PageLayout } from "@/src/layout/types";
+import { resolveImagePlacement } from "@/src/layout/imagePlacement";
+import type { Element, ImageElement, LineElement, PageLayout } from "@/src/layout/types";
 
 type PageViewProps = {
   page: PageLayout;
@@ -29,24 +30,72 @@ function renderLine(line: LineElement, key: string): ReactElement {
   );
 }
 
-function renderElement(element: Element, index: number, fontFamily: string): ReactElement {
-  if (element.type === "image") {
+function renderImage(image: ImageElement, key: string): ReactElement {
+  const placement = resolveImagePlacement(image);
+  const objectPosition = `${((image.anchorX ?? 0.5) * 100).toFixed(2)}% ${((image.anchorY ?? 0.5) * 100).toFixed(2)}%`;
+
+  if (!placement) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- Precise mm-based canvas positioning for local assets.
+      <div
+        key={key}
+        style={{
+          position: "absolute",
+          left: `${image.xMm}mm`,
+          top: `${image.yMm}mm`,
+          width: `${image.wMm}mm`,
+          height: `${image.hMm}mm`,
+          overflow: "hidden",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- Precise mm-based canvas positioning for local assets. */}
+        <img
+          src={image.srcPublicPath}
+          alt=""
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: image.fit,
+            objectPosition,
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      key={key}
+      style={{
+        position: "absolute",
+        left: `${image.xMm}mm`,
+        top: `${image.yMm}mm`,
+        width: `${image.wMm}mm`,
+        height: `${image.hMm}mm`,
+        overflow: "hidden",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Precise mm-based canvas positioning for local assets. */}
       <img
-        key={`image-${index}`}
-        src={element.srcPublicPath}
+        src={image.srcPublicPath}
         alt=""
         style={{
           position: "absolute",
-          left: `${element.xMm}mm`,
-          top: `${element.yMm}mm`,
-          width: `${element.wMm}mm`,
-          height: `${element.hMm}mm`,
-          objectFit: element.fit,
+          left: `${placement.xMm - image.xMm}mm`,
+          top: `${placement.yMm - image.yMm}mm`,
+          width: `${placement.wMm}mm`,
+          height: `${placement.hMm}mm`,
+          maxWidth: "none",
+          maxHeight: "none",
         }}
       />
-    );
+    </div>
+  );
+}
+
+function renderElement(element: Element, index: number, fontFamily: string): ReactElement {
+  if (element.type === "image") {
+    return renderImage(element, `image-${index}`);
   }
 
   if (element.type === "text") {

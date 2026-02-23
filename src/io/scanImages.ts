@@ -57,7 +57,7 @@ function parseLeadingNumber(filename: string): number | null {
 }
 
 function publicPathForFilename(filename: string): string {
-  return `/inbox/${encodeURIComponent(filename)}`;
+  return `/api/assets/images/${encodeURIComponent(filename)}`;
 }
 
 function compareImages(a: RawImage, b: RawImage): number {
@@ -254,61 +254,21 @@ async function readImageDimensions(absPath: string): Promise<ImageDimensions | u
   }
 }
 
-async function shouldCopyFile(sourcePath: string, targetPath: string): Promise<boolean> {
+async function readDirIfExists(dirPath: string): Promise<import("node:fs").Dirent[]> {
   try {
-    const [sourceStat, targetStat] = await Promise.all([
-      fs.stat(sourcePath),
-      fs.stat(targetPath),
-    ]);
-
-    if (sourceStat.size !== targetStat.size) {
-      return true;
+    return await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === "ENOENT") {
+      return [];
     }
-
-    return sourceStat.mtimeMs > targetStat.mtimeMs + 1;
-  } catch {
-    return true;
+    throw error;
   }
-}
-
-async function mirrorImagesToPublicInbox(images: RawImage[], rootDir: string): Promise<void> {
-  const inboxDir = path.join(rootDir, "public", "inbox");
-  await fs.mkdir(inboxDir, { recursive: true });
-
-  const expectedFilenames = new Set(images.map((image) => image.filename.toLowerCase()));
-
-  await Promise.all(
-    images.map(async (image) => {
-      const destinationPath = path.join(inboxDir, image.filename);
-      if (await shouldCopyFile(image.absPath, destinationPath)) {
-        await fs.copyFile(image.absPath, destinationPath);
-      }
-    }),
-  );
-
-  const existingInboxEntries = await fs.readdir(inboxDir, { withFileTypes: true });
-
-  await Promise.all(
-    existingInboxEntries.map(async (entry) => {
-      if (!entry.isFile()) {
-        return;
-      }
-      if (entry.name.startsWith(".")) {
-        return;
-      }
-
-      if (!expectedFilenames.has(entry.name.toLowerCase())) {
-        await fs.unlink(path.join(inboxDir, entry.name));
-      }
-    }),
-  );
 }
 
 export async function scanImages(rootDir = process.cwd()): Promise<ScannedImage[]> {
   const imagesDir = path.join(rootDir, "images");
-  await fs.mkdir(imagesDir, { recursive: true });
-
-  const entries = await fs.readdir(imagesDir, { withFileTypes: true });
+  const entries = await readDirIfExists(imagesDir);
   const imageCandidates = await Promise.all(
     entries.map(async (entry): Promise<RawImage | null> => {
       if (!entry.isFile() || !isImageFile(entry.name)) {
@@ -333,8 +293,6 @@ export async function scanImages(rootDir = process.cwd()): Promise<ScannedImage[
   const sortedImages = imageCandidates
     .filter((candidate): candidate is RawImage => candidate !== null)
     .sort(compareImages);
-
-  await mirrorImagesToPublicInbox(sortedImages, rootDir);
 
   return sortedImages.map((image, index) => ({
     id: `image-${String(index + 1).padStart(3, "0")}`,

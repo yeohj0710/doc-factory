@@ -1,5 +1,6 @@
 import path from "node:path";
 import PptxGenJS from "pptxgenjs";
+import { resolveImagePlacement } from "@/src/layout/imagePlacement";
 import { PAGE_SIZE_A4_PORTRAIT, type Element, type PageLayout } from "@/src/layout/types";
 
 export type RenderPptxOptions = {
@@ -19,12 +20,46 @@ function toHex(color: string): string {
   return color.replace(/^#/, "").toUpperCase();
 }
 
+function decodePathValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeFilename(rawValue: string): string {
+  const decoded = decodePathValue(rawValue);
+  const normalized = path.posix.normalize(decoded.replace(/\\/g, "/"));
+
+  if (normalized !== path.posix.basename(normalized)) {
+    throw new Error(`Invalid filename: ${rawValue}`);
+  }
+  if (normalized === "." || normalized === "..") {
+    throw new Error(`Invalid filename: ${rawValue}`);
+  }
+
+  return normalized;
+}
+
 function resolvePublicPath(srcPublicPath: string, rootDir: string): string {
-  const decoded = decodeURIComponent(srcPublicPath);
+  const decoded = decodePathValue(srcPublicPath);
   const relativePosix = path.posix.normalize(decoded.replace(/^\/+/, ""));
 
   if (relativePosix.startsWith("..")) {
     throw new Error(`Invalid image path: ${srcPublicPath}`);
+  }
+
+  const imageApiPrefix = "api/assets/images/";
+  if (relativePosix.startsWith(imageApiPrefix)) {
+    const filename = sanitizeFilename(relativePosix.slice(imageApiPrefix.length));
+    return path.join(rootDir, "images", filename);
+  }
+
+  const legacyInboxPrefix = "inbox/";
+  if (relativePosix.startsWith(legacyInboxPrefix)) {
+    const filename = sanitizeFilename(relativePosix.slice(legacyInboxPrefix.length));
+    return path.join(rootDir, "public", "inbox", filename);
   }
 
   return path.join(rootDir, "public", ...relativePosix.split("/"));
@@ -48,11 +83,36 @@ function addElement(
     const pathOnDisk = resolvePublicPath(element.srcPublicPath, rootDir);
 
     try {
+      if (element.fit === "cover") {
+        slide.addImage({
+          path: pathOnDisk,
+          ...frame,
+          sizing: {
+            type: "crop",
+            ...frame,
+          },
+        });
+        return;
+      }
+
+      const placement = resolveImagePlacement(element);
+
+      if (placement) {
+        slide.addImage({
+          path: pathOnDisk,
+          x: mmToIn(placement.xMm),
+          y: mmToIn(placement.yMm),
+          w: mmToIn(placement.wMm),
+          h: mmToIn(placement.hMm),
+        });
+        return;
+      }
+
       slide.addImage({
         path: pathOnDisk,
         ...frame,
         sizing: {
-          type: element.fit,
+          type: "contain",
           ...frame,
         },
       });
@@ -86,7 +146,7 @@ function addElement(
       bold: element.bold ?? false,
       align: element.align ?? "left",
       valign: "top",
-      fit: "shrink",
+      margin: 0,
       color: toHex(element.color ?? "#10213A"),
     });
     return;

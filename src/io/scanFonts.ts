@@ -20,17 +20,12 @@ export type ScannedFont = {
   format: "truetype" | "opentype";
 };
 
-type RawFont = {
-  filename: string;
-  absPath: string;
-};
-
 function isFontFile(filename: string): boolean {
   return FONT_EXTENSIONS.has(path.extname(filename).toLowerCase());
 }
 
 function publicPathForFilename(filename: string): string {
-  return `/font-inbox/${encodeURIComponent(filename)}`;
+  return `/api/assets/fonts/${encodeURIComponent(filename)}`;
 }
 
 function detectFontFormat(filename: string): "truetype" | "opentype" {
@@ -92,61 +87,21 @@ export function deriveFontFamilyName(filename: string): string {
   return stem.replace(/[_-]+/g, " ").trim() || "Custom Font";
 }
 
-async function shouldCopyFile(sourcePath: string, targetPath: string): Promise<boolean> {
+async function readDirIfExists(dirPath: string): Promise<import("node:fs").Dirent[]> {
   try {
-    const [sourceStat, targetStat] = await Promise.all([
-      fs.stat(sourcePath),
-      fs.stat(targetPath),
-    ]);
-
-    if (sourceStat.size !== targetStat.size) {
-      return true;
+    return await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === "ENOENT") {
+      return [];
     }
-
-    return sourceStat.mtimeMs > targetStat.mtimeMs + 1;
-  } catch {
-    return true;
+    throw error;
   }
-}
-
-async function mirrorFontsToPublicInbox(fonts: RawFont[], rootDir: string): Promise<void> {
-  const inboxDir = path.join(rootDir, "public", "font-inbox");
-  await fs.mkdir(inboxDir, { recursive: true });
-
-  const expectedFilenames = new Set(fonts.map((font) => font.filename.toLowerCase()));
-
-  await Promise.all(
-    fonts.map(async (font) => {
-      const destinationPath = path.join(inboxDir, font.filename);
-      if (await shouldCopyFile(font.absPath, destinationPath)) {
-        await fs.copyFile(font.absPath, destinationPath);
-      }
-    }),
-  );
-
-  const existingInboxEntries = await fs.readdir(inboxDir, { withFileTypes: true });
-
-  await Promise.all(
-    existingInboxEntries.map(async (entry) => {
-      if (!entry.isFile()) {
-        return;
-      }
-      if (entry.name.startsWith(".")) {
-        return;
-      }
-
-      if (!expectedFilenames.has(entry.name.toLowerCase())) {
-        await fs.unlink(path.join(inboxDir, entry.name));
-      }
-    }),
-  );
 }
 
 export async function scanFonts(rootDir = process.cwd()): Promise<ScannedFont[]> {
   const fontsDir = path.join(rootDir, "fonts");
-  await fs.mkdir(fontsDir, { recursive: true });
-
-  const entries = await fs.readdir(fontsDir, { withFileTypes: true });
+  const entries = await readDirIfExists(fontsDir);
   const fontFiles = entries
     .filter((entry) => entry.isFile() && isFontFile(entry.name))
     .map((entry) => ({
@@ -154,8 +109,6 @@ export async function scanFonts(rootDir = process.cwd()): Promise<ScannedFont[]>
       absPath: path.join(fontsDir, entry.name),
     }))
     .sort((a, b) => naturalCollator.compare(a.filename, b.filename));
-
-  await mirrorFontsToPublicInbox(fontFiles, rootDir);
 
   return fontFiles.map((file, index) => ({
     id: `font-${index + 1}`,

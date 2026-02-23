@@ -9,7 +9,10 @@ export type LayoutTokens = {
     mutedText: string;
     border: string;
     accent: string;
+    accentDeep: string;
     softAccent: string;
+    softAccentAlt: string;
+    inverseText: string;
   };
   spacingMm: {
     pageMargin: number;
@@ -18,14 +21,18 @@ export type LayoutTokens = {
     sectionGap: number;
   };
   fontScalePt: {
+    micro: number;
     caption: number;
     body: number;
+    lead: number;
     subtitle: number;
     title: number;
+    display: number;
   };
   radiusMm: {
     sm: number;
     md: number;
+    lg: number;
   };
   font: {
     primary: string;
@@ -38,27 +45,34 @@ const BASE_TOKENS = {
   colors: {
     canvas: "#EAF0F7",
     page: "#FFFFFF",
-    text: "#0F1F3A",
-    mutedText: "#4F5F78",
-    border: "#D2DCEC",
-    accent: "#245AD9",
+    text: "#0C1A2C",
+    mutedText: "#3F516C",
+    border: "#C8D3E5",
+    accent: "#1F5EB8",
+    accentDeep: "#143E7A",
     softAccent: "#EDF3FF",
+    softAccentAlt: "#E7EEF8",
+    inverseText: "#F7FAFF",
   },
   spacingMm: {
-    pageMargin: 12,
-    gutter: 7,
+    pageMargin: 10,
+    gutter: 6,
     footerHeight: 12,
-    sectionGap: 8,
+    sectionGap: 6,
   },
   fontScalePt: {
-    caption: 10,
-    body: 11,
-    subtitle: 15,
-    title: 24,
+    micro: 10,
+    caption: 12,
+    body: 14,
+    lead: 16,
+    subtitle: 22,
+    title: 34,
+    display: 42,
   },
   radiusMm: {
     sm: 2,
     md: 4,
+    lg: 7,
   },
 } as const;
 

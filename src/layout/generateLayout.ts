@@ -1,164 +1,127 @@
 import path from "node:path";
 import type { ScannedImage } from "@/src/io/scanImages";
 import type { LayoutTokens } from "@/src/layout/tokens";
-import { PAGE_SIZE_A4_PORTRAIT, type PageLayout } from "@/src/layout/types";
+import {
+  PAGE_SIZE_A4_PORTRAIT,
+  type Element,
+  type ImageElement,
+  type PageLayout,
+} from "@/src/layout/types";
 
-type TemplateKey = "hero" | "split" | "board" | "closing";
+type TemplateKey =
+  | "hero-ribbon"
+  | "editorial-split"
+  | "insight-grid"
+  | "framed-focus"
+  | "dual-panels";
 
-type BrochureCopy = {
-  template: TemplateKey;
+type MetricCard = {
+  label: string;
+  value: string;
+};
+
+type Narrative = {
   kicker: string;
   title: string;
   summary: string;
-  bullets: string[];
-  secondaryBullets?: string[];
-  badgeLabel?: string;
-  badgeValue?: string;
-  note?: string;
-  footer?: string;
+  bulletsA: string[];
+  bulletsB: string[];
+  callout: string;
+  footer: string;
+  metrics: MetricCard[];
 };
 
-const PAGE_WIDTH_MM = PAGE_SIZE_A4_PORTRAIT.widthMm;
-const PAGE_HEIGHT_MM = PAGE_SIZE_A4_PORTRAIT.heightMm;
+const PAGE_W = PAGE_SIZE_A4_PORTRAIT.widthMm;
+const PAGE_H = PAGE_SIZE_A4_PORTRAIT.heightMm;
 
-const COPY_BY_KEY = {
-  cover: {
-    template: "hero",
-    kicker: "WELLNESSBOX B2B",
-    title: "임직원 건강복지를 ESG 성과로 전환합니다",
-    summary: "약국 기반 개인맞춤 영양제 복지 솔루션",
-    bullets: [
-      "건강 데이터 기반 개인 맞춤 설계",
-      "1개월 단위 소분 패키지 정기 제공",
-      "매월 재점검 후 조합 조정 및 약사 상담 연계",
-    ],
-    badgeLabel: "운영 방식",
-    badgeValue: "기업 맞춤형",
-    footer: "약국 기반 개인맞춤 영양 복지 솔루션",
-  } satisfies BrochureCopy,
+const KICKERS = [
+  "PROGRAM OVERVIEW",
+  "SERVICE BLUEPRINT",
+  "WELLNESS DELIVERY",
+  "EXPERIENCE SNAPSHOT",
+  "OPERATIONS FLOW",
+] as const;
 
-  package: {
-    template: "split",
-    kicker: "PERSONALIZED PACKAGE",
-    title: "한 통이 아닌 매일 섭취 단위로 제공합니다",
-    summary:
-      "웰니스박스는 임직원 건강 상태와 목적에 맞춘 영양 조합을 설계하고, 약국을 통해 1개월분 소분 패키지를 전달합니다.",
-    bullets: [
-      "하루 단위 소분으로 복용 편의성과 지속률 강화",
-      "개인별 목적에 맞는 성분 조합으로 설계",
-      "월별 리뷰를 기반으로 구성을 유연하게 조정",
-    ],
-    note: "관리형 복지 서비스로 임직원 체감 만족도를 높입니다.",
-    footer: "Box + Report + App이 연결된 통합 건강관리 경험",
-  } satisfies BrochureCopy,
+const SUMMARIES = [
+  "A modular page generated from the source image with consistent A4 structure.",
+  "Typography, spacing, and components are tuned for readable presentation pages.",
+  "The same layout model powers web preview and PPTX export for visual parity.",
+  "Each element stays editable in PowerPoint while preserving overall composition.",
+  "Deterministic rules keep regeneration stable during iterative design cycles.",
+] as const;
 
-  report: {
-    template: "board",
-    kicker: "MONTHLY HEALTH REPORT",
-    title: "매달 받는 개인 건강관리 리포트",
-    summary: "핵심 지표와 우선 관리 영역, 복용 가이드를 한 화면에 제공합니다.",
-    bullets: [
-      "건강 점수와 최근 변화 추이 한눈에 확인",
-      "우선 관리 영역별 밸런스 상태 제시",
-      "실행 가능한 복용 타이밍 가이드 제공",
-    ],
-    secondaryBullets: [
-      "임직원은 변화 내용을 월 단위로 추적",
-      "기업은 운영 리포트로 참여 현황 점검",
-      "다음 달 조정 포인트를 빠르게 의사결정",
-    ],
-    note: "데이터가 쌓일수록 맞춤 정확도와 실행률이 함께 높아집니다.",
-    footer: "건강 데이터 기반 개인맞춤 설계",
-  } satisfies BrochureCopy,
+const BULLETS = [
+  "Stronger type scale for improved readability",
+  "Strict margin grid for cleaner composition",
+  "Aspect-ratio-safe image framing",
+  "Modular cards with high information density",
+  "Deterministic ordering and regeneration",
+  "Editable text and shape layers in PPTX",
+  "Balanced visual hierarchy across templates",
+  "Reusable blocks for repeated design iterations",
+] as const;
 
-  process: {
-    template: "board",
-    kicker: "EMPLOYEE JOURNEY",
-    title: "임직원 경험 흐름은 단순하고 반복 가능합니다",
-    summary: "도입 후 매월 같은 리듬으로 건강관리 사이클이 운영됩니다.",
-    bullets: [
-      "건강 체크 설문 및 검진 데이터 연동",
-      "개인 맞춤 소분 패키지 수령",
-      "월간 리포트 확인 및 실천",
-    ],
-    secondaryBullets: [
-      "재검사 결과 기반 성분/용량 조정",
-      "필요 시 약사 상담으로 복용 이슈 해결",
-      "다음 달 목표를 개인별로 업데이트",
-    ],
-    note: "복잡한 복지 운영을 표준화된 월간 프로세스로 바꿉니다.",
-    footer: "정기 운영에 최적화된 B2B 복지 프로그램",
-  } satisfies BrochureCopy,
+const CALLOUTS = [
+  "Design objective: preview and export should be visually equivalent.",
+  "Layout objective: richer pages with a stronger typographic voice.",
+  "Production objective: repeatable templates for fast iteration.",
+  "Quality objective: no stretched images, no accidental distortion.",
+  "Workflow objective: image-first input and editable A4 output.",
+] as const;
 
-  personalized: {
-    template: "split",
-    kicker: "CONTINUOUS OPTIMIZATION",
-    title: "재검사와 상담 데이터로 조합을 계속 고도화합니다",
-    summary:
-      "초기 설계에서 끝나지 않고 매월 재평가를 통해 구성과 복용 계획을 업데이트해 개인 적합도를 높입니다.",
-    bullets: [
-      "건강/상담 데이터를 기반으로 맞춤 조정",
-      "복용 부담을 줄이고 필요한 성분은 강화",
-      "기업과 임직원 모두 변화 근거를 확인 가능",
-    ],
-    note: "처음의 추천을 유지하는 방식이 아닌, 계속 개선되는 관리형 구조입니다.",
-    footer: "개인별 상태에 맞춰 매달 달라지는 영양 복지",
-  } satisfies BrochureCopy,
+const FOOTERS = [
+  "Web-to-PPTX fidelity",
+  "Deterministic A4 composition",
+  "Image-first document engine",
+  "Editable presentation output",
+  "Template-driven page builder",
+] as const;
 
-  app: {
-    template: "split",
-    kicker: "DIGITAL EXPERIENCE",
-    title: "전용 앱으로 리포트 조회와 상담 연결까지",
-    summary: "임직원은 앱에서 누적 건강 리포트를 확인하고 필요한 상담을 즉시 신청할 수 있습니다.",
-    bullets: [
-      "개인별 건강 변화 기록을 월별로 조회",
-      "생활 습관 실천 가이드와 알림 제공",
-      "온라인 상담 연계로 실행 공백 최소화",
-    ],
-    note: "오프라인 패키지와 디지털 경험이 함께 작동합니다.",
-    footer: "복지 프로그램 참여율을 높이는 전용 접점",
-  } satisfies BrochureCopy,
+const METRIC_LABELS = ["Cadence", "Format", "Output", "Review", "Channel", "Quality"] as const;
+const METRIC_VALUES = ["Monthly", "A4 Portrait", "Editable", "Iterative", "Preview + PPTX", "Design System"] as const;
 
-  esg: {
-    template: "hero",
-    kicker: "ESG IMPACT",
-    title: "임직원 건강관리는 ESG 사회(S) 성과로 연결됩니다",
-    summary:
-      "운영 내용, 정기성, 참여 규모를 근거로 보고서에 담을 수 있는 복지 활동으로 설계되어 있습니다.",
-    bullets: [
-      "복리후생비(S-2-5) 분류 가능한 정기 프로그램",
-      "운영 실적과 참여 데이터를 문서화해 보고 가능",
-      "대기업 ESG 보고서 포맷에 맞춘 사례화 지원",
-    ],
-    badgeLabel: "ESG 포인트",
-    badgeValue: "사회(S) 영역",
-    footer: "보고서에 남는 임직원 건강증진 프로그램",
-  } satisfies BrochureCopy,
-
-  consultation: {
-    template: "closing",
-    kicker: "PHARMACIST CONSULTING",
-    title: "약사 상담으로 임직원 건강관리 실행력을 높입니다",
-    summary: "기업 도입 목적과 임직원 특성에 맞는 운영안을 함께 설계합니다.",
-    bullets: [
-      "정기 방문/온라인 상담 연계",
-      "복용 이슈와 생활 습관 코칭 지원",
-      "기업별 운영 리듬에 맞춘 협의 가능",
-    ],
-    footer: "문의: wellnessbox.me@gmail.com | 02-6241-5530",
-  } satisfies BrochureCopy,
-} as const;
-
-const DEFAULT_COPY_ORDER: BrochureCopy[] = [
-  COPY_BY_KEY.cover,
-  COPY_BY_KEY.package,
-  COPY_BY_KEY.report,
-  COPY_BY_KEY.process,
-  COPY_BY_KEY.personalized,
-  COPY_BY_KEY.app,
-  COPY_BY_KEY.esg,
-  COPY_BY_KEY.consultation,
+const DEFAULT_CYCLE: TemplateKey[] = [
+  "hero-ribbon",
+  "editorial-split",
+  "insight-grid",
+  "framed-focus",
+  "dual-panels",
 ];
+
+const LANDSCAPE_CYCLE: TemplateKey[] = [
+  "hero-ribbon",
+  "insight-grid",
+  "dual-panels",
+  "editorial-split",
+  "framed-focus",
+];
+
+const PORTRAIT_CYCLE: TemplateKey[] = [
+  "editorial-split",
+  "framed-focus",
+  "hero-ribbon",
+  "dual-panels",
+  "insight-grid",
+];
+
+function pick<T>(values: readonly T[], index: number): T {
+  return values[index % values.length];
+}
+
+function pickWindow(values: readonly string[], index: number, count: number): string[] {
+  return Array.from({ length: count }, (_, offset) => values[(index + offset) % values.length]);
+}
+
+function shortText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function bullets(lines: string[]): string {
+  return lines.map((line) => `- ${line}`).join("\n");
+}
 
 function cleanCaptionFromFilename(filename: string): string {
   const stem = path.parse(filename).name;
@@ -167,605 +130,423 @@ function cleanCaptionFromFilename(filename: string): string {
     "",
   );
 
-  const cleaned = withoutPrefix
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
+  const normalized = withoutPrefix.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (normalized.length > 0) {
+    return normalized;
+  }
   const fallback = stem.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-  const finalText = cleaned.length > 0 ? cleaned : fallback;
-
-  if (!finalText) {
-    return "Untitled image";
-  }
-
-  return finalText;
+  return fallback || "Untitled image";
 }
 
-function parseSlicedImageVariant(filename: string): number {
-  const stem = path.parse(filename).name;
-  const match = stem.match(/_(\d+)\s*$/);
-  if (!match) {
-    return 1;
-  }
-
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function detectCopyForImage(image: ScannedImage, index: number): BrochureCopy {
-  const stem = path.parse(image.filename).name;
-  const normalized = stem.replace(/\s+/g, "").toLowerCase();
-
-  if (normalized.includes("앱웹화면")) {
-    return COPY_BY_KEY.app;
-  }
-  if (normalized.includes("건강레포트")) {
-    return COPY_BY_KEY.report;
-  }
-  if (normalized.includes("약사상담")) {
-    return COPY_BY_KEY.consultation;
-  }
-  if (normalized.includes("패키지")) {
-    return COPY_BY_KEY.cover;
-  }
-  if (normalized.includes("소분건기식이미지")) {
-    const variant = parseSlicedImageVariant(image.filename);
-    if (variant === 1) {
-      return COPY_BY_KEY.package;
-    }
-    if (variant === 2) {
-      return COPY_BY_KEY.process;
-    }
-    if (variant === 3) {
-      return COPY_BY_KEY.personalized;
-    }
-    return COPY_BY_KEY.esg;
-  }
-
-  return DEFAULT_COPY_ORDER[index % DEFAULT_COPY_ORDER.length];
-}
-
-function buildFallbackCopy(caption: string): BrochureCopy {
+function buildNarrative(caption: string, index: number): Narrative {
   return {
-    template: "split",
-    kicker: "WELLNESSBOX",
-    title: caption,
-    summary: "이미지 기반으로 구성된 서비스 소개 페이지입니다.",
-    bullets: [
-      "기업 임직원 대상 맞춤형 건강관리",
-      "소분 패키지 + 리포트 + 상담 연계",
-      "A4 기반 문서/PPTX 편집형 결과물",
+    kicker: pick(KICKERS, index),
+    title: shortText(caption, 56),
+    summary: pick(SUMMARIES, index),
+    bulletsA: pickWindow(BULLETS, index, 3),
+    bulletsB: pickWindow(BULLETS, index + 3, 3),
+    callout: pick(CALLOUTS, index),
+    footer: `${pick(FOOTERS, index)} | ${shortText(caption, 32)}`,
+    metrics: [
+      { label: pick(METRIC_LABELS, index), value: pick(METRIC_VALUES, index) },
+      { label: pick(METRIC_LABELS, index + 2), value: pick(METRIC_VALUES, index + 2) },
+      { label: pick(METRIC_LABELS, index + 4), value: pick(METRIC_VALUES, index + 4) },
     ],
-    note: "필요 시 이미지를 교체하고 다시 생성하면 같은 규칙으로 재배치됩니다.",
-    footer: caption,
   };
 }
 
-function bulletLines(lines: string[]): string {
-  return lines.map((line) => `- ${line}`).join("\n");
+function pickTemplate(image: ScannedImage, index: number): TemplateKey {
+  const width = image.widthPx ?? 1;
+  const height = image.heightPx ?? 1;
+  const ratio = width / height;
+  if (ratio >= 1.2) {
+    return LANDSCAPE_CYCLE[index % LANDSCAPE_CYCLE.length];
+  }
+  if (ratio <= 0.85) {
+    return PORTRAIT_CYCLE[index % PORTRAIT_CYCLE.length];
+  }
+  return DEFAULT_CYCLE[index % DEFAULT_CYCLE.length];
 }
 
-function buildHeroPage(
+type ImageFrame = {
+  xMm: number;
+  yMm: number;
+  wMm: number;
+  hMm: number;
+  fit: "cover" | "contain";
+};
+
+function imageElement(image: ScannedImage, frame: ImageFrame): ImageElement {
+  return {
+    type: "image",
+    xMm: frame.xMm,
+    yMm: frame.yMm,
+    wMm: frame.wMm,
+    hMm: frame.hMm,
+    srcPublicPath: image.publicPath,
+    fit: frame.fit,
+    intrinsicWidthPx: image.widthPx,
+    intrinsicHeightPx: image.heightPx,
+    anchorX: 0.5,
+    anchorY: 0.5,
+  };
+}
+
+function addPageFooter(elements: Element[], narrative: Narrative, tokens: LayoutTokens): void {
+  const margin = tokens.spacingMm.pageMargin;
+  elements.push(
+    {
+      type: "line",
+      x1Mm: margin,
+      y1Mm: 282,
+      x2Mm: PAGE_W - margin,
+      y2Mm: 282,
+      stroke: tokens.colors.border,
+      widthMm: 0.3,
+    },
+    {
+      type: "text",
+      xMm: margin,
+      yMm: 285,
+      wMm: PAGE_W - margin * 2,
+      hMm: 8,
+      text: narrative.footer,
+      fontSizePt: tokens.fontScalePt.micro,
+      color: tokens.colors.mutedText,
+    },
+  );
+}
+
+function buildHeroRibbon(
   image: ScannedImage,
-  copy: BrochureCopy,
+  narrative: Narrative,
   pageNumber: number,
   tokens: LayoutTokens,
 ): PageLayout {
   const margin = tokens.spacingMm.pageMargin;
-  const headerHeightMm = 92;
-  const footerHeightMm = 12;
-  const imageTopMm = headerHeightMm + 4;
-  const imageHeightMm = PAGE_HEIGHT_MM - imageTopMm - margin - footerHeightMm;
-  const badgeWidthMm = 58;
-  const badgeX = PAGE_WIDTH_MM - margin - badgeWidthMm;
-  const footerY = PAGE_HEIGHT_MM - margin - footerHeightMm;
+  const metricX = 146;
+  const metricW = PAGE_W - metricX - margin;
+  const elements: Element[] = [
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: PAGE_H, fill: tokens.colors.page },
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: 86, fill: tokens.colors.softAccentAlt },
+    { type: "rect", xMm: 0, yMm: 0, wMm: 8, hMm: 86, fill: tokens.colors.accent },
+    {
+      type: "text",
+      xMm: margin + 2,
+      yMm: 10,
+      wMm: 130,
+      hMm: 8,
+      text: narrative.kicker,
+      fontSizePt: tokens.fontScalePt.caption,
+      bold: true,
+      color: tokens.colors.accentDeep,
+    },
+    {
+      type: "text",
+      xMm: margin + 2,
+      yMm: 20,
+      wMm: 130,
+      hMm: 28,
+      text: narrative.title,
+      fontSizePt: tokens.fontScalePt.title,
+      bold: true,
+      color: tokens.colors.text,
+    },
+    {
+      type: "text",
+      xMm: margin + 2,
+      yMm: 56,
+      wMm: 132,
+      hMm: 18,
+      text: narrative.summary,
+      fontSizePt: tokens.fontScalePt.body,
+      color: tokens.colors.mutedText,
+    },
+  ];
 
-  return {
-    pageNumber,
-    elements: [
+  narrative.metrics.forEach((metric, index) => {
+    const y = 12 + index * 24;
+    elements.push(
       {
         type: "rect",
-        xMm: 0,
-        yMm: 0,
-        wMm: PAGE_WIDTH_MM,
-        hMm: PAGE_HEIGHT_MM,
+        xMm: metricX,
+        yMm: y,
+        wMm: metricW,
+        hMm: 20,
         fill: tokens.colors.page,
-      },
-      {
-        type: "rect",
-        xMm: 0,
-        yMm: 0,
-        wMm: PAGE_WIDTH_MM,
-        hMm: headerHeightMm,
-        fill: tokens.colors.softAccent,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: 12,
-        wMm: PAGE_WIDTH_MM - margin * 2 - badgeWidthMm - 6,
-        hMm: 8,
-        text: copy.kicker,
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: tokens.colors.accent,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: 22,
-        wMm: PAGE_WIDTH_MM - margin * 2 - badgeWidthMm - 6,
-        hMm: 30,
-        text: copy.title,
-        fontSizePt: tokens.fontScalePt.title,
-        bold: true,
-        color: tokens.colors.text,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: 54,
-        wMm: PAGE_WIDTH_MM - margin * 2 - badgeWidthMm - 6,
-        hMm: 12,
-        text: copy.summary,
-        fontSizePt: tokens.fontScalePt.body,
-        color: tokens.colors.mutedText,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: 67,
-        wMm: PAGE_WIDTH_MM - margin * 2 - badgeWidthMm - 6,
-        hMm: 24,
-        text: bulletLines(copy.bullets),
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.text,
-      },
-      {
-        type: "rect",
-        xMm: badgeX,
-        yMm: 14,
-        wMm: badgeWidthMm,
-        hMm: 36,
-        fill: tokens.colors.page,
-        radiusMm: tokens.radiusMm.md,
+        radiusMm: tokens.radiusMm.sm,
         stroke: tokens.colors.border,
-        strokeWidthMm: 0.35,
+        strokeWidthMm: 0.3,
       },
       {
         type: "text",
-        xMm: badgeX + 4,
-        yMm: 20,
-        wMm: badgeWidthMm - 8,
-        hMm: 8,
-        text: copy.badgeLabel ?? "SERVICE",
-        fontSizePt: tokens.fontScalePt.caption,
+        xMm: metricX + 4,
+        yMm: y + 4,
+        wMm: metricW - 8,
+        hMm: 6,
+        text: metric.label,
+        fontSizePt: tokens.fontScalePt.micro,
         bold: true,
         color: tokens.colors.mutedText,
       },
       {
         type: "text",
-        xMm: badgeX + 4,
-        yMm: 29,
-        wMm: badgeWidthMm - 8,
-        hMm: 12,
-        text: copy.badgeValue ?? "Wellnessbox",
-        fontSizePt: tokens.fontScalePt.subtitle,
-        bold: true,
-        color: tokens.colors.accent,
-      },
-      {
-        type: "image",
-        xMm: margin,
-        yMm: imageTopMm,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: imageHeightMm,
-        srcPublicPath: image.publicPath,
-        fit: "contain",
-      },
-      {
-        type: "line",
-        x1Mm: margin,
-        y1Mm: footerY,
-        x2Mm: PAGE_WIDTH_MM - margin,
-        y2Mm: footerY,
-        stroke: tokens.colors.border,
-        widthMm: 0.3,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: footerY + 2.5,
-        wMm: PAGE_WIDTH_MM - margin * 2,
+        xMm: metricX + 4,
+        yMm: y + 9,
+        wMm: metricW - 8,
         hMm: 8,
-        text: copy.footer ?? copy.summary,
+        text: metric.value,
         fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.mutedText,
+        bold: true,
+        color: tokens.colors.accentDeep,
       },
-    ],
-  };
+    );
+  });
+
+  elements.push(
+    imageElement(image, { xMm: margin, yMm: 92, wMm: PAGE_W - margin * 2, hMm: 132, fit: "cover" }),
+    { type: "rect", xMm: margin, yMm: 194, wMm: PAGE_W - margin * 2, hMm: 22, fill: tokens.colors.accentDeep },
+    {
+      type: "text",
+      xMm: margin + 5,
+      yMm: 200,
+      wMm: PAGE_W - margin * 2 - 10,
+      hMm: 12,
+      text: narrative.callout,
+      fontSizePt: tokens.fontScalePt.caption,
+      bold: true,
+      color: tokens.colors.inverseText,
+    },
+    {
+      type: "rect",
+      xMm: margin,
+      yMm: 230,
+      wMm: PAGE_W - margin * 2,
+      hMm: 40,
+      fill: tokens.colors.softAccent,
+      radiusMm: tokens.radiusMm.md,
+      stroke: tokens.colors.border,
+      strokeWidthMm: 0.3,
+    },
+    {
+      type: "text",
+      xMm: margin + 5,
+      yMm: 236,
+      wMm: PAGE_W - margin * 2 - 10,
+      hMm: 30,
+      text: bullets(narrative.bulletsA),
+      fontSizePt: tokens.fontScalePt.caption,
+      color: tokens.colors.text,
+    },
+  );
+  addPageFooter(elements, narrative, tokens);
+  return { pageNumber, elements };
 }
 
-function buildSplitPage(
+function buildEditorialSplit(
   image: ScannedImage,
-  copy: BrochureCopy,
+  narrative: Narrative,
   pageNumber: number,
   tokens: LayoutTokens,
 ): PageLayout {
   const margin = tokens.spacingMm.pageMargin;
   const gutter = tokens.spacingMm.gutter;
-  const panelWidthMm = 74;
-  const contentHeightMm = PAGE_HEIGHT_MM - margin * 2;
-  const imageWidthMm = PAGE_WIDTH_MM - margin * 2 - gutter - panelWidthMm;
-  const panelX = margin + imageWidthMm + gutter;
+  const leftW = 78;
+  const rightX = margin + leftW + gutter;
+  const rightW = PAGE_W - margin - rightX;
+  const elements: Element[] = [
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: PAGE_H, fill: tokens.colors.page },
+    { type: "rect", xMm: margin, yMm: margin, wMm: leftW, hMm: PAGE_H - margin * 2, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.md },
+    { type: "rect", xMm: margin, yMm: margin, wMm: 4, hMm: PAGE_H - margin * 2, fill: tokens.colors.accent, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 7, yMm: 17, wMm: leftW - 11, hMm: 8, text: narrative.kicker, fontSizePt: tokens.fontScalePt.micro, bold: true, color: tokens.colors.accentDeep },
+    { type: "text", xMm: margin + 7, yMm: 28, wMm: leftW - 11, hMm: 32, text: narrative.title, fontSizePt: tokens.fontScalePt.subtitle, bold: true, color: tokens.colors.text },
+    { type: "text", xMm: margin + 7, yMm: 62, wMm: leftW - 11, hMm: 24, text: narrative.summary, fontSizePt: tokens.fontScalePt.caption, color: tokens.colors.mutedText },
+    { type: "rect", xMm: margin + 7, yMm: 98, wMm: leftW - 14, hMm: 44, fill: tokens.colors.page, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+    { type: "text", xMm: margin + 11, yMm: 104, wMm: leftW - 22, hMm: 34, text: bullets(narrative.bulletsA), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    { type: "rect", xMm: margin + 7, yMm: 149, wMm: leftW - 14, hMm: 38, fill: tokens.colors.page, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+    { type: "text", xMm: margin + 11, yMm: 155, wMm: leftW - 22, hMm: 28, text: bullets(narrative.bulletsB.slice(0, 2)), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    { type: "rect", xMm: margin + 7, yMm: 194, wMm: leftW - 14, hMm: 83, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 11, yMm: 201, wMm: leftW - 22, hMm: 70, text: narrative.callout, fontSizePt: tokens.fontScalePt.caption, color: tokens.colors.inverseText },
+    { type: "rect", xMm: rightX, yMm: margin, wMm: rightW, hMm: 174, fill: tokens.colors.softAccentAlt, radiusMm: tokens.radiusMm.md },
+    imageElement(image, { xMm: rightX + 2, yMm: margin + 2, wMm: rightW - 4, hMm: 170, fit: "cover" }),
+    { type: "rect", xMm: rightX, yMm: 188, wMm: rightW, hMm: 54, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: rightX + 5, yMm: 194, wMm: rightW - 10, hMm: 42, text: shortText(narrative.summary, 130), fontSizePt: tokens.fontScalePt.body, bold: true, color: tokens.colors.inverseText },
+  ];
 
-  return {
-    pageNumber,
-    elements: [
-      {
-        type: "rect",
-        xMm: 0,
-        yMm: 0,
-        wMm: PAGE_WIDTH_MM,
-        hMm: PAGE_HEIGHT_MM,
-        fill: tokens.colors.page,
-      },
-      {
-        type: "image",
-        xMm: margin,
-        yMm: margin,
-        wMm: imageWidthMm,
-        hMm: contentHeightMm,
-        srcPublicPath: image.publicPath,
-        fit: "cover",
-      },
-      {
-        type: "rect",
-        xMm: panelX,
-        yMm: margin,
-        wMm: panelWidthMm,
-        hMm: contentHeightMm,
-        fill: tokens.colors.softAccent,
-        radiusMm: tokens.radiusMm.md,
-      },
-      {
-        type: "text",
-        xMm: panelX + 5,
-        yMm: margin + 8,
-        wMm: panelWidthMm - 10,
-        hMm: 8,
-        text: copy.kicker,
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: tokens.colors.accent,
-      },
-      {
-        type: "text",
-        xMm: panelX + 5,
-        yMm: margin + 18,
-        wMm: panelWidthMm - 10,
-        hMm: 34,
-        text: copy.title,
-        fontSizePt: tokens.fontScalePt.subtitle,
-        bold: true,
-        color: tokens.colors.text,
-      },
-      {
-        type: "text",
-        xMm: panelX + 5,
-        yMm: margin + 54,
-        wMm: panelWidthMm - 10,
-        hMm: 40,
-        text: copy.summary,
-        fontSizePt: tokens.fontScalePt.body,
-        color: tokens.colors.mutedText,
-      },
-      {
-        type: "line",
-        x1Mm: panelX + 5,
-        y1Mm: margin + 96,
-        x2Mm: panelX + panelWidthMm - 5,
-        y2Mm: margin + 96,
-        stroke: tokens.colors.border,
-        widthMm: 0.3,
-      },
-      {
-        type: "text",
-        xMm: panelX + 5,
-        yMm: margin + 100,
-        wMm: panelWidthMm - 10,
-        hMm: 92,
-        text: bulletLines(copy.bullets),
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.text,
-      },
-      {
-        type: "rect",
-        xMm: panelX + 5,
-        yMm: PAGE_HEIGHT_MM - margin - 58,
-        wMm: panelWidthMm - 10,
-        hMm: 48,
-        fill: tokens.colors.page,
-        radiusMm: tokens.radiusMm.sm,
-        stroke: tokens.colors.border,
-        strokeWidthMm: 0.3,
-      },
-      {
-        type: "text",
-        xMm: panelX + 8,
-        yMm: PAGE_HEIGHT_MM - margin - 53,
-        wMm: panelWidthMm - 16,
-        hMm: 40,
-        text: copy.note ?? copy.footer ?? copy.summary,
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.mutedText,
-      },
-    ],
-  };
+  const cardW = (rightW - 4) / 3;
+  narrative.metrics.forEach((metric, index) => {
+    const x = rightX + index * (cardW + 2);
+    elements.push(
+      { type: "rect", xMm: x, yMm: 248, wMm: cardW, hMm: 28, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+      { type: "text", xMm: x + 3, yMm: 254, wMm: cardW - 6, hMm: 18, text: `${metric.label}\n${metric.value}`, fontSizePt: tokens.fontScalePt.micro, bold: true, align: "center", color: tokens.colors.text },
+    );
+  });
+
+  addPageFooter(elements, narrative, tokens);
+  return { pageNumber, elements };
 }
 
-function buildBoardPage(
+function buildInsightGrid(
   image: ScannedImage,
-  copy: BrochureCopy,
+  narrative: Narrative,
   pageNumber: number,
   tokens: LayoutTokens,
 ): PageLayout {
   const margin = tokens.spacingMm.pageMargin;
-  const topImageHeightMm = 116;
-  const topImageBottom = margin + topImageHeightMm;
-  const contentTop = topImageBottom + 7;
-  const cardsTop = contentTop + 40;
-  const cardsHeightMm = 64;
-  const highlightTop = cardsTop + cardsHeightMm + 7;
-  const gutter = tokens.spacingMm.gutter;
-  const cardWidthMm = (PAGE_WIDTH_MM - margin * 2 - gutter) / 2;
+  const cardGap = 4;
+  const width = PAGE_W - margin * 2;
+  const cardW = (width - cardGap * 2) / 3;
+  const elements: Element[] = [
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: PAGE_H, fill: tokens.colors.page },
+    imageElement(image, { xMm: margin, yMm: margin, wMm: width, hMm: 108, fit: "cover" }),
+    { type: "rect", xMm: margin, yMm: 122, wMm: width, hMm: 33, fill: tokens.colors.softAccentAlt, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 4, yMm: 127, wMm: width - 8, hMm: 7, text: narrative.kicker, fontSizePt: tokens.fontScalePt.micro, bold: true, color: tokens.colors.accentDeep },
+    { type: "text", xMm: margin + 4, yMm: 134, wMm: width - 8, hMm: 16, text: narrative.title, fontSizePt: tokens.fontScalePt.lead, bold: true, color: tokens.colors.text },
+    { type: "rect", xMm: margin, yMm: 220, wMm: width, hMm: 26, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 5, yMm: 227, wMm: width - 10, hMm: 14, text: narrative.callout, fontSizePt: tokens.fontScalePt.caption, bold: true, color: tokens.colors.inverseText },
+    { type: "rect", xMm: margin, yMm: 251, wMm: 92, hMm: 26, fill: tokens.colors.page, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+    { type: "rect", xMm: margin + 98, yMm: 251, wMm: 92, hMm: 26, fill: tokens.colors.page, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+    { type: "text", xMm: margin + 4, yMm: 257, wMm: 84, hMm: 16, text: `${narrative.metrics[0].label}: ${narrative.metrics[0].value}\n${narrative.metrics[1].label}: ${narrative.metrics[1].value}`, fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    { type: "text", xMm: margin + 102, yMm: 257, wMm: 84, hMm: 16, text: `${narrative.metrics[2].label}: ${narrative.metrics[2].value}\n${narrative.kicker}`, fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+  ];
 
-  return {
-    pageNumber,
-    elements: [
-      {
-        type: "rect",
-        xMm: 0,
-        yMm: 0,
-        wMm: PAGE_WIDTH_MM,
-        hMm: PAGE_HEIGHT_MM,
-        fill: tokens.colors.page,
-      },
-      {
-        type: "image",
-        xMm: margin,
-        yMm: margin,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: topImageHeightMm,
-        srcPublicPath: image.publicPath,
-        fit: "cover",
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: contentTop,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: 8,
-        text: copy.kicker,
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: tokens.colors.accent,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: contentTop + 9,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: 16,
-        text: copy.title,
-        fontSizePt: tokens.fontScalePt.subtitle,
-        bold: true,
-        color: tokens.colors.text,
-      },
-      {
-        type: "text",
-        xMm: margin,
-        yMm: contentTop + 26,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: 12,
-        text: copy.summary,
-        fontSizePt: tokens.fontScalePt.body,
-        color: tokens.colors.mutedText,
-      },
-      {
-        type: "rect",
-        xMm: margin,
-        yMm: cardsTop,
-        wMm: cardWidthMm,
-        hMm: cardsHeightMm,
-        fill: tokens.colors.softAccent,
-        radiusMm: tokens.radiusMm.sm,
-        stroke: tokens.colors.border,
-        strokeWidthMm: 0.3,
-      },
-      {
-        type: "rect",
-        xMm: margin + cardWidthMm + gutter,
-        yMm: cardsTop,
-        wMm: cardWidthMm,
-        hMm: cardsHeightMm,
-        fill: "#F2F6FF",
-        radiusMm: tokens.radiusMm.sm,
-        stroke: tokens.colors.border,
-        strokeWidthMm: 0.3,
-      },
-      {
-        type: "text",
-        xMm: margin + 4,
-        yMm: cardsTop + 5,
-        wMm: cardWidthMm - 8,
-        hMm: cardsHeightMm - 10,
-        text: bulletLines(copy.bullets),
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.text,
-      },
-      {
-        type: "text",
-        xMm: margin + cardWidthMm + gutter + 4,
-        yMm: cardsTop + 5,
-        wMm: cardWidthMm - 8,
-        hMm: cardsHeightMm - 10,
-        text: bulletLines(copy.secondaryBullets ?? copy.bullets),
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.text,
-      },
-      {
-        type: "rect",
-        xMm: margin,
-        yMm: highlightTop,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: 22,
-        fill: tokens.colors.accent,
-        radiusMm: tokens.radiusMm.sm,
-      },
-      {
-        type: "text",
-        xMm: margin + 5,
-        yMm: highlightTop + 5,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 10,
-        hMm: 12,
-        text: copy.note ?? copy.footer ?? copy.summary,
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: "#FFFFFF",
-      },
-    ],
-  };
+  const cardLines = [
+    [narrative.bulletsA[0], narrative.bulletsA[1]],
+    [narrative.bulletsA[2], narrative.bulletsB[0]],
+    [narrative.bulletsB[1], narrative.bulletsB[2]],
+  ];
+  cardLines.forEach((lines, index) => {
+    const x = margin + index * (cardW + cardGap);
+    elements.push(
+      { type: "rect", xMm: x, yMm: 161, wMm: cardW, hMm: 53, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+      { type: "text", xMm: x + 3, yMm: 167, wMm: cardW - 6, hMm: 43, text: bullets(lines), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    );
+  });
+
+  addPageFooter(elements, narrative, tokens);
+  return { pageNumber, elements };
 }
 
-function buildClosingPage(
+function buildFramedFocus(
   image: ScannedImage,
-  copy: BrochureCopy,
+  narrative: Narrative,
   pageNumber: number,
   tokens: LayoutTokens,
 ): PageLayout {
   const margin = tokens.spacingMm.pageMargin;
-  const panelHeightMm = 112;
-  const panelY = PAGE_HEIGHT_MM - margin - panelHeightMm;
+  const railW = 46;
+  const frameX = 62;
+  const frameY = 40;
+  const frameW = 98;
+  const frameH = 172;
+  const rightX = 166;
+  const rightW = PAGE_W - margin - rightX;
+  const elements: Element[] = [
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: PAGE_H, fill: tokens.colors.page },
+    { type: "rect", xMm: margin, yMm: margin, wMm: railW, hMm: PAGE_H - margin * 2, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.md },
+    { type: "text", xMm: margin + 4, yMm: 18, wMm: railW - 8, hMm: 8, text: narrative.kicker, fontSizePt: tokens.fontScalePt.micro, bold: true, color: tokens.colors.accentDeep },
+    { type: "text", xMm: margin + 4, yMm: 29, wMm: railW - 8, hMm: 35, text: shortText(narrative.title, 28), fontSizePt: tokens.fontScalePt.caption, bold: true, color: tokens.colors.text },
+    { type: "text", xMm: margin + 4, yMm: 70, wMm: railW - 8, hMm: 58, text: bullets(narrative.bulletsA), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.mutedText },
+    { type: "rect", xMm: margin + 4, yMm: 210, wMm: railW - 8, hMm: 67, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 7, yMm: 216, wMm: railW - 14, hMm: 54, text: shortText(narrative.callout, 120), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.inverseText },
+    { type: "rect", xMm: frameX - 4, yMm: frameY - 4, wMm: frameW + 8, hMm: frameH + 8, fill: tokens.colors.softAccentAlt, radiusMm: tokens.radiusMm.lg },
+    { type: "rect", xMm: frameX - 1, yMm: frameY - 1, wMm: frameW + 2, hMm: frameH + 2, fill: tokens.colors.page, radiusMm: tokens.radiusMm.md, stroke: tokens.colors.border, strokeWidthMm: 0.35 },
+    imageElement(image, { xMm: frameX, yMm: frameY, wMm: frameW, hMm: frameH, fit: "cover" }),
+    { type: "rect", xMm: frameX, yMm: frameY + frameH - 28, wMm: frameW, hMm: 22, fill: tokens.colors.accentDeep },
+    { type: "text", xMm: frameX + 4, yMm: frameY + frameH - 22, wMm: frameW - 8, hMm: 12, text: shortText(narrative.summary, 90), fontSizePt: tokens.fontScalePt.micro, bold: true, color: tokens.colors.inverseText },
+    { type: "rect", xMm: frameX, yMm: 220, wMm: frameW, hMm: 57, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+    { type: "text", xMm: frameX + 4, yMm: 226, wMm: frameW - 8, hMm: 47, text: bullets(narrative.bulletsB), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    { type: "rect", xMm: rightX, yMm: 156, wMm: rightW, hMm: 121, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: rightX + 3, yMm: 163, wMm: rightW - 6, hMm: 108, text: bullets(narrative.bulletsA.concat(narrative.bulletsB)), fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.inverseText },
+  ];
 
-  return {
-    pageNumber,
-    elements: [
-      {
-        type: "image",
-        xMm: 0,
-        yMm: 0,
-        wMm: PAGE_WIDTH_MM,
-        hMm: PAGE_HEIGHT_MM,
-        srcPublicPath: image.publicPath,
-        fit: "cover",
-      },
-      {
-        type: "rect",
-        xMm: margin,
-        yMm: panelY,
-        wMm: PAGE_WIDTH_MM - margin * 2,
-        hMm: panelHeightMm,
-        fill: tokens.colors.page,
-        radiusMm: tokens.radiusMm.md,
-        stroke: tokens.colors.border,
-        strokeWidthMm: 0.4,
-      },
-      {
-        type: "text",
-        xMm: margin + 6,
-        yMm: panelY + 9,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 12,
-        hMm: 8,
-        text: copy.kicker,
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: tokens.colors.accent,
-      },
-      {
-        type: "text",
-        xMm: margin + 6,
-        yMm: panelY + 19,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 12,
-        hMm: 22,
-        text: copy.title,
-        fontSizePt: tokens.fontScalePt.subtitle,
-        bold: true,
-        color: tokens.colors.text,
-      },
-      {
-        type: "text",
-        xMm: margin + 6,
-        yMm: panelY + 44,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 12,
-        hMm: 16,
-        text: copy.summary,
-        fontSizePt: tokens.fontScalePt.body,
-        color: tokens.colors.mutedText,
-      },
-      {
-        type: "text",
-        xMm: margin + 6,
-        yMm: panelY + 62,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 12,
-        hMm: 26,
-        text: bulletLines(copy.bullets),
-        fontSizePt: tokens.fontScalePt.caption,
-        color: tokens.colors.text,
-      },
-      {
-        type: "line",
-        x1Mm: margin + 6,
-        y1Mm: panelY + 91,
-        x2Mm: PAGE_WIDTH_MM - margin - 6,
-        y2Mm: panelY + 91,
-        stroke: tokens.colors.border,
-        widthMm: 0.3,
-      },
-      {
-        type: "text",
-        xMm: margin + 6,
-        yMm: panelY + 95,
-        wMm: PAGE_WIDTH_MM - margin * 2 - 12,
-        hMm: 10,
-        text: copy.footer ?? "Wellnessbox",
-        fontSizePt: tokens.fontScalePt.caption,
-        bold: true,
-        color: tokens.colors.mutedText,
-      },
-    ],
-  };
+  narrative.metrics.forEach((metric, index) => {
+    const y = 40 + index * 38;
+    elements.push(
+      { type: "rect", xMm: rightX, yMm: y, wMm: rightW, hMm: 32, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+      { type: "text", xMm: rightX + 3, yMm: y + 9, wMm: rightW - 6, hMm: 18, text: `${metric.label}\n${metric.value}`, fontSizePt: tokens.fontScalePt.micro, bold: true, align: "center", color: tokens.colors.text },
+    );
+  });
+
+  addPageFooter(elements, narrative, tokens);
+  return { pageNumber, elements };
+}
+
+function buildDualPanels(
+  image: ScannedImage,
+  narrative: Narrative,
+  pageNumber: number,
+  tokens: LayoutTokens,
+): PageLayout {
+  const margin = tokens.spacingMm.pageMargin;
+  const panelGap = 6;
+  const panelW = (PAGE_W - margin * 2 - panelGap) / 2;
+  const panelY = 44;
+  const panelH = 112;
+  const cardGap = 4;
+  const cardW = (PAGE_W - margin * 2 - cardGap * 2) / 3;
+  const elements: Element[] = [
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: PAGE_H, fill: tokens.colors.page },
+    { type: "rect", xMm: 0, yMm: 0, wMm: PAGE_W, hMm: 34, fill: tokens.colors.softAccentAlt },
+    { type: "text", xMm: margin, yMm: 8, wMm: PAGE_W - margin * 2, hMm: 8, text: narrative.kicker, fontSizePt: tokens.fontScalePt.micro, bold: true, color: tokens.colors.accentDeep },
+    { type: "text", xMm: margin, yMm: 16, wMm: PAGE_W - margin * 2, hMm: 14, text: narrative.title, fontSizePt: tokens.fontScalePt.subtitle, bold: true, color: tokens.colors.text },
+    { type: "rect", xMm: margin, yMm: panelY, wMm: panelW, hMm: panelH, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.md },
+    { type: "rect", xMm: margin + panelW + panelGap, yMm: panelY, wMm: panelW, hMm: panelH, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.md },
+    imageElement(image, { xMm: margin + 2, yMm: panelY + 2, wMm: panelW - 4, hMm: panelH - 4, fit: "cover" }),
+    imageElement(image, { xMm: margin + panelW + panelGap + 2, yMm: panelY + 2, wMm: panelW - 4, hMm: panelH - 4, fit: "contain" }),
+    { type: "rect", xMm: margin + 6, yMm: panelY + 6, wMm: 26, hMm: 10, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + 8, yMm: panelY + 9, wMm: 22, hMm: 6, text: "Cover", fontSizePt: tokens.fontScalePt.micro, bold: true, align: "center", color: tokens.colors.inverseText },
+    { type: "rect", xMm: margin + panelW + panelGap + 6, yMm: panelY + 6, wMm: 30, hMm: 10, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.sm },
+    { type: "text", xMm: margin + panelW + panelGap + 8, yMm: panelY + 9, wMm: 26, hMm: 6, text: "Contain", fontSizePt: tokens.fontScalePt.micro, bold: true, align: "center", color: tokens.colors.inverseText },
+    { type: "rect", xMm: margin, yMm: 164, wMm: PAGE_W - margin * 2, hMm: 40, fill: tokens.colors.accentDeep, radiusMm: tokens.radiusMm.md },
+    { type: "text", xMm: margin + 6, yMm: 171, wMm: PAGE_W - margin * 2 - 12, hMm: 11, text: narrative.summary, fontSizePt: tokens.fontScalePt.body, bold: true, color: tokens.colors.inverseText },
+    { type: "text", xMm: margin + 6, yMm: 184, wMm: PAGE_W - margin * 2 - 12, hMm: 14, text: narrative.callout, fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.inverseText },
+  ];
+
+  const cardText = [
+    bullets(narrative.bulletsA),
+    bullets(narrative.bulletsB),
+    `${narrative.metrics[0].label}: ${narrative.metrics[0].value}\n${narrative.metrics[1].label}: ${narrative.metrics[1].value}\n${narrative.metrics[2].label}: ${narrative.metrics[2].value}`,
+  ];
+  cardText.forEach((text, index) => {
+    const x = margin + index * (cardW + cardGap);
+    elements.push(
+      { type: "rect", xMm: x, yMm: 210, wMm: cardW, hMm: 66, fill: tokens.colors.softAccent, radiusMm: tokens.radiusMm.sm, stroke: tokens.colors.border, strokeWidthMm: 0.3 },
+      { type: "text", xMm: x + 4, yMm: 216, wMm: cardW - 8, hMm: 54, text, fontSizePt: tokens.fontScalePt.micro, color: tokens.colors.text },
+    );
+  });
+
+  addPageFooter(elements, narrative, tokens);
+  return { pageNumber, elements };
 }
 
 function buildPage(
   image: ScannedImage,
-  copy: BrochureCopy,
+  narrative: Narrative,
   pageNumber: number,
   tokens: LayoutTokens,
+  template: TemplateKey,
 ): PageLayout {
-  if (copy.template === "hero") {
-    return buildHeroPage(image, copy, pageNumber, tokens);
+  if (template === "hero-ribbon") {
+    return buildHeroRibbon(image, narrative, pageNumber, tokens);
   }
-  if (copy.template === "board") {
-    return buildBoardPage(image, copy, pageNumber, tokens);
+  if (template === "editorial-split") {
+    return buildEditorialSplit(image, narrative, pageNumber, tokens);
   }
-  if (copy.template === "closing") {
-    return buildClosingPage(image, copy, pageNumber, tokens);
+  if (template === "insight-grid") {
+    return buildInsightGrid(image, narrative, pageNumber, tokens);
   }
-  return buildSplitPage(image, copy, pageNumber, tokens);
+  if (template === "framed-focus") {
+    return buildFramedFocus(image, narrative, pageNumber, tokens);
+  }
+  return buildDualPanels(image, narrative, pageNumber, tokens);
 }
 
-export function generateLayout(
-  orderedImages: ScannedImage[],
-  tokens: LayoutTokens,
-): PageLayout[] {
+export function generateLayout(orderedImages: ScannedImage[], tokens: LayoutTokens): PageLayout[] {
   return orderedImages.map((image, index) => {
-    const pageNumber = index + 1;
     const caption = cleanCaptionFromFilename(image.filename);
-    const detectedCopy = detectCopyForImage(image, index);
-    const copy = detectedCopy.title ? detectedCopy : buildFallbackCopy(caption);
-
-    return buildPage(image, copy, pageNumber, tokens);
+    const narrative = buildNarrative(caption, index);
+    const template = pickTemplate(image, index);
+    return buildPage(image, narrative, index + 1, tokens, template);
   });
 }

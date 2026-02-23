@@ -5,6 +5,8 @@ export const PAGE_SIZE_A4_PORTRAIT = {
 
 export type PageSize = typeof PAGE_SIZE_A4_PORTRAIT;
 
+export type ImageFit = "cover" | "contain";
+
 export type ImageElement = {
   type: "image";
   xMm: number;
@@ -12,7 +14,11 @@ export type ImageElement = {
   wMm: number;
   hMm: number;
   srcPublicPath: string;
-  fit: "cover" | "contain";
+  fit: ImageFit;
+  intrinsicWidthPx?: number;
+  intrinsicHeightPx?: number;
+  anchorX?: number;
+  anchorY?: number;
 };
 
 export type TextElement = {
