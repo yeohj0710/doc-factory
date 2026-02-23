@@ -1,6 +1,6 @@
 import path from "node:path";
 import PptxGenJS from "pptxgenjs";
-import { resolveImagePlacement } from "@/src/layout/imagePlacement";
+import { resolveCoverCropWindow, resolveImagePlacement } from "@/src/layout/imagePlacement";
 import { PAGE_SIZE_A4_PORTRAIT, type Element, type PageLayout } from "@/src/layout/types";
 
 export type RenderPptxOptions = {
@@ -18,6 +18,15 @@ function mmToPt(mm: number): number {
 
 function toHex(color: string): string {
   return color.replace(/^#/, "").toUpperCase();
+}
+
+function opacityToTransparency(opacity: number | undefined): number | undefined {
+  if (typeof opacity !== "number" || Number.isNaN(opacity)) {
+    return undefined;
+  }
+
+  const clamped = Math.min(Math.max(opacity, 0), 1);
+  return Math.round((1 - clamped) * 100);
 }
 
 function decodePathValue(value: string): string {
@@ -83,19 +92,29 @@ function addElement(
     const pathOnDisk = resolvePublicPath(element.srcPublicPath, rootDir);
 
     try {
-      if (element.fit === "cover") {
-        slide.addImage({
-          path: pathOnDisk,
-          ...frame,
-          sizing: {
-            type: "crop",
-            ...frame,
-          },
-        });
-        return;
-      }
-
       const placement = resolveImagePlacement(element);
+
+      if (placement && element.fit === "cover") {
+        const cropWindow = resolveCoverCropWindow(element, placement);
+
+        if (cropWindow) {
+          slide.addImage({
+            path: pathOnDisk,
+            x: mmToIn(element.xMm),
+            y: mmToIn(element.yMm),
+            w: mmToIn(placement.wMm),
+            h: mmToIn(placement.hMm),
+            sizing: {
+              type: "crop",
+              x: mmToIn(cropWindow.xMm),
+              y: mmToIn(cropWindow.yMm),
+              w: mmToIn(cropWindow.wMm),
+              h: mmToIn(cropWindow.hMm),
+            },
+          });
+          return;
+        }
+      }
 
       if (placement) {
         slide.addImage({
@@ -112,8 +131,11 @@ function addElement(
         path: pathOnDisk,
         ...frame,
         sizing: {
-          type: "contain",
-          ...frame,
+          type: element.fit,
+          x: 0,
+          y: 0,
+          w: frame.w,
+          h: frame.h,
         },
       });
       return;
@@ -153,6 +175,8 @@ function addElement(
   }
 
   if (element.type === "rect") {
+    const fillTransparency = opacityToTransparency(element.fillOpacity);
+
     slide.addShape(
       element.radiusMm && element.radiusMm > 0 ? pptx.ShapeType.roundRect : pptx.ShapeType.rect,
       {
@@ -160,7 +184,13 @@ function addElement(
         y: mmToIn(element.yMm),
         w: mmToIn(element.wMm),
         h: mmToIn(element.hMm),
-        fill: { color: toHex(element.fill) },
+        fill:
+          fillTransparency === undefined
+            ? { color: toHex(element.fill) }
+            : {
+                color: toHex(element.fill),
+                transparency: fillTransparency,
+              },
         line: element.stroke
           ? {
               color: toHex(element.stroke),

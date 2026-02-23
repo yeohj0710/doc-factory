@@ -140,6 +140,7 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
             element.stroke && element.strokeWidthMm
               ? `${element.strokeWidthMm}mm solid ${element.stroke}`
               : "none",
+          opacity: element.fillOpacity ?? 1,
         }}
       />
     );

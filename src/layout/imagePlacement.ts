@@ -7,6 +7,13 @@ export type PositionedImage = {
   hMm: number;
 };
 
+export type CropWindow = {
+  xMm: number;
+  yMm: number;
+  wMm: number;
+  hMm: number;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -44,5 +51,35 @@ export function resolveImagePlacement(element: ImageElement): PositionedImage | 
     yMm: element.yMm - overflowY * anchorY,
     wMm: renderedWidthMm,
     hMm: renderedHeightMm,
+  };
+}
+
+export function resolveCoverCropWindow(
+  element: ImageElement,
+  placementInput?: PositionedImage,
+): CropWindow | null {
+  if (element.fit !== "cover") {
+    return null;
+  }
+
+  const placement = placementInput ?? resolveImagePlacement(element);
+  if (!placement) {
+    return null;
+  }
+
+  const cropX = clamp(element.xMm - placement.xMm, 0, Math.max(placement.wMm - 0.01, 0));
+  const cropY = clamp(element.yMm - placement.yMm, 0, Math.max(placement.hMm - 0.01, 0));
+  const maxCropW = placement.wMm - cropX;
+  const maxCropH = placement.hMm - cropY;
+
+  if (maxCropW <= 0 || maxCropH <= 0) {
+    return null;
+  }
+
+  return {
+    xMm: cropX,
+    yMm: cropY,
+    wMm: clamp(element.wMm, 0.01, maxCropW),
+    hMm: clamp(element.hMm, 0.01, maxCropH),
   };
 }

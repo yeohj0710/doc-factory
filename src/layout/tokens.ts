@@ -10,6 +10,8 @@ export type LayoutTokens = {
     border: string;
     accent: string;
     accentDeep: string;
+    highlight: string;
+    highlightSoft: string;
     softAccent: string;
     softAccentAlt: string;
     inverseText: string;
@@ -43,36 +45,38 @@ export type LayoutTokens = {
 
 const BASE_TOKENS = {
   colors: {
-    canvas: "#EAF0F7",
+    canvas: "#E6ECF6",
     page: "#FFFFFF",
-    text: "#0C1A2C",
-    mutedText: "#3F516C",
-    border: "#C8D3E5",
-    accent: "#1F5EB8",
-    accentDeep: "#143E7A",
-    softAccent: "#EDF3FF",
-    softAccentAlt: "#E7EEF8",
-    inverseText: "#F7FAFF",
+    text: "#0F1C2F",
+    mutedText: "#425068",
+    border: "#C5D1E3",
+    accent: "#0E6AA8",
+    accentDeep: "#0A3C66",
+    highlight: "#D86A1D",
+    highlightSoft: "#FFE7D3",
+    softAccent: "#EAF3FF",
+    softAccentAlt: "#F7F1E7",
+    inverseText: "#F6FAFF",
   },
   spacingMm: {
-    pageMargin: 10,
-    gutter: 6,
+    pageMargin: 12,
+    gutter: 7,
     footerHeight: 12,
-    sectionGap: 6,
+    sectionGap: 8,
   },
   fontScalePt: {
-    micro: 10,
-    caption: 12,
-    body: 14,
-    lead: 16,
-    subtitle: 22,
-    title: 34,
-    display: 42,
+    micro: 11,
+    caption: 14,
+    body: 16,
+    lead: 20,
+    subtitle: 28,
+    title: 38,
+    display: 54,
   },
   radiusMm: {
     sm: 2,
-    md: 4,
-    lg: 7,
+    md: 5,
+    lg: 8,
   },
 } as const;
 

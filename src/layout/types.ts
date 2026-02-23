@@ -41,6 +41,7 @@ export type RectElement = {
   wMm: number;
   hMm: number;
   fill: string;
+  fillOpacity?: number;
   radiusMm?: number;
   stroke?: string;
   strokeWidthMm?: number;
