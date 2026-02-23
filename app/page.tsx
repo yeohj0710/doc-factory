@@ -42,12 +42,12 @@ export default async function Home() {
 
       <header className="workspace-header">
         <div className="workspace-title-block">
-          <p className="workspace-kicker">A4 Service Brochure Builder</p>
-          <h1>Wellnessbox Service Deck</h1>
+          <p className="workspace-kicker">A4 기업 제안서 빌더</p>
+          <h1>웰니스박스 서비스 소개서</h1>
           <p className="workspace-description">
-            PDF 기반 서비스 소개 내용을 반영해 <code>/images</code>와 <code>/fonts</code> 자산으로
-            A4 소개서 페이지를 생성합니다. 미리보기에서 확인한 뒤 <code>Export PPTX (A4)</code>로
-            편집 가능한 제안서를 한 번에 내보낼 수 있습니다.
+            <code>/images</code>와 <code>/fonts</code> 자산만으로 A4 소개서 페이지를 자동 생성합니다.
+            미리보기 확인 후 <code>Export PPTX (A4)</code>를 누르면 편집 가능한 PPTX를 한 번에
+            내보낼 수 있습니다.
           </p>
         </div>
 
@@ -58,37 +58,37 @@ export default async function Home() {
             </button>
           </form>
           <Link className="secondary-button" href="/">
-            Regenerate Layout
+            레이아웃 재생성
           </Link>
         </div>
       </header>
 
       <section className="status-panel" aria-label="document status">
         <article className="status-item">
-          <p className="status-label">Input Images</p>
+          <p className="status-label">입력 이미지</p>
           <p className="status-value">{images.length}</p>
         </article>
         <article className="status-item">
-          <p className="status-label">Generated Pages</p>
+          <p className="status-label">생성 페이지</p>
           <p className="status-value">{pages.length}</p>
         </article>
         <article className="status-item">
-          <p className="status-label">Slide Size</p>
+          <p className="status-label">슬라이드 크기</p>
           <p className="status-value">A4 Portrait</p>
           <p className="status-note">210 x 297 mm</p>
         </article>
         <article className="status-item">
-          <p className="status-label">Primary Font</p>
+          <p className="status-label">기본 폰트</p>
           <p className="status-value status-value-font">{tokens.font.primary}</p>
         </article>
       </section>
 
       {!hasPages ? (
         <section className="empty-state">
-          <h2>No images detected.</h2>
+          <h2>이미지가 없습니다.</h2>
           <p>
             <code>/images</code> 폴더에 <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>,{" "}
-            <code>.webp</code> 파일을 추가한 뒤 <code>Regenerate Layout</code>을 눌러 주세요.
+            <code>.webp</code> 파일을 추가한 뒤 <code>레이아웃 재생성</code>을 눌러주세요.
           </p>
         </section>
       ) : (
@@ -96,8 +96,8 @@ export default async function Home() {
           {pages.map((page) => (
             <article className="page-card" key={page.pageNumber}>
               <header className="page-card-header">
-                <p className="page-title">Page {page.pageNumber}</p>
-                <p className="page-subtitle">A4 portrait - 210 x 297 mm</p>
+                <p className="page-title">페이지 {page.pageNumber}</p>
+                <p className="page-subtitle">A4 세로형 · 210 x 297 mm</p>
               </header>
               <div className="page-scroll">
                 <PageView page={page} fontFamily={tokens.font.cssStack} />

@@ -204,8 +204,8 @@ export async function renderLayoutsToPptx(
   });
   pptx.layout = "A4_PORTRAIT";
   pptx.author = "doc-factory";
-  pptx.subject = "A4 image pages";
-  pptx.title = "doc-factory export";
+  pptx.subject = "A4 service brochure";
+  pptx.title = "wellnessbox-service-brochure";
 
   for (const page of pages) {
     const slide = pptx.addSlide();

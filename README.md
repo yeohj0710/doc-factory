@@ -6,6 +6,7 @@ Local image-only document page builder:
 - Optionally put `.ttf`/`.otf` files in `/fonts`.
 - Preview A4 portrait pages at `http://localhost:3000`.
 - Export all pages as one editable A4 PPTX.
+- Default page copy is tuned for a Korean B2B wellness service brochure.
 
 ## Run
 
@@ -26,3 +27,4 @@ Then open `http://localhost:3000`.
 
 - Filenames are cleaned and used as captions.
 - Slides are exported in A4 portrait size (`210mm x 297mm`).
+- A4 portrait is used for both web preview and PPTX export to keep layout parity.
