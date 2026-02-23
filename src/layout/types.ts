@@ -25,6 +25,7 @@ export type TextElement = {
   fontSizePt: number;
   bold?: boolean;
   align?: "left" | "center" | "right";
+  color?: string;
 };
 
 export type RectElement = {
@@ -35,6 +36,8 @@ export type RectElement = {
   hMm: number;
   fill: string;
   radiusMm?: number;
+  stroke?: string;
+  strokeWidthMm?: number;
 };
 
 export type LineElement = {

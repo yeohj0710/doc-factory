@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { scanFonts } from "@/src/io/scanFonts";
+import { scanFonts, type ScannedFont } from "@/src/io/scanFonts";
 import { scanImages } from "@/src/io/scanImages";
 import { generateLayout } from "@/src/layout/generateLayout";
 import { createLayoutTokens } from "@/src/layout/tokens";
@@ -7,63 +7,88 @@ import { PageView } from "@/src/render/web/PageView";
 
 export const dynamic = "force-dynamic";
 
+function escapeCssValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function buildFontFaceCss(fonts: ScannedFont[]): string {
+  return fonts
+    .map((font) => {
+      const family = escapeCssValue(font.familyName);
+      const src = escapeCssValue(font.publicPath);
+      return [
+        "@font-face {",
+        `  font-family: "${family}";`,
+        `  src: url("${src}") format("${font.format}");`,
+        `  font-style: ${font.style};`,
+        `  font-weight: ${font.weight};`,
+        "  font-display: swap;",
+        "}",
+      ].join("\n");
+    })
+    .join("\n");
+}
+
 export default async function Home() {
   const [images, fonts] = await Promise.all([scanImages(), scanFonts()]);
   const tokens = createLayoutTokens(fonts);
   const pages = generateLayout(images, tokens);
   const hasPages = pages.length > 0;
+  const fontFaceCss = buildFontFaceCss(fonts);
 
   return (
     <main className="app-shell">
+      {fontFaceCss ? <style>{fontFaceCss}</style> : null}
+
       <header className="workspace-header">
         <div className="workspace-title-block">
-          <p className="workspace-kicker">A4 문서 워크스페이스</p>
-          <h1>doc-factory</h1>
+          <p className="workspace-kicker">A4 Service Brochure Builder</p>
+          <h1>Wellnessbox Service Deck</h1>
           <p className="workspace-description">
-            <code>/images</code> 폴더에 이미지를 넣으면 A4 세로 페이지를 자동으로 구성합니다.
-            <code>/fonts</code> 폴더에 글꼴을 추가하면 미리보기와 PPTX 내보내기에 함께 반영됩니다.
+            PDF 기반 서비스 소개 내용을 반영해 <code>/images</code>와 <code>/fonts</code> 자산으로
+            A4 소개서 페이지를 생성합니다. 미리보기에서 확인한 뒤 <code>Export PPTX (A4)</code>로
+            편집 가능한 제안서를 한 번에 내보낼 수 있습니다.
           </p>
         </div>
 
         <div className="workspace-controls">
           <form action="/api/export/pptx" method="post">
             <button className="primary-button" type="submit" disabled={!hasPages}>
-              PPTX 내보내기 (A4)
+              Export PPTX (A4)
             </button>
           </form>
           <Link className="secondary-button" href="/">
-            레이아웃 다시 생성
+            Regenerate Layout
           </Link>
         </div>
       </header>
 
-      <section className="status-panel" aria-label="문서 상태">
+      <section className="status-panel" aria-label="document status">
         <article className="status-item">
-          <p className="status-label">입력 이미지</p>
-          <p className="status-value">{images.length}개</p>
+          <p className="status-label">Input Images</p>
+          <p className="status-value">{images.length}</p>
         </article>
         <article className="status-item">
-          <p className="status-label">생성 페이지</p>
-          <p className="status-value">{pages.length}장</p>
+          <p className="status-label">Generated Pages</p>
+          <p className="status-value">{pages.length}</p>
         </article>
         <article className="status-item">
-          <p className="status-label">슬라이드 규격</p>
-          <p className="status-value">A4 세로</p>
+          <p className="status-label">Slide Size</p>
+          <p className="status-value">A4 Portrait</p>
           <p className="status-note">210 x 297 mm</p>
         </article>
         <article className="status-item">
-          <p className="status-label">기본 글꼴</p>
+          <p className="status-label">Primary Font</p>
           <p className="status-value status-value-font">{tokens.font.primary}</p>
         </article>
       </section>
 
       {!hasPages ? (
         <section className="empty-state">
-          <h2>이미지를 찾지 못했습니다</h2>
+          <h2>No images detected.</h2>
           <p>
             <code>/images</code> 폴더에 <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>,{" "}
-            <code>.webp</code> 파일을 추가한 뒤 페이지를 새로고침하거나
-            <code>레이아웃 다시 생성</code> 버튼을 눌러 주세요.
+            <code>.webp</code> 파일을 추가한 뒤 <code>Regenerate Layout</code>을 눌러 주세요.
           </p>
         </section>
       ) : (
@@ -71,8 +96,8 @@ export default async function Home() {
           {pages.map((page) => (
             <article className="page-card" key={page.pageNumber}>
               <header className="page-card-header">
-                <p className="page-title">페이지 {page.pageNumber}</p>
-                <p className="page-subtitle">A4 세로 · 210 x 297 mm</p>
+                <p className="page-title">Page {page.pageNumber}</p>
+                <p className="page-subtitle">A4 portrait - 210 x 297 mm</p>
               </header>
               <div className="page-scroll">
                 <PageView page={page} fontFamily={tokens.font.cssStack} />

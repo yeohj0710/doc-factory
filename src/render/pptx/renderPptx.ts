@@ -87,7 +87,7 @@ function addElement(
       align: element.align ?? "left",
       valign: "top",
       fit: "shrink",
-      color: "10213A",
+      color: toHex(element.color ?? "#10213A"),
     });
     return;
   }
@@ -101,7 +101,12 @@ function addElement(
         w: mmToIn(element.wMm),
         h: mmToIn(element.hMm),
         fill: { color: toHex(element.fill) },
-        line: { color: toHex(element.fill), transparency: 100 },
+        line: element.stroke
+          ? {
+              color: toHex(element.stroke),
+              pt: mmToPt(element.strokeWidthMm ?? 0.25),
+            }
+          : { color: toHex(element.fill), transparency: 100 },
       },
     );
     return;

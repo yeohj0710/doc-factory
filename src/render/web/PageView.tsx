@@ -32,6 +32,7 @@ function renderLine(line: LineElement, key: string): ReactElement {
 function renderElement(element: Element, index: number, fontFamily: string): ReactElement {
   if (element.type === "image") {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- Precise mm-based canvas positioning for local assets.
       <img
         key={`image-${index}`}
         src={element.srcPublicPath}
@@ -66,7 +67,7 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
           whiteSpace: "pre-wrap",
           overflow: "hidden",
           lineHeight: 1.25,
-          color: "#10213A",
+          color: element.color ?? "#10213A",
         }}
       >
         {element.text}
@@ -86,6 +87,10 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
           height: `${element.hMm}mm`,
           background: element.fill,
           borderRadius: element.radiusMm ? `${element.radiusMm}mm` : 0,
+          border:
+            element.stroke && element.strokeWidthMm
+              ? `${element.strokeWidthMm}mm solid ${element.stroke}`
+              : "none",
         }}
       />
     );

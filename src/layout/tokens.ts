@@ -36,25 +36,25 @@ export type LayoutTokens = {
 
 const BASE_TOKENS = {
   colors: {
-    canvas: "#E9EEF5",
+    canvas: "#EAF0F7",
     page: "#FFFFFF",
-    text: "#10213A",
-    mutedText: "#4D5F7A",
-    border: "#D1DAE6",
-    accent: "#2F6EA6",
-    softAccent: "#EAF2FA",
+    text: "#0F1F3A",
+    mutedText: "#4F5F78",
+    border: "#D2DCEC",
+    accent: "#245AD9",
+    softAccent: "#EDF3FF",
   },
   spacingMm: {
     pageMargin: 12,
-    gutter: 8,
+    gutter: 7,
     footerHeight: 12,
-    sectionGap: 6,
+    sectionGap: 8,
   },
   fontScalePt: {
-    caption: 11,
-    body: 12,
-    subtitle: 14,
-    title: 23,
+    caption: 10,
+    body: 11,
+    subtitle: 15,
+    title: 24,
   },
   radiusMm: {
     sm: 2,
