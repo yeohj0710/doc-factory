@@ -11,53 +11,72 @@ export default async function Home() {
   const [images, fonts] = await Promise.all([scanImages(), scanFonts()]);
   const tokens = createLayoutTokens(fonts);
   const pages = generateLayout(images, tokens);
+  const hasPages = pages.length > 0;
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div>
+      <header className="workspace-header">
+        <div className="workspace-title-block">
+          <p className="workspace-kicker">A4 문서 워크스페이스</p>
           <h1>doc-factory</h1>
-          <p>
-            Put image files into <code>/images</code>. Optionally add fonts to{" "}
-            <code>/fonts</code>. The app builds A4 portrait pages and exports editable PPTX.
+          <p className="workspace-description">
+            <code>/images</code> 폴더에 이미지를 넣으면 A4 세로 페이지를 자동으로 구성합니다.
+            <code>/fonts</code> 폴더에 글꼴을 추가하면 미리보기와 PPTX 내보내기에 함께 반영됩니다.
           </p>
         </div>
 
-        <div className="topbar-actions">
+        <div className="workspace-controls">
           <form action="/api/export/pptx" method="post">
-            <button className="primary-button" type="submit" disabled={pages.length === 0}>
-              Export PPTX (A4)
+            <button className="primary-button" type="submit" disabled={!hasPages}>
+              PPTX 내보내기 (A4)
             </button>
           </form>
           <Link className="secondary-button" href="/">
-            Regenerate Layout
+            레이아웃 다시 생성
           </Link>
         </div>
       </header>
 
-      <section className="meta-strip">
-        <span className="badge">{images.length} image(s)</span>
-        <span className="badge">{pages.length} page(s)</span>
-        <span className="badge">A4 portrait: 210 x 297 mm</span>
-        <span className="badge">Font: {tokens.font.primary}</span>
+      <section className="status-panel" aria-label="문서 상태">
+        <article className="status-item">
+          <p className="status-label">입력 이미지</p>
+          <p className="status-value">{images.length}개</p>
+        </article>
+        <article className="status-item">
+          <p className="status-label">생성 페이지</p>
+          <p className="status-value">{pages.length}장</p>
+        </article>
+        <article className="status-item">
+          <p className="status-label">슬라이드 규격</p>
+          <p className="status-value">A4 세로</p>
+          <p className="status-note">210 x 297 mm</p>
+        </article>
+        <article className="status-item">
+          <p className="status-label">기본 글꼴</p>
+          <p className="status-value status-value-font">{tokens.font.primary}</p>
+        </article>
       </section>
 
-      {pages.length === 0 ? (
+      {!hasPages ? (
         <section className="empty-state">
-          <h2>No images found</h2>
+          <h2>이미지를 찾지 못했습니다</h2>
           <p>
-            Add <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, or <code>.webp</code>{" "}
-            files to <code>/images</code>, then reload or click Regenerate Layout.
+            <code>/images</code> 폴더에 <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>,{" "}
+            <code>.webp</code> 파일을 추가한 뒤 페이지를 새로고침하거나
+            <code>레이아웃 다시 생성</code> 버튼을 눌러 주세요.
           </p>
         </section>
       ) : (
         <section className="pages-stack">
           {pages.map((page) => (
             <article className="page-card" key={page.pageNumber}>
+              <header className="page-card-header">
+                <p className="page-title">페이지 {page.pageNumber}</p>
+                <p className="page-subtitle">A4 세로 · 210 x 297 mm</p>
+              </header>
               <div className="page-scroll">
                 <PageView page={page} fontFamily={tokens.font.cssStack} />
               </div>
-              <p className="page-label">Page {page.pageNumber}</p>
             </article>
           ))}
         </section>
