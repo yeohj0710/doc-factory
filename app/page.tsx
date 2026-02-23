@@ -43,7 +43,7 @@ export default async function Home() {
       <header className="workspace-header">
         <div className="workspace-title-block">
           <p className="workspace-kicker">A4 기업 제안서 빌더</p>
-          <h1>웰니스박스 서비스 소개서</h1>
+          <h1>맞춤 건기식 B2B 서비스 소개서</h1>
           <p className="workspace-description">
             <code>/images</code>와 <code>/fonts</code> 자산만으로 A4 소개서 페이지를 자동 생성합니다.
             미리보기 확인 후 <code>Export PPTX (A4)</code>를 누르면 편집 가능한 PPTX를 한 번에

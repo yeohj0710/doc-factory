@@ -234,8 +234,8 @@ export async function renderLayoutsToPptx(
   });
   pptx.layout = "A4_PORTRAIT";
   pptx.author = "doc-factory";
-  pptx.subject = "A4 service brochure";
-  pptx.title = "wellnessbox-service-brochure";
+  pptx.subject = "A4 B2B wellness service brochure";
+  pptx.title = "custom-wellness-b2b-service-brochure";
 
   for (const page of pages) {
     const slide = pptx.addSlide();
