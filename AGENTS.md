@@ -1,285 +1,335 @@
-# doc-factory — AGENTS.md (A4 Proposal Builder Quality Contract)
+# doc-factory — AGENTS.md (Generic Visual Document Builder, Skills-Integrated)
 
 Updated: 2026-02-24
 
-This repo auto-builds an A4 portrait corporate proposal (editable PPTX) using ONLY:
+This repo generates an editable PPTX document from ONLY:
 
 - /images (required)
 - /fonts (optional)
+- /references (optional; inspiration only)
 
-If the user message starts with:
+Skill folders may exist under:
 
-- "MAINTENANCE mode:" => follow MAINTENANCE rules
+- .agents/skills/theme-factory
+- .agents/skills/webapp-testing
+- .agents/skills/playwright
+- .agents/skills/pdf
+- .agents/skills/vercel-deploy
+- .agents/skills/linear
+
+Mode trigger:
+
+- If user message starts with "MAINTENANCE mode:" => maintenance rules
 - Otherwise => default to DESIGN mode
 
 ---
 
-## 0) Product Goal (must match)
+## 0) Product Goal (Non-negotiable)
 
-- User drops images into /images (and optionally fonts into /fonts).
-- App generates A4 pages (portrait) with a coherent document narrative.
-- Localhost previews all pages.
-- Export outputs ONE PPTX containing ONE A4 slide per page.
-- PPTX must be fully editable (text/shapes), not screenshot slides.
-
-A4 portrait is exact: 210mm x 297mm.
+- User drops assets into /images (and optionally /fonts, /references).
+- App infers document type + page size, creates a storyboard, generates pages, previews them, and exports ONE PPTX.
+- Each slide/page in PPTX must remain EDITABLE (text/shapes), not screenshot-only.
+- Export MUST be blocked unless validation gates pass (static + runtime).
+- Default size is A4 Portrait, but size can vary.
 
 ---
 
-## 1) Absolute Rules
+## 1) Root Simplicity
 
-- Repo root must stay simple: only /images and /fonts are user-facing.
-- No runtime network fetches (no Google fonts, no remote images).
-- Deterministic output given same inputs.
-- Users must not edit any layout specs.
-- Shared internal layout model (DSL) drives BOTH preview and PPTX. Never “convert React to PPTX”.
-
----
-
-## 2) Mode Rules
-
-### DESIGN mode (default)
-
-Goal: produce high-quality pages for current /images quickly WITHOUT risky refactors.
-Allowed: template tweaks, copy rules, small layout improvements.
-Not allowed: large architecture rewrite, moving folders, deleting major systems.
-
-### MAINTENANCE mode
-
-Goal: improve reusable workflow (planning, template system, validation, parity).
-Allowed: refactors that reduce drift, add planners, enforce gates, add new templates (within limits).
-Not allowed: page-by-page coordinate hacks, per-image custom React pages, one-off patches.
-
----
-
-## 3) Reset Protocol (MANDATORY at start of MAINTENANCE)
-
-Purpose: remove drift so Codex cannot “patch old results”.
-
-Delete:
-
-- any per-page React components created for specific images
-- any per-image coordinate maps / special-case layout files
-- any old generated outputs (e.g., /src/generated/\*\*)
-
-Preserve reusable layers:
-
-- /src/io
-- /src/layout
-- /src/render/web
-- /src/render/pptx
-
-After reset, preview + export must still work end-to-end.
-
----
-
-## 4) Internal Architecture (Required)
-
-Inputs:
+User-facing root folders ONLY:
 
 - /images
 - /fonts
+- /references (optional)
 
-Code:
+Everything else under /src (Next.js conventions).
+Users must NOT edit internal layout specs.
 
-- /src/io (scan images/fonts; ordering)
-- /src/planner (DOCUMENT planner + storyboard; REQUIRED)
-- /src/layout (DSL types, templates, generator, validation)
-- /src/render/web (DSL -> HTML/CSS preview)
-- /src/render/pptx(DSL -> PPTX with pptxgenjs)
-
-Generated internal output (single source allowed):
-
-- /src/generated/layout.ts (or layout.json)
-  No other generated page files allowed.
+No runtime network fetch (no Google fonts, no remote images).
 
 ---
 
-## 5) Canonical Units & Constraints
+## 2) Page Size Policy (A4 default, variable supported)
 
-- Canonical unit in DSL: millimeters (mm).
-- Default margin: 12mm.
-- Minimum gutter between unrelated blocks: 4mm.
-- Footer reserved lane: >= 14mm (hard reserved zone).
-- Body text: >= 9pt, line height 1.2–1.35.
-- Never shrink fonts to fit before reducing text volume.
+Default: A4 Portrait (210mm x 297mm)
+
+System MUST support:
+
+- A4 Portrait / A4 Landscape
+- Letter Portrait / Landscape
+- Custom (widthMm/heightMm)
+
+Chosen page size becomes a generation parameter and a single source of truth:
+
+- DSL page.widthMm / page.heightMm
+- Web renderer and PPTX renderer MUST reference the same values.
 
 ---
 
-## 6) Image Ordering Policy (MUST)
+## 3) Determinism + “New design every run” (Controlled Variation)
+
+The output MUST be deterministic given:
+
+- /images + /fonts + /references
+- code version
+- generation params:
+  { pageSizePreset, docType, stylePresetId, variantIndex, seed }
+
+“New design each time” is implemented by variantIndex/seed:
+
+- Clicking "Regenerate Layout" increments variantIndex.
+- Same variantIndex must reproduce the same layout.
+- Export filename must include variantIndex.
+
+Users never edit variantIndex/seed manually.
+
+---
+
+## 4) Ordering Policy (MUST)
 
 1. If filename has leading number (001\_, 01-, p1, (1)), sort by that number.
-2. Else sort by file modified time ascending.
+2. Else sort by modified time ascending.
 3. Else natural sort by filename.
 
 Order must be stable.
 
 ---
 
-## 7) Font Policy (MUST)
+## 5) Internal Architecture (Required)
 
-- Use /fonts if present; otherwise safe system fonts.
-- Choose 1 primary + 1 fallback. Keep consistent.
+Inputs:
 
----
+- /images
+- /fonts
+- /references (optional)
 
-## 8) CRITICAL: Document Planner (New, Mandatory)
+Code:
 
-The system must NOT generate “one page per image” blindly.
+- /src/io (scan assets; ordering)
+- /src/planner (doc-type + storyboard planner; REQUIRED)
+- /src/layout (DSL types, templates, style presets, generator, validation)
+- /src/render/web (DSL -> HTML/CSS preview)
+- /src/render/pptx (DSL -> PPTX via pptxgenjs)
+- /src/qa (runtime validation harness + export audit)
 
-### 8.1 Document Plan (before any page)
+Generated (single allowed):
 
-Generate a document-level plan:
+- /src/generated/layout.ts (or layout.json) — the ONLY generated layout artifact.
 
-- Document title (from user prompt or default)
-- Target audience (B2B 담당자/임직원)
-- Document goal (소개서/제안서/브로셔)
-- Narrative sections (cover → agenda → problem → solution → process → proof → package → CTA)
-- Decide page count (variable) based on:
-  - number of distinct topics (cluster images by filename keywords)
-  - available proof assets (screenshots/report/process)
-  - copy budget capacity
-    Rules:
-- Page count MUST be variable. (Typical: 6–12)
-- If images are redundant/low-signal, DO NOT force them into pages.
-- Always include at least one TEXT_ONLY page to avoid image-dependence.
-
-### 8.2 Storyboard (page-by-page map)
-
-Create a storyboard table:
-
-- Page #, Page role, Template, Primary asset (image or none), Copy budget, Success criteria
-  Storyboard must ensure variety:
-- Do NOT use the same template more than 2 times in a row.
-- Max 40% of pages can be full-bleed image style.
-- At least 2 different templates must appear in first 4 pages.
-
-Only after storyboard is approved internally, proceed to page generation.
+No per-page React components. No per-image special-case maps.
 
 ---
 
-## 9) Template System (3–7 templates, enforce variety)
+## 6) Document Planner (Mandatory)
 
-Keep a small set, but enough to avoid monotony.
+The system MUST NOT do “one image = one page” by default.
 
-Required templates:
-T0) COVER_HERO (cover only)
-T1) AGENDA_EDITORIAL (text-heavy agenda / section divider)
-T2) TITLE_MEDIA_SAFE (classic title + media + bullets)
-T3) TWO_COLUMN_MEDIA_TEXT (UI screenshot + explanation)
-T4) PROCESS_FLOW (3–5 step timeline/flow; image optional)
-T5) METRICS_PROOF (KPIs / proof cards; image optional)
-T6) TEXT_ONLY_EDITORIAL (no image; strong typography + cards)
+Before generating any page:
 
-Each template documents:
+1. Scan /images (apply ordering).
+2. Determine docType:
+   - Proposal/Brochure (default)
+   - Poster (single page)
+   - One-pager (1–2)
+   - Multi-card set (4–12)
+   - Report/Summary (text + charts + tables style)
+3. Determine page size preset (default A4P unless user overrides).
+4. Cluster images into topics using filename + type:
+   - UI/screenshot, product/photo, chart/table, icon/diagram, people/lifestyle (often low-signal)
+5. Build a storyboard (variable length, typical 1–14):
+   For each page:
+   - pageRole
+   - templateId
+   - primaryAsset (image or none)
+   - copyBudget
+   - successCriteria
+6. Enforce variety:
+   - same template max 2 in a row
+   - full-bleed templates <= 35–40% of pages
+   - multi-page docs must include at least 1 TEXT_ONLY_EDITORIAL page
 
-- intended use
-- zone map with reserved footer
-- max text budget
-- fallback template
-
-Template diversity rules MUST be enforced by planner.
+Only after storyboard exists: generate pages.
 
 ---
 
-## 10) Image Usage Policy (prevents “image spam”)
+## 7) Style Presets (Mandatory; Skills-Integrated)
+
+Maintain 8–16 reusable style presets (generic, not industry-specific).
+Each preset defines:
+
+- typography scale (title/subtitle/body)
+- spacing scale (margins/gutters)
+- corner radius + stroke/shadow rules
+- background rules
+- accent usage constraints
+
+### Optional references
+
+If /references exists:
+
+- NEVER copy layout compositions 1:1.
+- Use references ONLY for style token selection (density/type/radius/accent usage).
+- Sample 8–16 references per run (stratified by subfolders if present).
+- References must not directly dictate element coordinates.
+
+### Skill: theme-factory (preferred)
+
+If .agents/skills/theme-factory exists:
+
+- Use it at planning time to propose 3 candidate style presets (or token sets).
+- Select 1 primary preset for the whole document (divider pages may use a mild variant).
+- Store the selected presetId and tokens in internal state (not user-editable).
+
+---
+
+## 8) Template Pack (Generic Patterns; Enough Variety)
+
+Keep 12–20 templates (patterns, not industries), e.g.:
+
+- COVER_HERO (2–3 variants)
+- SECTION_DIVIDER
+- AGENDA_EDITORIAL
+- TITLE_MEDIA_SAFE
+- TWO_COLUMN_MEDIA_TEXT
+- METRICS_GRID
+- PROCESS_FLOW / TIMELINE
+- COMPARISON_TABLE
+- GALLERY_SINGLE (1 image only)
+- TEXT_ONLY_EDITORIAL
+- CTA_CONTACT
+
+Each template MUST document:
+
+- intended use + acceptable aspect ratios
+- zone map (including reserved footer lane)
+- max copy budget
+- fallback template(s)
+
+Templates must compute zones from page tokens (width/height/margins), not magic numbers.
+
+---
+
+## 9) Image Policy (Prevents Spam)
 
 Defaults:
 
 - 0 or 1 image per page.
-  Hard rules:
-- Never duplicate the same image multiple times in one page.
-- Never mosaic/collage unless a dedicated collage template exists (not recommended).
-- Preserve aspect ratio always. Never stretch.
-  Fit policy:
-- UI screenshot => prefer CONTAIN (no cropping).
-- Lifestyle/photo => prefer COVER (controlled cropping).
-  Low-signal images (generic stock people) => prefer TEXT_ONLY or PROCESS templates.
+
+Hard rules:
+
+- Never duplicate the same image multiple times on one page.
+- No mosaic/collage unless a dedicated collage template exists (avoid by default).
+- Preserve aspect ratio; never stretch.
+
+Fit:
+
+- UI screenshot => CONTAIN
+- photo => COVER (controlled)
+
+Low-signal images (generic lifestyle) must NOT force pages; prefer text/process/metrics templates.
 
 ---
 
-## 11) Copy Policy (Anti-AI tone, concise Korean)
+## 10) Copy Policy (Anti-AI Tone via Constraints)
 
-No filler text. No vague buzzwords without evidence.
-Avoid: “혁신/고도화/최적화” unless tied to concrete mechanism or metric.
+No filler. Avoid buzzwords unless tied to a mechanism/metric.
 
-Per-page copy budget (default):
+Pipeline MUST be: Draft -> Budget-aware shorten -> Remove vague words -> Bulletize -> Fit-check.
 
-- Title: <= 14–18 Korean words (or 1 short sentence)
-- Subtitle: <= 1 sentence
-- Bullets: 3–5 max, each bullet ideally 12–18 chars per chunk, 1 line
-- Body paragraphs discouraged; use bullets/cards
-  If text does not fit:
+If text doesn’t fit:
 
-1. reduce bullets
-2. shorten bullets
-3. drop secondary components (chips/metrics)
-4. switch template
-   Only then minor font reduction (never below 9pt body).
+1. shorten text
+2. remove secondary blocks (chips/extra cards)
+3. fallback template
+   Never reduce body below 9pt.
 
-If domain-specific text is uncertain:
+If meaning is unknown:
 
-- derive a clean caption from filename
+- derive caption from filename
 - add one neutral helper sentence only
 
 ---
 
-## 12) Required Build Sequence (Divide-and-Conquer)
+## 11) Validation Gates (Hard; Export must be blocked)
 
-For every run:
+Two layers:
 
-1. Intake: scan /images + /fonts; apply ordering.
-2. Document Plan: decide narrative + page count.
-3. Storyboard: map pages to roles/templates/assets.
-4. For each page:
-   4.1 Page brief (template + rationale + reading flow + text budget)
-   4.2 Zone wireframe (non-overlapping zones; footer reserved)
-   4.3 Content draft within budget
-   4.4 Emit elements (media -> text -> shapes)
-   4.5 QA (validation gates)
-5. Parity check: preview vs PPTX composition must match materially.
-6. Export validation + filename generation.
+### 11.1 Static DSL gates (always)
 
----
+- boundary: all elements inside page bounds
+- reserved lanes: header/footer protected zones never invaded
+- collision: semantic blocks do not overlap
+- min-size: readability thresholds
+- layering: text not occluded
+- determinism: same params -> same DSL structure
 
-## 13) Validation Gates (MUST exist + MUST be enforced)
+### 11.2 Runtime gates (preferred via webapp-testing skill)
 
-Hard fail gates (abort regenerate/export):
+Use a headless browser to measure real DOM:
 
-- Boundary: nothing out of A4 bounds
-- Footer lane: nothing invades reserved footer
-- Collision: protected zones do not overlap
-- Text-fit: estimated overflow must be false for each text box
-- Layering: text not occluded by shapes
-- Determinism: same inputs => same layout structure
+- text overflow (scrollHeight > clientHeight)
+- clipped elements (bounding rect exceeds page container)
+- unintended overlaps (rect intersections over threshold)
 
-These gates MUST run on:
+If runtime gates fail:
 
-- Regenerate Layout
-- Export PPTX (A4)
-  Export must abort if any gate fails and show errors per page.
+- auto-fix loop: shorten -> fallback template -> re-layout -> re-run runtime gates
+  Export only when all gates pass.
+
+### Skill: webapp-testing (preferred)
+
+If .agents/skills/webapp-testing exists:
+
+- use it to run runtime gates on every Regenerate and Export
+- produce a page-by-page failure report for the UI
 
 ---
 
-## 14) Export Filename Policy (New)
+## 12) Preview ↔ PPTX Parity + Export Audit
 
-Export PPTX filename must be auto-generated:
-Format:
-{docTitle}_{brandOrClient}_{YYYYMMDD}_v{N}\_A4_{pageCount}p.pptx
-Rules:
+Both renderers consume the same DSL. Only unit conversion differs.
 
-- docTitle from planner (default: "맞춤*건기식\_B2B*소개서")
-- brandOrClient from user config or default ("WellnessBox")
-- version increments when layout regenerated in the same session
+Export audit MUST verify:
+
+- expected slide count equals page count
+- all objects are within slide bounds
+- slides contain editable objects (text/shapes) and are not raster-only
+- page size matches selected preset
+
+If audit fails: block export and show errors.
+
+---
+
+## 13) Export Filename (Mandatory)
+
+Auto-generate:
+{docTitle}_{pageSize}_{YYYYMMDD}_v{variantIndex}_{pageCount}p.pptx
+
+docTitle inferred from prompt; default "Visual_Document".
+
+---
+
+## 14) UI Requirements
+
+Localhost page must show:
+
+- doc title + inferred docType + pageSize preset
+- counts (input images, generated pages, validation pass/fail)
+- per-page validation issues
+- buttons:
+  - Export PPTX
+  - Regenerate Layout (increments variantIndex)
+
+Export must be disabled if validation fails.
 
 ---
 
 ## 15) Done Criteria
 
-Before completion:
+Before declaring completion:
 
-- Storyboard exists and templates vary.
-- Page count is not artificially fixed.
-- All pages pass hard gates.
-- Preview/PPTX parity holds for tested pages.
-- Export filename follows policy.
+- storyboard exists and demonstrates variety
+- page count is variable (not fixed to image count)
+- all pages pass static + runtime gates
+- preview/pptx parity is acceptable
+- export filename follows policy

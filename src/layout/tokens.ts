@@ -61,7 +61,7 @@ const BASE_TOKENS = {
   spacingMm: {
     pageMargin: 12,
     gutter: 6,
-    footerHeight: 12,
+    footerHeight: 14,
     sectionGap: 7,
   },
   fontScalePt: {

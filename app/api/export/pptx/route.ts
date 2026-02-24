@@ -1,4 +1,3 @@
-import path from "node:path";
 import { scanFonts } from "@/src/io/scanFonts";
 import { scanImages } from "@/src/io/scanImages";
 import { generateLayout } from "@/src/layout/generateLayout";
@@ -8,20 +7,9 @@ import { renderLayoutsToPptx } from "@/src/render/pptx/renderPptx";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function sanitizeFilename(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return normalized || "doc-factory";
-}
-
 export async function POST(): Promise<Response> {
   try {
     const [images, fonts] = await Promise.all([scanImages(), scanFonts()]);
-
     if (images.length === 0) {
       return Response.json(
         {
@@ -32,10 +20,30 @@ export async function POST(): Promise<Response> {
     }
 
     const tokens = createLayoutTokens(fonts);
-    const pages = generateLayout(images, tokens);
-    const pptxBytes = await renderLayoutsToPptx(pages, {
+    const result = generateLayout(images, tokens, {
+      intent: "export",
+      fontCount: fonts.length,
+    });
+
+    if (!result.validation.passed) {
+      return Response.json(
+        {
+          error: "Validation failed. Export aborted.",
+          pageErrors: result.validation.pageResults
+            .filter((page) => !page.passed)
+            .map((page) => ({
+              pageNumber: page.pageNumber,
+              issues: page.issues,
+            })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const pptxBytes = await renderLayoutsToPptx(result.pages, {
       primaryFont: tokens.font.primary,
     });
+
     const bodyStream = new ReadableStream({
       start(controller) {
         controller.enqueue(pptxBytes);
@@ -43,15 +51,12 @@ export async function POST(): Promise<Response> {
       },
     });
 
-    const repoName = sanitizeFilename(path.basename(process.cwd()));
-    const filename = `${repoName}-export.pptx`;
-
     return new Response(bodyStream, {
       status: 200,
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${result.exportMeta.filename}"`,
         "Content-Length": String(pptxBytes.byteLength),
         "Cache-Control": "no-store",
       },

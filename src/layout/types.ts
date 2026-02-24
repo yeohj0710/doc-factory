@@ -1,7 +1,15 @@
-export const PAGE_SIZE_A4_PORTRAIT = {
-  widthMm: 210,
-  heightMm: 297,
-} as const;
+﻿import { A4_PORTRAIT_MM } from "@/src/layout/units";
+
+export type TextBudgetSummary = {
+  title: number;
+  subtitle: number;
+  body: number;
+  bullet: number;
+  bullets: number;
+  callout: number;
+};
+
+export const PAGE_SIZE_A4_PORTRAIT = A4_PORTRAIT_MM;
 
 export type PageSize = typeof PAGE_SIZE_A4_PORTRAIT;
 
@@ -77,23 +85,16 @@ export type LineElement = {
 
 export type Element = ImageElement | TextElement | RectElement | LineElement;
 
-export type TextBudgetSummary = {
-  title: number;
-  subtitle: number;
-  body: number;
-  bullet: number;
-  bullets: number;
-  callout: number;
-};
+export type LayoutValidationIssueCode =
+  | "boundary"
+  | "footer-lane"
+  | "collision"
+  | "text-fit"
+  | "layering"
+  | "determinism";
 
 export type LayoutValidationIssue = {
-  code:
-    | "boundary"
-    | "collision"
-    | "minimum-size"
-    | "text-fit"
-    | "layering"
-    | "determinism";
+  code: LayoutValidationIssueCode;
   message: string;
   elementId?: string;
   elementIndex?: number;
@@ -106,9 +107,10 @@ export type LayoutValidationResult = {
 };
 
 export type PageBriefSummary = {
-  sourceImage: string;
+  pageRole: string;
+  sourceImage: string | null;
   imageCaption: string;
-  category: string;
+  topic: string;
   template: string;
   templateReason: string;
   readingFlow: string;
@@ -117,6 +119,7 @@ export type PageBriefSummary = {
 
 export type PageLayout = {
   pageNumber: number;
+  templateId: string;
   elements: Element[];
   meta?: {
     brief: PageBriefSummary;

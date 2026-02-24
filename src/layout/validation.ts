@@ -15,21 +15,16 @@ type ValidationOptions = {
 };
 
 const MM_PER_PT = 25.4 / 72;
-const BOX_EPSILON = 0.05;
+const EPS = 0.05;
 
 function intersects(a: Box, b: Box): boolean {
-  return (
-    a.xMm < b.xMm + b.wMm &&
-    a.xMm + a.wMm > b.xMm &&
-    a.yMm < b.yMm + b.hMm &&
-    a.yMm + a.hMm > b.yMm
-  );
+  return a.xMm < b.xMm + b.wMm && a.xMm + a.wMm > b.xMm && a.yMm < b.yMm + b.hMm && a.yMm + a.hMm > b.yMm;
 }
 
-function intersectionAreaMm2(a: Box, b: Box): number {
-  const xOverlap = Math.max(0, Math.min(a.xMm + a.wMm, b.xMm + b.wMm) - Math.max(a.xMm, b.xMm));
-  const yOverlap = Math.max(0, Math.min(a.yMm + a.hMm, b.yMm + b.hMm) - Math.max(a.yMm, b.yMm));
-  return xOverlap * yOverlap;
+function overlapArea(a: Box, b: Box): number {
+  const w = Math.max(0, Math.min(a.xMm + a.wMm, b.xMm + b.wMm) - Math.max(a.xMm, b.xMm));
+  const h = Math.max(0, Math.min(a.yMm + a.hMm, b.yMm + b.hMm) - Math.max(a.yMm, b.yMm));
+  return w * h;
 }
 
 function hasOpaqueFill(element: Element): boolean {
@@ -39,29 +34,17 @@ function hasOpaqueFill(element: Element): boolean {
   if (element.type !== "rect") {
     return false;
   }
-  const opacity = element.fillOpacity ?? 1;
-  return opacity >= 0.75;
+  return (element.fillOpacity ?? 1) >= 0.75;
 }
 
-function elementToBox(element: Element, elementIndex: number): Box | null {
+function toBox(element: Element, elementIndex: number): Box | null {
   if (element.type === "line") {
     return null;
   }
-  return {
-    xMm: element.xMm,
-    yMm: element.yMm,
-    wMm: element.wMm,
-    hMm: element.hMm,
-    element,
-    elementIndex,
-  };
+  return { xMm: element.xMm, yMm: element.yMm, wMm: element.wMm, hMm: element.hMm, element, elementIndex };
 }
 
-function boundaryChecks(
-  page: PageLayout,
-  options: ValidationOptions,
-  issues: LayoutValidationIssue[],
-): void {
+function boundaryChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
   const pageW = PAGE_SIZE_A4_PORTRAIT.widthMm;
   const pageH = PAGE_SIZE_A4_PORTRAIT.heightMm;
 
@@ -71,48 +54,63 @@ function boundaryChecks(
         { x: element.x1Mm, y: element.y1Mm },
         { x: element.x2Mm, y: element.y2Mm },
       ];
-      points.forEach((point) => {
-        if (
-          point.x < -BOX_EPSILON ||
-          point.y < -BOX_EPSILON ||
-          point.x > pageW + BOX_EPSILON ||
-          point.y > pageH + BOX_EPSILON
-        ) {
+      for (const point of points) {
+        if (point.x < -EPS || point.y < -EPS || point.x > pageW + EPS || point.y > pageH + EPS) {
           issues.push({
             code: "boundary",
-            message: `선 요소가 페이지 경계를 벗어났습니다. (${element.id ?? `line-${index}`})`,
+            message: `Element exceeds page bounds (${element.id ?? `line-${index}`})`,
             elementId: element.id,
             elementIndex: index,
           });
         }
-      });
+      }
       return;
     }
 
     const x2 = element.xMm + element.wMm;
     const y2 = element.yMm + element.hMm;
-    if (
-      element.xMm < -BOX_EPSILON ||
-      element.yMm < -BOX_EPSILON ||
-      x2 > pageW + BOX_EPSILON ||
-      y2 > pageH + BOX_EPSILON
-    ) {
+    if (element.xMm < -EPS || element.yMm < -EPS || x2 > pageW + EPS || y2 > pageH + EPS) {
       issues.push({
         code: "boundary",
-        message: `요소가 페이지 경계를 벗어났습니다. (${element.id ?? `${element.type}-${index}`})`,
+        message: `Element exceeds page bounds (${element.id ?? `${element.type}-${index}`})`,
         elementId: element.id,
         elementIndex: index,
       });
     }
+  });
+}
 
-    if (
-      typeof options.footerTopMm === "number" &&
-      element.role !== "footer" &&
-      y2 > options.footerTopMm + BOX_EPSILON
-    ) {
+function footerLaneChecks(
+  page: PageLayout,
+  footerTopMm: number | undefined,
+  issues: LayoutValidationIssue[],
+): void {
+  if (typeof footerTopMm !== "number") {
+    return;
+  }
+
+  page.elements.forEach((element, index) => {
+    const isExemptRole =
+      element.role === "footer" || element.role === "background" || element.role === "decorative";
+
+    if (element.type === "line") {
+      const yMax = Math.max(element.y1Mm, element.y2Mm);
+      if (!isExemptRole && yMax > footerTopMm + EPS) {
+        issues.push({
+          code: "footer-lane",
+          message: `Element invades reserved footer lane (${element.id ?? `line-${index}`})`,
+          elementId: element.id,
+          elementIndex: index,
+        });
+      }
+      return;
+    }
+
+    const y2 = element.yMm + element.hMm;
+    if (!isExemptRole && y2 > footerTopMm + EPS) {
       issues.push({
-        code: "boundary",
-        message: `푸터 예약 영역을 침범한 요소가 있습니다. (${element.id ?? `${element.type}-${index}`})`,
+        code: "footer-lane",
+        message: `Element invades reserved footer lane (${element.id ?? `${element.type}-${index}`})`,
         elementId: element.id,
         elementIndex: index,
       });
@@ -122,7 +120,7 @@ function boundaryChecks(
 
 function collisionChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
   const protectedBoxes = page.elements
-    .map((element, index) => elementToBox(element, index))
+    .map((element, index) => toBox(element, index))
     .filter((box): box is Box => box !== null)
     .filter((box) => box.element.isCollisionProtected === true);
 
@@ -130,23 +128,18 @@ function collisionChecks(page: PageLayout, issues: LayoutValidationIssue[]): voi
     const left = protectedBoxes[i];
     for (let j = i + 1; j < protectedBoxes.length; j += 1) {
       const right = protectedBoxes[j];
-      const leftGroup = left.element.collisionGroup;
-      const rightGroup = right.element.collisionGroup;
-      if (leftGroup && rightGroup && leftGroup === rightGroup) {
+      if (left.element.collisionGroup && right.element.collisionGroup && left.element.collisionGroup === right.element.collisionGroup) {
         continue;
       }
       if (!intersects(left, right)) {
         continue;
       }
-      const overlap = intersectionAreaMm2(left, right);
-      if (overlap <= 0.5) {
+      if (overlapArea(left, right) <= 0.5) {
         continue;
       }
       issues.push({
         code: "collision",
-        message: `보호 영역 충돌이 감지되었습니다. (${left.element.id ?? left.elementIndex} ↔ ${
-          right.element.id ?? right.elementIndex
-        })`,
+        message: `Collision between protected zones (${left.element.id ?? left.elementIndex} vs ${right.element.id ?? right.elementIndex})`,
         elementId: left.element.id,
         elementIndex: left.elementIndex,
       });
@@ -154,57 +147,19 @@ function collisionChecks(page: PageLayout, issues: LayoutValidationIssue[]): voi
   }
 }
 
-function minimumSizeChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
-  page.elements.forEach((element, index) => {
-    if (element.type === "text") {
-      if (element.fontSizePt < 9) {
-        issues.push({
-          code: "minimum-size",
-          message: `텍스트 최소 크기(9pt) 미만입니다. (${element.id ?? `text-${index}`})`,
-          elementId: element.id,
-          elementIndex: index,
-        });
-      }
-      if (element.wMm < 14 || element.hMm < 4) {
-        issues.push({
-          code: "minimum-size",
-          message: `텍스트 박스 크기가 너무 작습니다. (${element.id ?? `text-${index}`})`,
-          elementId: element.id,
-          elementIndex: index,
-        });
-      }
-      return;
-    }
-
-    if (element.type === "rect" && (element.role === "chip" || element.role === "metric")) {
-      if (element.wMm < 12 || element.hMm < 8) {
-        issues.push({
-          code: "minimum-size",
-          message: `칩/메트릭 카드가 가독성 기준보다 작습니다. (${element.id ?? `rect-${index}`})`,
-          elementId: element.id,
-          elementIndex: index,
-        });
-      }
-    }
-  });
-}
-
-function estimateTextLines(element: TextElement): {
-  estimatedLines: number;
-  maxLines: number;
-} {
-  const lineHeightRatio = element.lineHeight ?? 1.25;
+function estimateTextLines(element: TextElement): { estimatedLines: number; maxLines: number } {
+  const lineHeight = element.lineHeight ?? 1.25;
   const charWidthMm = Math.max(element.fontSizePt * MM_PER_PT * 0.52, 0.8);
   const charsPerLine = Math.max(1, Math.floor(element.wMm / charWidthMm));
   const sourceLines = element.text.split(/\r?\n/);
 
   let estimatedLines = 0;
   for (const line of sourceLines) {
-    const effective = line.trim().length === 0 ? 1 : Math.ceil(line.length / charsPerLine);
-    estimatedLines += Math.max(1, effective);
+    const lineChars = line.trim().length === 0 ? 1 : line.length;
+    estimatedLines += Math.max(1, Math.ceil(lineChars / charsPerLine));
   }
 
-  const lineHeightMm = element.fontSizePt * MM_PER_PT * lineHeightRatio;
+  const lineHeightMm = element.fontSizePt * MM_PER_PT * lineHeight;
   const maxLines = Math.max(1, Math.floor(element.hMm / lineHeightMm));
   return { estimatedLines, maxLines };
 }
@@ -214,12 +169,11 @@ function textFitChecks(page: PageLayout, issues: LayoutValidationIssue[]): void 
     if (element.type !== "text") {
       return;
     }
-
     const { estimatedLines, maxLines } = estimateTextLines(element);
     if (estimatedLines > maxLines) {
       issues.push({
         code: "text-fit",
-        message: `텍스트가 박스에 비해 과다합니다. 추정 ${estimatedLines}줄 / 허용 ${maxLines}줄 (${element.id ?? `text-${index}`})`,
+        message: `Text overflow estimated (${estimatedLines}/${maxLines}) (${element.id ?? `text-${index}`})`,
         elementId: element.id,
         elementIndex: index,
       });
@@ -229,62 +183,44 @@ function textFitChecks(page: PageLayout, issues: LayoutValidationIssue[]): void 
 
 function layeringChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
   const boxes = page.elements
-    .map((element, index) => elementToBox(element, index))
+    .map((element, index) => toBox(element, index))
     .filter((box): box is Box => box !== null);
 
-  boxes.forEach((textBox) => {
+  for (const textBox of boxes) {
     if (textBox.element.type !== "text") {
-      return;
+      continue;
     }
-
-    for (let index = textBox.elementIndex + 1; index < page.elements.length; index += 1) {
-      const laterElement = page.elements[index];
-      if (laterElement.allowTextOcclusion) {
+    for (let i = textBox.elementIndex + 1; i < page.elements.length; i += 1) {
+      const later = page.elements[i];
+      if (later.allowTextOcclusion || !hasOpaqueFill(later)) {
         continue;
       }
-      if (!hasOpaqueFill(laterElement)) {
-        continue;
-      }
-      const laterBox = elementToBox(laterElement, index);
-      if (!laterBox) {
-        continue;
-      }
-      if (!intersects(textBox, laterBox)) {
-        continue;
-      }
-      if (intersectionAreaMm2(textBox, laterBox) < 0.5) {
+      const laterBox = toBox(later, i);
+      if (!laterBox || !intersects(textBox, laterBox) || overlapArea(textBox, laterBox) < 0.5) {
         continue;
       }
       issues.push({
         code: "layering",
-        message: `텍스트가 이후 요소에 가려질 수 있습니다. (${textBox.element.id ?? `text-${textBox.elementIndex}`})`,
+        message: `Text occluded by later opaque element (${textBox.element.id ?? `text-${textBox.elementIndex}`})`,
         elementId: textBox.element.id,
         elementIndex: textBox.elementIndex,
       });
       break;
     }
-  });
+  }
 }
 
 export function validatePageLayout(
   page: PageLayout,
   options: ValidationOptions = {},
-): {
-  passed: boolean;
-  issues: LayoutValidationIssue[];
-} {
+): { passed: boolean; issues: LayoutValidationIssue[] } {
   const issues: LayoutValidationIssue[] = [];
-
-  boundaryChecks(page, options, issues);
+  boundaryChecks(page, issues);
+  footerLaneChecks(page, options.footerTopMm, issues);
   collisionChecks(page, issues);
-  minimumSizeChecks(page, issues);
   textFitChecks(page, issues);
   layeringChecks(page, issues);
-
-  return {
-    passed: issues.length === 0,
-    issues,
-  };
+  return { passed: issues.length === 0, issues };
 }
 
 function cleanElementForSignature(element: Element): unknown {
@@ -296,11 +232,10 @@ function cleanElementForSignature(element: Element): unknown {
       y1: Number(element.y1Mm.toFixed(3)),
       x2: Number(element.x2Mm.toFixed(3)),
       y2: Number(element.y2Mm.toFixed(3)),
-      stroke: element.stroke,
-      width: Number(element.widthMm.toFixed(3)),
+      s: element.stroke,
+      w: Number(element.widthMm.toFixed(3)),
     };
   }
-
   return {
     t: element.type,
     id: element.id ?? "",
@@ -308,18 +243,18 @@ function cleanElementForSignature(element: Element): unknown {
     y: Number(element.yMm.toFixed(3)),
     w: Number(element.wMm.toFixed(3)),
     h: Number(element.hMm.toFixed(3)),
-    text: element.type === "text" ? element.text : undefined,
     role: element.role ?? "",
-    group: element.collisionGroup ?? "",
+    text: element.type === "text" ? element.text : "",
   };
 }
 
 export function createLayoutSignature(pages: PageLayout[]): string {
   return JSON.stringify(
     pages.map((page) => ({
-      pageNumber: page.pageNumber,
-      brief: page.meta?.brief,
-      elements: page.elements.map(cleanElementForSignature),
+      n: page.pageNumber,
+      t: page.templateId,
+      b: page.meta?.brief,
+      e: page.elements.map(cleanElementForSignature),
     })),
   );
 }

@@ -2,18 +2,15 @@ import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 import { resolveCoverCropWindow, resolveImagePlacement } from "@/src/layout/imagePlacement";
 import { PAGE_SIZE_A4_PORTRAIT, type Element, type PageLayout } from "@/src/layout/types";
+import { mmToIn } from "@/src/layout/units";
 
 export type RenderPptxOptions = {
   primaryFont: string;
   rootDir?: string;
 };
 
-function mmToIn(mm: number): number {
-  return mm / 25.4;
-}
-
 function mmToPt(mm: number): number {
-  return (mm / 25.4) * 72;
+  return mmToIn(mm) * 72;
 }
 
 function toHex(color: string): string {
