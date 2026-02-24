@@ -45,33 +45,33 @@ export type LayoutTokens = {
 
 const BASE_TOKENS = {
   colors: {
-    canvas: "#E6ECF6",
+    canvas: "#E9EFF7",
     page: "#FFFFFF",
-    text: "#0F1C2F",
-    mutedText: "#425068",
-    border: "#C5D1E3",
+    text: "#102037",
+    mutedText: "#445672",
+    border: "#C4D0E2",
     accent: "#0E6AA8",
-    accentDeep: "#0A3C66",
-    highlight: "#D86A1D",
-    highlightSoft: "#FFE7D3",
+    accentDeep: "#0A3E69",
+    highlight: "#D67223",
+    highlightSoft: "#FFEAD7",
     softAccent: "#EAF3FF",
-    softAccentAlt: "#F7F1E7",
-    inverseText: "#F6FAFF",
+    softAccentAlt: "#F6F1E8",
+    inverseText: "#F7FBFF",
   },
   spacingMm: {
     pageMargin: 12,
-    gutter: 7,
+    gutter: 6,
     footerHeight: 12,
-    sectionGap: 8,
+    sectionGap: 7,
   },
   fontScalePt: {
-    micro: 11,
-    caption: 14,
-    body: 16,
-    lead: 20,
-    subtitle: 28,
-    title: 38,
-    display: 54,
+    micro: 9.5,
+    caption: 10.5,
+    body: 11.5,
+    lead: 13.5,
+    subtitle: 18,
+    title: 24,
+    display: 34,
   },
   radiusMm: {
     sm: 2,
@@ -84,16 +84,55 @@ function quoteFontFamily(name: string): string {
   return `"${name.replace(/"/g, '\\"')}"`;
 }
 
+function pickPrimaryAndFallback(fonts: ScannedFont[]): {
+  primary: string;
+  fallback: string;
+} {
+  if (fonts.length === 0) {
+    return { primary: "Segoe UI", fallback: "Malgun Gothic" };
+  }
+
+  const familyMap = new Map<string, number[]>();
+
+  for (const font of fonts) {
+    const weights = familyMap.get(font.familyName) ?? [];
+    weights.push(font.weight);
+    familyMap.set(font.familyName, weights);
+  }
+
+  const families = [...familyMap.entries()];
+  families.sort((a, b) => {
+    const [familyA, weightsA] = a;
+    const [familyB, weightsB] = b;
+    const bestWeightA = Math.min(...weightsA.map((weight) => Math.abs(weight - 400)));
+    const bestWeightB = Math.min(...weightsB.map((weight) => Math.abs(weight - 400)));
+
+    if (bestWeightA !== bestWeightB) {
+      return bestWeightA - bestWeightB;
+    }
+    if (weightsA.length !== weightsB.length) {
+      return weightsB.length - weightsA.length;
+    }
+    return familyA.localeCompare(familyB, "en", { sensitivity: "base" });
+  });
+
+  const primary = families[0]?.[0] ?? "Segoe UI";
+  const secondFamily = families.find(([name]) => name !== primary)?.[0];
+  return {
+    primary,
+    fallback: secondFamily ?? "Malgun Gothic",
+  };
+}
+
 export function createLayoutTokens(fonts: ScannedFont[]): LayoutTokens {
-  const primary = fonts[0]?.familyName ?? "Segoe UI";
-  const fallback = fonts[1]?.familyName ?? "Arial";
+  const { primary, fallback } = pickPrimaryAndFallback(fonts);
 
   const cssStack =
-    fonts.length >= 2
+    fonts.length >= 2 && primary !== fallback
       ? `${quoteFontFamily(primary)}, ${quoteFontFamily(fallback)}, ${SYSTEM_FONT_STACK}`
-      : fonts.length === 1
+      : fonts.length >= 1
         ? `${quoteFontFamily(primary)}, ${SYSTEM_FONT_STACK}`
-        : SYSTEM_FONT_STACK;
+      : SYSTEM_FONT_STACK;
 
   return {
     ...BASE_TOKENS,

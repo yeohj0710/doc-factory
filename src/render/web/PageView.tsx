@@ -115,7 +115,7 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
           textAlign: element.align ?? "left",
           whiteSpace: "pre-wrap",
           overflow: "hidden",
-          lineHeight: 1.25,
+          lineHeight: element.lineHeight ?? 1.25,
           color: element.color ?? "#10213A",
         }}
       >

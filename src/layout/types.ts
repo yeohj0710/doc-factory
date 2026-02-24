@@ -7,6 +7,23 @@ export type PageSize = typeof PAGE_SIZE_A4_PORTRAIT;
 
 export type ImageFit = "cover" | "contain";
 
+export type LayoutElementRole =
+  | "background"
+  | "media"
+  | "text"
+  | "chip"
+  | "metric"
+  | "footer"
+  | "decorative";
+
+type ElementMeta = {
+  id?: string;
+  role?: LayoutElementRole;
+  collisionGroup?: string;
+  isCollisionProtected?: boolean;
+  allowTextOcclusion?: boolean;
+};
+
 export type ImageElement = {
   type: "image";
   xMm: number;
@@ -19,7 +36,7 @@ export type ImageElement = {
   intrinsicHeightPx?: number;
   anchorX?: number;
   anchorY?: number;
-};
+} & ElementMeta;
 
 export type TextElement = {
   type: "text";
@@ -32,7 +49,8 @@ export type TextElement = {
   bold?: boolean;
   align?: "left" | "center" | "right";
   color?: string;
-};
+  lineHeight?: number;
+} & ElementMeta;
 
 export type RectElement = {
   type: "rect";
@@ -45,7 +63,7 @@ export type RectElement = {
   radiusMm?: number;
   stroke?: string;
   strokeWidthMm?: number;
-};
+} & ElementMeta;
 
 export type LineElement = {
   type: "line";
@@ -55,11 +73,53 @@ export type LineElement = {
   y2Mm: number;
   stroke: string;
   widthMm: number;
-};
+} & ElementMeta;
 
 export type Element = ImageElement | TextElement | RectElement | LineElement;
+
+export type TextBudgetSummary = {
+  title: number;
+  subtitle: number;
+  body: number;
+  bullet: number;
+  bullets: number;
+  callout: number;
+};
+
+export type LayoutValidationIssue = {
+  code:
+    | "boundary"
+    | "collision"
+    | "minimum-size"
+    | "text-fit"
+    | "layering"
+    | "determinism";
+  message: string;
+  elementId?: string;
+  elementIndex?: number;
+};
+
+export type LayoutValidationResult = {
+  passed: boolean;
+  issues: LayoutValidationIssue[];
+  attemptedTemplates: string[];
+};
+
+export type PageBriefSummary = {
+  sourceImage: string;
+  imageCaption: string;
+  category: string;
+  template: string;
+  templateReason: string;
+  readingFlow: string;
+  maxTextBudget: TextBudgetSummary;
+};
 
 export type PageLayout = {
   pageNumber: number;
   elements: Element[];
+  meta?: {
+    brief: PageBriefSummary;
+    validation: LayoutValidationResult;
+  };
 };

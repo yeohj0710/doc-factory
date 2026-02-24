@@ -1,305 +1,314 @@
 import path from "node:path";
 import type { ScannedImage } from "@/src/io/scanImages";
+import type { PageBriefSummary, TextBudgetSummary } from "@/src/layout/types";
 
-export type PageTemplate =
-  | "cinematic-hero"
-  | "editorial-spread"
-  | "mosaic-notes"
-  | "focus-rail"
-  | "contrast-poster";
+export type PageTemplateId =
+  | "full-bleed-caption"
+  | "title-image-safe"
+  | "two-column-image-text";
 
-export type PageCategory =
-  | "dispense"
-  | "app"
-  | "consult"
-  | "report"
-  | "package"
-  | "generic";
+export type PageCategory = "dispense" | "ai" | "consult" | "report" | "package" | "generic";
 
 export type NarrativeMetric = {
   label: string;
   value: string;
 };
 
-export type Narrative = {
-  category: PageCategory;
+export type PageNarrative = {
   kicker: string;
   title: string;
   subtitle: string;
-  summary: string;
-  bullets: [string, string, string, string];
+  body: string;
+  bullets: [string, string, string];
   chips: [string, string, string];
   callout: string;
   footer: string;
   metrics: [NarrativeMetric, NarrativeMetric, NarrativeMetric];
-  panelLabels: [string, string];
+};
+
+export type PageTemplateSpec = {
+  id: PageTemplateId;
+  label: string;
+  intendedImageRatio: {
+    min: number;
+    max: number;
+  };
+  readingFlow: string;
+  maxTextBudget: TextBudgetSummary;
+  fallbackTemplate: PageTemplateId;
+};
+
+export type PageBrief = PageBriefSummary & {
+  templateId: PageTemplateId;
+  fallbackTemplateId: PageTemplateId;
+  narrative: PageNarrative;
 };
 
 type CategoryLibrary = {
-  kickers: readonly string[];
-  subtitles: readonly string[];
-  intros: readonly string[];
-  bullets: readonly string[];
-  chips: readonly string[];
-  callouts: readonly string[];
+  kickerPool: readonly string[];
+  titlePool: readonly string[];
+  subtitlePool: readonly string[];
+  bodyPool: readonly string[];
+  bulletPool: readonly string[];
+  chipPool: readonly string[];
+  calloutPool: readonly string[];
   metrics: readonly [NarrativeMetric, NarrativeMetric, NarrativeMetric];
 };
 
-const TEMPLATE_LABELS: Record<PageTemplate, string> = {
-  "cinematic-hero": "임팩트 커버",
-  "editorial-spread": "에디토리얼",
-  "mosaic-notes": "모자이크",
-  "focus-rail": "포커스 레일",
-  "contrast-poster": "대비 포스터",
+const TEMPLATE_SPEC_LIBRARY: Record<PageTemplateId, PageTemplateSpec> = {
+  "full-bleed-caption": {
+    id: "full-bleed-caption",
+    label: "풀블리드 이미지 + 캡션",
+    intendedImageRatio: { min: 1.1, max: 9.9 },
+    readingFlow: "상단 메시지 → 중단 대표 이미지 → 하단 근거 블록",
+    maxTextBudget: {
+      title: 30,
+      subtitle: 62,
+      body: 120,
+      bullet: 42,
+      bullets: 3,
+      callout: 78,
+    },
+    fallbackTemplate: "title-image-safe",
+  },
+  "title-image-safe": {
+    id: "title-image-safe",
+    label: "타이틀 + 이미지 안전형",
+    intendedImageRatio: { min: 0.9, max: 1.8 },
+    readingFlow: "헤드라인 → 이미지 인지 → 본문/근거 확인",
+    maxTextBudget: {
+      title: 38,
+      subtitle: 78,
+      body: 170,
+      bullet: 50,
+      bullets: 3,
+      callout: 90,
+    },
+    fallbackTemplate: "full-bleed-caption",
+  },
+  "two-column-image-text": {
+    id: "two-column-image-text",
+    label: "2컬럼 이미지 + 텍스트",
+    intendedImageRatio: { min: 0.5, max: 1.3 },
+    readingFlow: "좌측 시각 근거 → 우측 설명 → 하단 도입 포인트",
+    maxTextBudget: {
+      title: 34,
+      subtitle: 64,
+      body: 150,
+      bullet: 44,
+      bullets: 3,
+      callout: 72,
+    },
+    fallbackTemplate: "title-image-safe",
+  },
 };
-
-const LANDSCAPE_CYCLE: PageTemplate[] = [
-  "cinematic-hero",
-  "contrast-poster",
-  "editorial-spread",
-  "mosaic-notes",
-  "focus-rail",
-];
-
-const PORTRAIT_CYCLE: PageTemplate[] = [
-  "focus-rail",
-  "editorial-spread",
-  "cinematic-hero",
-  "mosaic-notes",
-  "contrast-poster",
-];
-
-const DEFAULT_CYCLE: PageTemplate[] = [
-  "mosaic-notes",
-  "cinematic-hero",
-  "editorial-spread",
-  "contrast-poster",
-  "focus-rail",
-];
 
 const CATEGORY_LIBRARY: Record<PageCategory, CategoryLibrary> = {
   dispense: {
-    kickers: ["1알 단위 소분 조제", "7일 맞춤 리밸런싱", "정밀 영양 설계 서비스"],
-    subtitles: [
-      "약국 1통 구매 대신 필요한 성분만 7일 단위로 제공합니다",
-      "복용 반응을 빠르게 확인하고 다음 주기 조합을 다시 설계합니다",
-      "개인 상태와 목표를 반영해 고정 처방이 아닌 유동 처방으로 운영합니다",
+    kickerPool: ["7일 단위 소분조제", "정밀 맞춤 조합", "1알 단위 공급"],
+    titlePool: [
+      "고정 복용에서 맞춤 조합으로 전환",
+      "건기식을 1통이 아닌 1알 단위로",
+      "7일 단위 조정이 가능한 소분 모델",
     ],
-    intros: [
-      "소분 조제 기반의 핵심 운영 모델을 보여주는 페이지입니다.",
-      "개인별 조합을 유연하게 바꾸는 7일 사이클을 시각화했습니다.",
-      "소량 시작과 빠른 피드백으로 복용 부담을 낮추는 구조입니다.",
+    subtitlePool: [
+      "필요 성분만 선택하고 주기적으로 배합을 수정해 낭비를 줄입니다.",
+      "최소 7일 단위로 조합을 업데이트해 개인 반응에 빠르게 대응합니다.",
+      "복용 후 피드백을 다음 조제에 즉시 반영하는 운영 구조입니다.",
     ],
-    bullets: [
-      "필요 성분만 선택해 불필요한 대용량 구매를 줄입니다",
-      "최소 7일 단위로 조합을 재설계해 정밀도를 높입니다",
-      "복용 순응도와 체감 변화를 다음 처방에 즉시 반영합니다",
-      "약사 검토 기준을 반영해 안전성과 이해도를 확보합니다",
-      "배송 주기를 고정해 운영팀과 고객 모두 예측 가능하게 관리합니다",
-      "개인별 목표에 맞춘 조합 변경이 쉽습니다",
+    bodyPool: [
+      "기존의 통 단위 구매는 조정 속도가 느리고 불필요한 재고가 남기 쉽습니다. 당사 모델은 7일 주기 소분조제를 통해 변화에 맞춰 성분을 바꿀 수 있습니다.",
+      "소분 단위 공급은 초기 진입 장벽을 낮추고, 짧은 주기로 조합을 개선할 수 있어 실사용 적합도를 높입니다.",
     ],
-    chips: ["7일 주기", "소분 조제", "맞춤 배합", "정밀 관리"],
-    callouts: [
-      "핵심 가치: 고정 영양제가 아니라 반응에 따라 계속 맞춰지는 개인 처방 루프.",
-      "1알 단위 운영으로 시작 장벽을 낮추고 조합 실험 속도를 높입니다.",
-      "서비스 목표는 판매보다 개인 적합도 향상에 있습니다.",
+    bulletPool: [
+      "최소 7일 단위로 조합 재설계 가능",
+      "성분 단위 변경이 쉬워 복용 부담 완화",
+      "복용 반응을 다음 주기 조제에 반영",
+      "필요 없는 대용량 구매를 줄여 비용 최적화",
+      "약국/전문가 프로세스와 연동 가능한 구조",
+    ],
+    chipPool: ["7일 리밸런싱", "1알 단위", "소분조제", "정밀 맞춤"],
+    calloutPool: [
+      "핵심은 판매가 아니라 개인 적합도를 계속 높여가는 운영 루프입니다.",
+      "고정 처방이 아닌 주기적 재조합으로 맞춤 정확도를 높입니다.",
     ],
     metrics: [
-      { label: "제공 단위", value: "1알 소분" },
       { label: "조정 주기", value: "최소 7일" },
+      { label: "공급 단위", value: "1알 단위 소분" },
       { label: "운영 방식", value: "반응 기반 리밸런싱" },
     ],
   },
-  app: {
-    kickers: ["AI 추천 엔진", "모바일 문진 플로우", "데이터 기반 매칭"],
-    subtitles: [
-      "사용자 입력을 바탕으로 개인 적합 성분을 자동 추천합니다",
-      "질문-분석-추천-배송까지 하나의 디지털 흐름으로 연결됩니다",
-      "추천 이유를 함께 제시해 임직원 신뢰도를 높입니다",
+  ai: {
+    kickerPool: ["AI 추천 엔진", "설문 기반 분석", "개인화 추천"],
+    titlePool: [
+      "AI가 개인별 건기식 우선순위를 산출",
+      "설문 결과를 실사용 추천으로 전환",
+      "추천부터 배송까지 한 흐름으로 연결",
     ],
-    intros: [
-      "AI 추천 서비스 경험을 빠르게 이해시키는 페이지입니다.",
-      "설문 결과를 개인별 제안으로 전환하는 디지털 레이어를 담았습니다.",
-      "쉽게 참여하고 재추천까지 이어지는 화면 흐름을 보여줍니다.",
+    subtitlePool: [
+      "사용자 입력과 생활 패턴을 종합해 성분 우선순위를 도출합니다.",
+      "추천 이유를 함께 제시해 임직원 수용성을 높입니다.",
+      "추천 결과는 주문/배송 프로세스로 바로 이어집니다.",
     ],
-    bullets: [
-      "전문가 설계 문항으로 개인 상태를 구조화해 수집합니다",
-      "AI가 생활 습관과 목표를 반영해 성분 우선순위를 계산합니다",
-      "추천 결과는 배송 신청까지 즉시 연결됩니다",
-      "추천 이유와 기대 포인트를 함께 제시해 수용성을 높입니다",
-      "주기별 재문진으로 추천 정확도를 지속 개선합니다",
-      "입력 부담을 낮춘 질문 구조로 참여율을 높입니다",
+    bodyPool: [
+      "당사 추천 엔진은 자체 설계 설문 데이터를 기반으로 개인 상태와 목표를 점수화합니다. 추천 결과는 약사 검토 단계와 결합되어 실제 복용 가능한 조합으로 연결됩니다.",
+      "추천 정확도는 사후 피드백 축적에 따라 지속적으로 개선되며, 단발성 처방이 아닌 업데이트 가능한 프로필로 운영됩니다.",
     ],
-    chips: ["AI 추천", "설문 기반", "간편 신청", "지속 개선"],
-    callouts: [
-      "추천은 일회성 결과가 아니라 주기적으로 업데이트되는 개인 프로파일입니다.",
-      "데이터 흐름을 단순화해 참여율과 전환율을 동시에 높입니다.",
-      "앱 경험은 B2C와 B2B에 동일한 품질로 확장 가능합니다.",
+    bulletPool: [
+      "자체 전문가 설계 설문을 데이터 입력점으로 사용",
+      "AI 분석 결과와 약사 검토를 결합해 최종 추천",
+      "추천 이유를 함께 제시해 설명 가능성 확보",
+      "주기적 설문 업데이트로 추천 정확도 개선",
+      "배송 연계로 실행 전환율을 높이는 구조",
+    ],
+    chipPool: ["AI 추천", "설문 분석", "설명 가능성", "배송 연계"],
+    calloutPool: [
+      "추천은 결과가 아니라 시작점이며, 피드백과 함께 계속 업데이트됩니다.",
+      "AI 분석과 전문가 검토를 결합해 도입 리스크를 낮춥니다.",
     ],
     metrics: [
-      { label: "추천 방식", value: "AI + 전문가 룰" },
-      { label: "입력 채널", value: "모바일/웹 설문" },
-      { label: "결과 연계", value: "추천 후 배송 신청" },
+      { label: "추천 방식", value: "AI + 약사 검토" },
+      { label: "입력 채널", value: "자체 설문 데이터" },
+      { label: "실행 연결", value: "추천 후 배송 연계" },
     ],
   },
   consult: {
-    kickers: ["약사 DAY 상담", "전문가 최종 검토", "현장 밀착 케어"],
-    subtitles: [
-      "사전 설문과 약사 대면 상담을 결합해 최종 추천 정확도를 높입니다",
-      "기업 방문 상담으로 임직원이 직접 질문하고 조정받을 수 있습니다",
-      "문진 데이터와 상담 메모를 통합해 최종 배합안을 확정합니다",
+    kickerPool: ["약사 DAY 상담", "오프라인 상담 결합", "전문가 검토"],
+    titlePool: [
+      "설문 + 약사 상담으로 최종 정밀 추천",
+      "임직원 현장 상담을 통한 정확도 보강",
+      "AI 결과를 약사 검토로 최종 확정",
     ],
-    intros: [
-      "B2B 현장 운영에서 설득력이 큰 상담 단계를 보여주는 페이지입니다.",
-      "임직원 맞춤 추천이 어떻게 확정되는지 명확히 설명합니다.",
-      "약사 전문성 기반의 안전한 의사결정 구조를 담았습니다.",
+    subtitlePool: [
+      "주기적으로 약사가 방문해 임직원과 직접 상담합니다.",
+      "상담 결과를 데이터로 반영해 다음 추천에 연결합니다.",
+      "현장 질문 대응으로 임직원 참여율을 높일 수 있습니다.",
     ],
-    bullets: [
-      "사전 설문 결과를 바탕으로 상담 우선순위를 선별합니다",
-      "약사님이 정기 방문해 복용 이력과 컨디션을 직접 점검합니다",
-      "상담 결과는 즉시 분석에 반영되어 개인별 제안이 업데이트됩니다",
-      "금기/주의 성분 확인으로 안전한 추천 기준을 유지합니다",
-      "기업 담당자용 운영 리포트로 진행 상황을 공유합니다",
-      "상담 이력 누적으로 다음 달 추천 품질이 향상됩니다",
+    bodyPool: [
+      "B2B 운영에서는 추천 정확도와 신뢰가 동시에 중요합니다. 당사는 사전 설문 결과와 약사 DAY 상담 메모를 결합해 개인별 최종 추천안을 확정합니다.",
+      "상담 과정은 단순 안내가 아니라 성분 조정 의사결정 단계로 활용되며, 상담 이력은 후속 리포트와 다음 달 조합 설계에 반영됩니다.",
     ],
-    chips: ["약사 방문", "대면 상담", "안전 검토", "최종 확정"],
-    callouts: [
-      "AI 추천 위에 약사 판단을 더해 신뢰 가능한 최종안을 제공합니다.",
-      "현장 상담은 참여율과 만족도를 동시에 끌어올리는 핵심 접점입니다.",
-      "데이터와 전문가 판단을 결합해 오추천 리스크를 낮춥니다.",
+    bulletPool: [
+      "사전 설문 결과 기반 상담 우선순위 설정",
+      "약사 대면 상담으로 개인 이슈 확인",
+      "상담 결과를 즉시 분석해 최종 추천 확정",
+      "다음 조합 설계에 상담 이력 누적 반영",
+      "기업 담당자에게 운영 진행 현황 공유 가능",
+    ],
+    chipPool: ["약사 방문", "대면 상담", "최종 검토", "현장 운영"],
+    calloutPool: [
+      "약사 DAY는 추천 정확도와 임직원 신뢰를 동시에 확보하는 핵심 단계입니다.",
+      "현장 상담 데이터가 누적될수록 개인 맞춤 정밀도가 올라갑니다.",
     ],
     metrics: [
-      { label: "상담 방식", value: "정기 방문/대면" },
-      { label: "최종 추천", value: "약사 검토 반영" },
+      { label: "상담 방식", value: "정기 약사 방문" },
+      { label: "최종 추천", value: "설문 + 상담 통합" },
       { label: "운영 대상", value: "기업 임직원" },
     ],
   },
   report: {
-    kickers: ["개인 건강 레포트", "월간 변화 추적", "피드백 기반 개선"],
-    subtitles: [
-      "개인 맞춤 건강 레포트로 변화 과정을 명확히 제공합니다",
-      "복용·컨디션·상담 데이터를 묶어 월 단위로 결과를 공유합니다",
-      "사후 피드백을 다음 추천 조합의 근거로 연결합니다",
+    kickerPool: ["개인 맞춤 건강 리포트", "사후 피드백 루프", "변화 추적"],
+    titlePool: [
+      "개인 맞춤 리포트로 변화 과정을 가시화",
+      "복용 후 피드백을 다음 조합에 반영",
+      "사후 관리까지 포함한 운영 패키지",
     ],
-    intros: [
-      "패키지의 차별점인 사후 관리와 리포팅 단계를 설명하는 페이지입니다.",
-      "성과를 지표와 코멘트로 전달해 이해하기 쉽게 구성했습니다.",
-      "정기 레포트는 다음 달 처방의 핵심 입력값으로 활용됩니다.",
+    subtitlePool: [
+      "정량/정성 피드백을 함께 기록해 개선 방향을 제시합니다.",
+      "리포트는 결과 공유를 넘어 다음 처방 설계 입력값으로 사용됩니다.",
+      "임직원과 담당자 모두 이해 가능한 언어로 보고합니다.",
     ],
-    bullets: [
-      "개인별 변화 포인트를 한눈에 보는 맞춤 레포트를 제공합니다",
-      "복용 반응과 생활 패턴 피드백을 다음 배합에 반영합니다",
-      "월별 누적 데이터를 기반으로 개선 방향을 제안합니다",
-      "정량 지표와 상담 코멘트를 함께 보여 실행력을 높입니다",
-      "임직원과 기업 담당자 모두 이해할 수 있는 언어로 구성합니다",
-      "사후 관리가 반복될수록 개인 적합도가 높아집니다",
+    bodyPool: [
+      "리포트는 단순 결과 요약 문서가 아니라 개인 맞춤 복용 전략을 업데이트하는 운영 도구입니다. 체감 변화와 상담 기록을 구조화해 다음 조합의 근거로 사용합니다.",
+      "고정적으로 영양제를 유지하는 방식이 아니라, 피드백 기반으로 개인 적합도를 점진적으로 높여가는 과정 자체가 서비스 핵심입니다.",
     ],
-    chips: ["개인 레포트", "월간 분석", "사후 피드백", "지속 개선"],
-    callouts: [
-      "이 서비스의 본질은 피드백을 통해 더 맞는 조합을 찾아가는 과정입니다.",
-      "레포트는 결과 공유를 넘어 다음 추천 품질을 높이는 핵심 데이터입니다.",
-      "고정 복용이 아니라 개인 맞춤 최적화 사이클을 운영합니다.",
+    bulletPool: [
+      "개인별 변화 추세를 월 단위로 기록",
+      "복용 피드백을 다음 조합에 반영",
+      "상담 코멘트와 수치 정보를 함께 제공",
+      "기업 담당자 보고용 요약 지표 제공 가능",
+      "지속 운영 시 개인 적합도 정밀도 상승",
+    ],
+    chipPool: ["월간 리포트", "피드백 반영", "변화 추적", "사후 관리"],
+    calloutPool: [
+      "우리 서비스의 본질은 고정 복용이 아니라 맞춤 정확도를 계속 높이는 과정입니다.",
+      "리포트는 전달 자료가 아니라 다음 조합 설계를 위한 데이터입니다.",
     ],
     metrics: [
-      { label: "레포트 주기", value: "월 1회" },
-      { label: "피드백 반영", value: "다음 달 조합" },
-      { label: "핵심 목표", value: "개인 적합도 향상" },
+      { label: "리포트 주기", value: "월 1회" },
+      { label: "핵심 가치", value: "사후 피드백 반영" },
+      { label: "개선 방식", value: "반복 최적화" },
     ],
   },
   package: {
-    kickers: ["B2B 임직원 패키지", "도입형 복지 프로그램", "진단-상담-배송 일체형"],
-    subtitles: [
-      "설문, 분석, 약사 상담, 소분 조제, 월 배송, 건강 레포트를 한 번에 제공합니다",
-      "기업 규모와 일정에 맞춰 운영 가능한 임직원 건강 복지 패키지입니다",
-      "도입 후에도 월별 재평가로 구성원 만족도를 지속 관리합니다",
+    kickerPool: ["기업 임직원 복지 패키지", "B2B 계약형 운영", "도입형 헬스케어"],
+    titlePool: [
+      "설문-상담-조제-배송-리포트 통합 패키지",
+      "기업 복지에 바로 적용 가능한 맞춤 건기식 서비스",
+      "임직원 대상 월 단위 정밀 영양관리 프로그램",
     ],
-    intros: [
-      "기업 제안에 필요한 전체 패키지 구조를 압축해서 보여주는 페이지입니다.",
-      "도입 결정자가 운영 범위와 기대효과를 빠르게 이해할 수 있습니다.",
-      "일회성 이벤트가 아닌 월간 반복 운영 모델을 전달합니다.",
+    subtitlePool: [
+      "도입 기업의 일정에 맞춰 월 단위 운영이 가능합니다.",
+      "임직원 설문과 약사 상담을 결합해 개인별 조합을 제공합니다.",
+      "한 달치 소분 제품을 정기 배송하고 결과 리포트를 제공합니다.",
     ],
-    bullets: [
-      "사내 설문 배포부터 결과 수집·분석까지 대행 가능합니다",
-      "약사 DAY 상담과 개인 맞춤 추천으로 임직원 만족도를 높입니다",
-      "월 1회 한 달치 소분 제품을 기업 일정에 맞춰 전달합니다",
-      "개인 건강 레포트 포함으로 사후 관리 체계를 완성합니다",
-      "기업 담당자는 운영 현황과 참여 데이터를 주기적으로 확인할 수 있습니다",
-      "복지 예산 안에서 유연한 플랜 구성이 가능합니다",
+    bodyPool: [
+      "B2B 패키지는 사전 설문 배포부터 약사 DAY 상담, 개인별 소분조제, 월 1회 배송, 건강 리포트까지 한 번에 제공합니다. 기업은 운영 부담을 줄이고 임직원은 맞춤형 복지 경험을 받습니다.",
+      "복지 관점에서 중요한 것은 일회성 이벤트가 아닌 반복 가능한 운영입니다. 당사는 월 단위 루프로 결과를 축적하며 조직 단위 도입 효과를 높입니다.",
     ],
-    chips: ["B2B 패키지", "월간 운영", "임직원 복지", "원스톱"],
-    callouts: [
-      "도입 포인트: 적은 초기 부담으로 시작해 데이터 기반으로 고도화합니다.",
-      "추천에서 끝나지 않고 월별 실행과 피드백까지 책임집니다.",
-      "기업은 운영 부담을 줄이고 임직원은 맞춤 케어를 경험합니다.",
+    bulletPool: [
+      "자체 설문 배포/회수/분석을 통합 지원",
+      "약사 DAY 상담으로 임직원 개별 이슈 반영",
+      "개인 맞춤 성분 소분조제 후 월 1회 배송",
+      "개인 맞춤 건강 리포트 패키지 제공",
+      "기업 담당자 대상 운영 현황 공유 체계",
+    ],
+    chipPool: ["B2B 계약형", "월 1회 배송", "임직원 복지", "통합 패키지"],
+    calloutPool: [
+      "기업은 운영 부담을 줄이고, 임직원은 정밀한 맞춤 복지를 경험합니다.",
+      "도입 이후에도 피드백 루프로 조합을 계속 개선하는 것이 차별점입니다.",
     ],
     metrics: [
-      { label: "제공 주기", value: "월 1회 배송" },
-      { label: "구성 요소", value: "설문+상담+소분+레포트" },
+      { label: "공급 주기", value: "월 1회 한 달치" },
+      { label: "구성 항목", value: "설문·상담·조제·리포트" },
       { label: "도입 형태", value: "기업 복지 계약" },
     ],
   },
   generic: {
-    kickers: ["서비스 장면 요약", "핵심 운영 포인트", "소개서 기본 페이지"],
-    subtitles: [
-      "이미지와 핵심 문구를 함께 배치해 빠르게 이해를 돕습니다",
-      "반복 편집이 쉬운 모듈형 구성으로 안정적인 소개서를 만듭니다",
-      "A4 발표 환경에 맞춘 가독성 중심 레이아웃입니다",
+    kickerPool: ["맞춤 건기식 서비스", "기업 제안용 요약", "도입 가치 요약"],
+    titlePool: [
+      "임직원 맞춤 건기식 운영 서비스",
+      "개인화 영양관리 B2B 소개",
+      "피드백 기반 맞춤 건기식 프로그램",
     ],
-    intros: [
-      "기본 소개 프레임을 적용한 페이지입니다.",
-      "빠른 검토와 편집을 위해 영역별 정보 밀도를 맞췄습니다.",
-      "동일 입력에서 같은 결과가 나오도록 안정적으로 구성했습니다.",
+    subtitlePool: [
+      "설문과 상담을 결합해 개인별 조합을 제공합니다.",
+      "복용 피드백을 반영해 고정 처방이 아닌 동적 최적화를 지향합니다.",
+      "월 단위 공급과 리포트 제공으로 운영 완결성을 확보합니다.",
     ],
-    bullets: [
-      "A4 기준 제목-본문 위계를 명확히 유지합니다",
-      "이미지와 설명 카드가 함께 읽히도록 구획을 맞췄습니다",
-      "장식 요소도 모두 PPTX에서 직접 수정할 수 있습니다",
-      "반복 제작에도 레이아웃이 흔들리지 않도록 설계했습니다",
-      "파일명 기반 캡션으로 입력 부담을 최소화합니다",
-      "소개서 페이지를 빠르게 증감할 수 있습니다",
+    bodyPool: [
+      "당사 서비스는 임직원 건강 복지 도입을 위한 맞춤형 건기식 운영 모델입니다. 설문, 분석, 약사 상담, 소분조제, 배송, 리포트를 통합 제공해 실행 가능성을 높입니다.",
+      "서비스 핵심은 개인 적합도를 주기적으로 개선하는 운영 루프에 있으며, 고정 성분 장기 복용의 한계를 보완합니다.",
     ],
-    chips: ["재사용", "안정 출력", "A4 최적화", "편집 가능"],
-    callouts: [
-      "모든 도형과 텍스트는 PPTX에서 직접 편집 가능합니다.",
-      "입력 이미지가 바뀌어도 동일 규칙으로 안정적으로 재생성됩니다.",
-      "영업 현장에서 바로 쓰고 바로 수정할 수 있는 구조를 제공합니다.",
+    bulletPool: [
+      "설문 기반 개인 상태 파악",
+      "약사 검토를 통한 최종 추천",
+      "소분조제로 유연한 조합 변경",
+      "월 단위 정기 배송과 리포트 제공",
+      "피드백 기반 반복 최적화",
+    ],
+    chipPool: ["맞춤 추천", "전문가 상담", "정기 배송", "리포트 제공"],
+    calloutPool: [
+      "단순 공급이 아니라 개인 적합도를 지속 개선하는 서비스 구조입니다.",
+      "도입 이후 데이터가 쌓일수록 맞춤 정밀도가 향상됩니다.",
     ],
     metrics: [
-      { label: "출력 형식", value: "A4 PPTX" },
-      { label: "편집 방식", value: "텍스트/도형 직접 수정" },
-      { label: "입력 조건", value: "/images 만으로 생성" },
+      { label: "서비스 형태", value: "기업 대상 B2B" },
+      { label: "운영 주기", value: "월 단위 반복 운영" },
+      { label: "차별 포인트", value: "피드백 기반 최적화" },
     ],
   },
 };
-
-function shortText(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
-}
-
-function stableHash(value: string): number {
-  let hash = 2166136261;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return hash >>> 0;
-}
-
-function toTitleCase(value: string): string {
-  if (/[가-힣]/.test(value)) {
-    return value;
-  }
-  return value
-    .split(" ")
-    .filter((token) => token.length > 0)
-    .map((token) => token[0].toUpperCase() + token.slice(1))
-    .join(" ");
-}
 
 function cleanCaptionFromFilename(filename: string): string {
   const stem = path.parse(filename).name;
@@ -307,71 +316,36 @@ function cleanCaptionFromFilename(filename: string): string {
     /^\s*(?:\(\s*\d+\s*\)|p\s*\d+|\d+)(?:[\s._-]+)?/i,
     "",
   );
-
   const normalized = withoutPrefix.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-  if (normalized.length > 0) {
-    return normalized;
-  }
-
   const fallback = stem.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-  return fallback || "제목 없음 이미지";
+  return normalized || fallback || "이미지";
 }
 
 function normalizeForKeywordMatch(filename: string): string {
   return path
     .parse(filename)
     .name.toLowerCase()
-    .replace(/[\s_-]+/g, "");
+    .replace(/[\s_./\\()-]+/g, "");
 }
 
 function includesAnyKeyword(normalized: string, keywords: readonly string[]): boolean {
   return keywords.some((keyword) => normalized.includes(keyword));
 }
 
-export function detectCategory(filename: string): PageCategory {
-  const normalized = normalizeForKeywordMatch(filename);
-  const consultKeywords = ["약사", "상담", "consult", "advisor", "pharmacist", "clinic"] as const;
-  const reportKeywords = ["레포트", "리포트", "보고서", "report", "summary", "insight"] as const;
-  const packageKeywords = ["패키지", "기업", "임직원", "복지", "b2b", "package", "bundle", "program"] as const;
-  const appKeywords = ["앱", "웹", "화면", "추천", "ai", "app", "mobile", "web", "screen"] as const;
-  const dispenseKeywords = ["소분", "분할", "조제", "건기식", "영양제", "dispense", "dose", "formula", "pill"] as const;
-
-  if (includesAnyKeyword(normalized, consultKeywords)) {
-    return "consult";
+function shortText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
   }
-  if (includesAnyKeyword(normalized, reportKeywords)) {
-    return "report";
-  }
-  if (includesAnyKeyword(normalized, packageKeywords)) {
-    return "package";
-  }
-  if (includesAnyKeyword(normalized, appKeywords)) {
-    return "app";
-  }
-  if (includesAnyKeyword(normalized, dispenseKeywords)) {
-    return "dispense";
-  }
-
-  return "generic";
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-function pickTemplateFromCycle(cycle: readonly PageTemplate[], index: number): PageTemplate {
-  return cycle[index % cycle.length];
-}
-
-export function pickTemplate(image: ScannedImage, index: number): PageTemplate {
-  const width = image.widthPx ?? 1;
-  const height = image.heightPx ?? 1;
-  const ratio = width / height;
-
-  if (ratio >= 1.2) {
-    return pickTemplateFromCycle(LANDSCAPE_CYCLE, index);
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
   }
-  if (ratio <= 0.85) {
-    return pickTemplateFromCycle(PORTRAIT_CYCLE, index);
-  }
-
-  return pickTemplateFromCycle(DEFAULT_CYCLE, index);
+  return hash >>> 0;
 }
 
 function pickBySeed<T>(values: readonly T[], seed: number, offset = 0): T {
@@ -379,137 +353,213 @@ function pickBySeed<T>(values: readonly T[], seed: number, offset = 0): T {
 }
 
 function pickUnique(values: readonly string[], count: number, seed: number): string[] {
-  if (values.length === 0) {
+  if (values.length === 0 || count <= 0) {
     return [];
   }
 
-  const results: string[] = [];
+  const selected: string[] = [];
   let cursor = seed % values.length;
-
-  while (results.length < count) {
+  while (selected.length < count) {
     const candidate = values[cursor];
-    if (!results.includes(candidate)) {
-      results.push(candidate);
+    if (!selected.includes(candidate)) {
+      selected.push(candidate);
     }
-
     cursor = (cursor + 1) % values.length;
-    if (results.length === values.length) {
+    if (selected.length === values.length) {
       break;
     }
   }
-
-  return results;
+  return selected;
 }
 
-function describeAspect(image: ScannedImage): string {
-  if (!image.widthPx || !image.heightPx) {
-    return "미확인";
+function imageRatio(image: ScannedImage): number {
+  const width = image.widthPx ?? 1;
+  const height = image.heightPx ?? 1;
+  if (width <= 0 || height <= 0) {
+    return 1;
   }
-
-  const ratio = image.widthPx / image.heightPx;
-  const shape = ratio > 1.15 ? "가로형" : ratio < 0.88 ? "세로형" : "균형형";
-  return `${shape} ${ratio.toFixed(2)}:1`;
+  return width / height;
 }
 
-function describeResolution(image: ScannedImage): string {
-  if (!image.widthPx || !image.heightPx) {
-    return "미확인";
+function formatRatioForReason(ratio: number): string {
+  return ratio.toFixed(2).replace(/\.00$/, "");
+}
+
+export function detectCategory(filename: string): PageCategory {
+  const normalized = normalizeForKeywordMatch(filename);
+  const reportKeywords = ["레포트", "리포트", "report", "summary", "insight"] as const;
+  const consultKeywords = ["약사", "상담", "consult", "advisor", "pharmacist", "clinic"] as const;
+  const packageKeywords = ["패키지", "기업", "임직원", "복지", "b2b", "package", "bundle"] as const;
+  const aiKeywords = ["앱", "웹", "화면", "ai", "app", "mobile", "screen", "web"] as const;
+  const dispenseKeywords = ["소분", "조제", "건기식", "영양", "pill", "dose", "dispense"] as const;
+
+  if (includesAnyKeyword(normalized, reportKeywords)) {
+    return "report";
   }
-  return `${image.widthPx}x${image.heightPx}px`;
-}
-
-function buildPanelLabels(chips: readonly string[], seed: number): [string, string] {
-  const left = pickBySeed(chips, seed, 0);
-  const right = pickBySeed(chips, seed, 1);
-  if (left === right) {
-    return [left, pickBySeed(chips, seed, 2)];
+  if (includesAnyKeyword(normalized, consultKeywords)) {
+    return "consult";
   }
-  return [left, right];
+  if (includesAnyKeyword(normalized, packageKeywords)) {
+    return "package";
+  }
+  if (includesAnyKeyword(normalized, aiKeywords)) {
+    return "ai";
+  }
+  if (includesAnyKeyword(normalized, dispenseKeywords)) {
+    return "dispense";
+  }
+  return "generic";
 }
 
-function buildMetrics(
+export function getTemplateSpec(templateId: PageTemplateId): PageTemplateSpec {
+  return TEMPLATE_SPEC_LIBRARY[templateId];
+}
+
+export function getFallbackTemplate(templateId: PageTemplateId): PageTemplateId {
+  return TEMPLATE_SPEC_LIBRARY[templateId].fallbackTemplate;
+}
+
+function pickTemplateByImage(
+  image: ScannedImage,
   category: PageCategory,
-  image: ScannedImage,
-  template: PageTemplate,
-  library: CategoryLibrary,
-): [NarrativeMetric, NarrativeMetric, NarrativeMetric] {
-  if (category === "generic") {
-    return [
-      {
-        label: "비율",
-        value: describeAspect(image),
-      },
-      {
-        label: "해상도",
-        value: describeResolution(image),
-      },
-      {
-        label: "템플릿",
-        value: TEMPLATE_LABELS[template],
-      },
-    ];
+  imageIndex: number,
+): {
+  templateId: PageTemplateId;
+  reason: string;
+} {
+  const ratio = imageRatio(image);
+
+  if (category === "package" || category === "report") {
+    return {
+      templateId: "title-image-safe",
+      reason: "패키지/리포트 유형은 설명 텍스트 비중이 높아 안정형 템플릿을 우선 적용",
+    };
   }
 
-  const [metricA, metricB, metricC] = library.metrics;
-  return [
-    {
-      label: shortText(metricA.label, 18),
-      value: shortText(metricA.value, 34),
-    },
-    {
-      label: shortText(metricB.label, 18),
-      value: shortText(metricB.value, 34),
-    },
-    {
-      label: shortText(metricC.label, 18),
-      value: shortText(metricC.value, 34),
-    },
-  ];
-}
+  if (category === "consult" || category === "ai") {
+    return {
+      templateId: "two-column-image-text",
+      reason: "프로세스 설명이 필요한 유형이므로 이미지-텍스트 분리형 2컬럼을 적용",
+    };
+  }
 
-export function buildNarrative(
-  image: ScannedImage,
-  pageNumber: number,
-  template: PageTemplate,
-  categoryIndex: number,
-): Narrative {
-  const caption = cleanCaptionFromFilename(image.filename);
-  const category = detectCategory(image.filename);
-  const library = CATEGORY_LIBRARY[category];
-  const seed = stableHash(`${image.filename}|${pageNumber}|${template}|${categoryIndex}`);
-  const cleanedTitle = toTitleCase(caption);
-  const title = shortText(cleanedTitle, 44);
-  const subtitle = shortText(pickBySeed(library.subtitles, seed, 3), 78);
-  const intro = pickBySeed(library.intros, seed, 7);
-  const summary = shortText(`${intro} 핵심 장면: ${shortText(title, 22)}.`, 98);
-  const selectedBullets = pickUnique(library.bullets, 4, seed + 11);
-  const selectedChips = pickUnique(library.chips, 3, seed + 19);
-  const [chipA, chipB, chipC] = [
-    selectedChips[0] ?? library.chips[0] ?? "편집 가능",
-    selectedChips[1] ?? library.chips[1] ?? "안정 구조",
-    selectedChips[2] ?? library.chips[2] ?? "재사용 가능",
-  ] as const;
-  const [bulletA, bulletB, bulletC, bulletD] = [
-    shortText(selectedBullets[0] ?? library.bullets[0] ?? "핵심 내용을 구조화해 전달합니다", 42),
-    shortText(selectedBullets[1] ?? library.bullets[1] ?? "A4 가독성 기준을 유지합니다", 42),
-    shortText(selectedBullets[2] ?? library.bullets[2] ?? "PPTX에서 즉시 수정할 수 있습니다", 42),
-    shortText(selectedBullets[3] ?? library.bullets[3] ?? "반복 제작에도 결과가 안정적입니다", 42),
-  ] as const;
-  const callout = shortText(pickBySeed(library.callouts, seed, 13), 98);
-  const panelLabels = buildPanelLabels([chipA, chipB, chipC], seed);
-  const metrics = buildMetrics(category, image, template, library);
+  if (ratio >= 1.35) {
+    return {
+      templateId: "full-bleed-caption",
+      reason: `가로형 비율(${formatRatioForReason(ratio)}:1)로 대표 이미지를 강조하는 템플릿을 적용`,
+    };
+  }
+
+  if (ratio <= 0.85) {
+    return {
+      templateId: "two-column-image-text",
+      reason: `세로형 비율(${formatRatioForReason(ratio)}:1)로 텍스트 가독성이 높은 2컬럼을 적용`,
+    };
+  }
+
+  if (imageIndex % 2 === 0) {
+    return {
+      templateId: "title-image-safe",
+      reason: "균형형 비율 이미지에 안전한 타이틀+이미지 템플릿을 배치",
+    };
+  }
 
   return {
-    category,
-    kicker: pickBySeed(library.kickers, seed, 1),
+    templateId: "full-bleed-caption",
+    reason: "균형형 비율 이미지에서 시각 임팩트를 높이기 위해 풀블리드 템플릿 적용",
+  };
+}
+
+function buildNarrative(
+  category: PageCategory,
+  imageFilename: string,
+  pageNumber: number,
+  templateId: PageTemplateId,
+  maxTextBudget: TextBudgetSummary,
+): PageNarrative {
+  const library = CATEGORY_LIBRARY[category];
+  const caption = cleanCaptionFromFilename(imageFilename);
+  const seed = stableHash(`${imageFilename}|${pageNumber}|${templateId}|${category}`);
+
+  const kicker = shortText(pickBySeed(library.kickerPool, seed, 1), 22);
+  const title = shortText(pickBySeed(library.titlePool, seed, 3), maxTextBudget.title);
+  const subtitle = shortText(pickBySeed(library.subtitlePool, seed, 5), maxTextBudget.subtitle);
+  const body = shortText(
+    `${pickBySeed(library.bodyPool, seed, 7)} 시각 근거: ${caption}.`,
+    maxTextBudget.body,
+  );
+  const selectedBullets = pickUnique(library.bulletPool, maxTextBudget.bullets, seed + 11).map(
+    (item) => shortText(item, maxTextBudget.bullet),
+  );
+  const selectedChips = pickUnique(library.chipPool, 3, seed + 19).map((item) => shortText(item, 20));
+  const callout = shortText(pickBySeed(library.calloutPool, seed, 13), maxTextBudget.callout);
+  const metrics = library.metrics.map((metric) => ({
+    label: shortText(metric.label, 18),
+    value: shortText(metric.value, 32),
+  })) as [NarrativeMetric, NarrativeMetric, NarrativeMetric];
+  const fallbackBullet = "운영 방식은 기업별 도입 조건에 맞춰 조정 가능합니다.";
+  const [bulletA, bulletB, bulletC] = [
+    selectedBullets[0] ?? shortText(fallbackBullet, maxTextBudget.bullet),
+    selectedBullets[1] ?? shortText(fallbackBullet, maxTextBudget.bullet),
+    selectedBullets[2] ?? shortText(fallbackBullet, maxTextBudget.bullet),
+  ] as const;
+  const [chipA, chipB, chipC] = [
+    selectedChips[0] ?? "맞춤 운영",
+    selectedChips[1] ?? "전문가 검토",
+    selectedChips[2] ?? "정기 공급",
+  ] as const;
+  const footer = shortText(
+    `${title} | ${TEMPLATE_SPEC_LIBRARY[templateId].label} | ${pageNumber}페이지`,
+    92,
+  );
+
+  return {
+    kicker,
     title,
     subtitle,
-    summary,
-    bullets: [bulletA, bulletB, bulletC, bulletD],
+    body,
+    bullets: [bulletA, bulletB, bulletC],
     chips: [chipA, chipB, chipC],
     callout,
-    footer: `${shortText(title, 24)} | ${TEMPLATE_LABELS[template]} | ${pageNumber}페이지`,
+    footer,
     metrics,
-    panelLabels,
+  };
+}
+
+export function buildPageBrief(
+  image: ScannedImage,
+  pageNumber: number,
+  imageIndex: number,
+  forcedTemplateId?: PageTemplateId,
+): PageBrief {
+  const imageCaption = cleanCaptionFromFilename(image.filename);
+  const category = detectCategory(image.filename);
+  const picked = forcedTemplateId
+    ? {
+        templateId: forcedTemplateId,
+        reason: "검증 게이트 실패로 안전 템플릿으로 폴백 적용",
+      }
+    : pickTemplateByImage(image, category, imageIndex);
+
+  const templateSpec = getTemplateSpec(picked.templateId);
+  const narrative = buildNarrative(
+    category,
+    image.filename,
+    pageNumber,
+    templateSpec.id,
+    templateSpec.maxTextBudget,
+  );
+
+  return {
+    sourceImage: image.filename,
+    imageCaption,
+    category,
+    template: templateSpec.label,
+    templateReason: picked.reason,
+    readingFlow: templateSpec.readingFlow,
+    maxTextBudget: templateSpec.maxTextBudget,
+    templateId: templateSpec.id,
+    fallbackTemplateId: templateSpec.fallbackTemplate,
+    narrative,
   };
 }

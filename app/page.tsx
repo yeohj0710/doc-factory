@@ -34,6 +34,8 @@ export default async function Home() {
   const tokens = createLayoutTokens(fonts);
   const pages = generateLayout(images, tokens);
   const hasPages = pages.length > 0;
+  const passedPageCount = pages.filter((page) => page.meta?.validation.passed).length;
+  const failedPageCount = pages.length - passedPageCount;
   const fontFaceCss = buildFontFaceCss(fonts);
 
   return (
@@ -81,6 +83,15 @@ export default async function Home() {
           <p className="status-label">기본 폰트</p>
           <p className="status-value status-value-font">{tokens.font.primary}</p>
         </article>
+        <article className="status-item">
+          <p className="status-label">검증 통과</p>
+          <p className="status-value">
+            {passedPageCount}/{pages.length}
+          </p>
+          <p className="status-note">
+            {failedPageCount > 0 ? `${failedPageCount}개 페이지 점검 필요` : "모든 페이지 품질 게이트 통과"}
+          </p>
+        </article>
       </section>
 
       {!hasPages ? (
@@ -97,11 +108,43 @@ export default async function Home() {
             <article className="page-card" key={page.pageNumber}>
               <header className="page-card-header">
                 <p className="page-title">페이지 {page.pageNumber}</p>
-                <p className="page-subtitle">A4 세로형 · 210 x 297 mm</p>
+                <p className="page-subtitle">
+                  {page.meta?.brief.template ?? "A4 템플릿"} · {page.meta?.brief.category ?? "일반"}
+                </p>
               </header>
               <div className="page-scroll">
                 <PageView page={page} fontFamily={tokens.font.cssStack} />
               </div>
+              {page.meta ? (
+                <section className="page-brief">
+                  <p className="page-brief-line">
+                    <strong>선정 이유:</strong> {page.meta.brief.templateReason}
+                  </p>
+                  <p className="page-brief-line">
+                    <strong>읽기 흐름:</strong> {page.meta.brief.readingFlow}
+                  </p>
+                  <p className="page-brief-line">
+                    <strong>텍스트 예산:</strong> 제목 {page.meta.brief.maxTextBudget.title}자 / 부제{" "}
+                    {page.meta.brief.maxTextBudget.subtitle}자 / 본문 {page.meta.brief.maxTextBudget.body}자
+                  </p>
+                  <p
+                    className={
+                      page.meta.validation.passed ? "page-validation-ok" : "page-validation-fail"
+                    }
+                  >
+                    {page.meta.validation.passed
+                      ? "검증 게이트: 통과"
+                      : `검증 게이트: 실패 (${page.meta.validation.issues.length}건)`}
+                  </p>
+                  {!page.meta.validation.passed ? (
+                    <p className="page-validation-issues">
+                      {page.meta.validation.issues
+                        .map((issue) => `[${issue.code}] ${issue.message}`)
+                        .join(" / ")}
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
             </article>
           ))}
         </section>

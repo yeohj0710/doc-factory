@@ -281,6 +281,46 @@ code {
     #e9eef6;
 }
 
+.page-brief {
+  border: 1px solid #d4dcea;
+  border-radius: 12px;
+  background: #f7faff;
+  padding: 10px 12px;
+}
+
+.page-brief-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #2e3c55;
+}
+
+.page-brief-line + .page-brief-line {
+  margin-top: 4px;
+}
+
+.page-validation-ok,
+.page-validation-fail {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.page-validation-ok {
+  color: #0f6a40;
+}
+
+.page-validation-fail {
+  color: #a22929;
+}
+
+.page-validation-issues {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6d2a2a;
+}
+
 .a4-page {
   position: relative;
   width: 210mm;
