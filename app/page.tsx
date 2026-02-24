@@ -4,6 +4,7 @@ import { scanImages } from "@/src/io/scanImages";
 import type { PageSizePreset } from "@/src/layout/pageSize";
 import { generateLayout } from "@/src/layout/generateLayout";
 import type { DocType } from "@/src/layout/types";
+import { normalizeRequestSpecFromQuery, requestPageCountLabel } from "@/src/request/requestSpec";
 import { PageView } from "@/src/render/web/PageView";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ const UI_TEXT = {
   builder: "\uBE44\uC8FC\uC5BC \uBB38\uC11C \uC0DD\uC131\uAE30",
   exportPptx: "PPTX \uB0B4\uBCF4\uB0B4\uAE30",
   regenerateLayout: "Regenerate Layout",
+  newJob: "New Job",
   exportReady: "\uB0B4\uBCF4\uB0B4\uAE30 \uC900\uBE44 \uC644\uB8CC",
   exportBlocked: "\uAC80\uC99D\uC744 \uD1B5\uACFC\uD574\uC57C \uB0B4\uBCF4\uB0BC \uC218 \uC788\uC2B5\uB2C8\uB2E4",
   summary: "\uBB38\uC11C \uC694\uC57D",
@@ -51,7 +53,10 @@ const UI_TEXT = {
   labelStyleSelected: "\uC120\uD0DD \uC2A4\uD0C0\uC77C",
   labelReferenceStatus: "Reference Index",
   labelReferenceCount: "Reference Count",
-  labelReferenceUsage: "Reference Usage",
+  labelReferenceUsage: "Used Layout Clusters",
+  labelThemeFactory: "ThemeFactory",
+  labelRuntimeGates: "RuntimeGates",
+  labelRequestHash: "Request Hash",
   labelPassedPages: "\uD1B5\uACFC \uD398\uC774\uC9C0",
   labelAuditHash: "Audit Hash",
   labelNextFilename: "\uB2E4\uC74C \uD30C\uC77C\uBA85",
@@ -110,57 +115,15 @@ const TEMPLATE_LABEL: Record<string, string> = {
   CTA_CONTACT: "CTA Contact",
 };
 
-function readSingle(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) {
-    return value[0];
+function bumpJobId(current: string): string {
+  const normalized = current.trim();
+  const match = normalized.match(/^(.*?)(\d+)$/);
+  if (!match?.[2]) {
+    return `${normalized || "job"}-2`;
   }
-  return value;
-}
-
-function parseVariantIndex(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? "1", 10);
-  if (Number.isNaN(parsed) || parsed < 1) {
-    return 1;
-  }
-  return parsed;
-}
-
-function parseDocType(value: string | undefined): DocType | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = value.toLowerCase();
-  if (["proposal", "poster", "one-pager", "multi-card", "report"].includes(normalized)) {
-    return normalized as DocType;
-  }
-
-  return undefined;
-}
-
-function parsePageSizePreset(value: string | undefined): PageSizePreset | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = value.toUpperCase();
-  if (["A4P", "A4L", "LETTERP", "LETTERL", "CUSTOM"].includes(normalized)) {
-    return normalized as PageSizePreset;
-  }
-
-  return undefined;
-}
-
-function parseNumber(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = Number.parseFloat(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-  return parsed;
+  const prefix = match[1] ?? "";
+  const next = Number.parseInt(match[2], 10) + 1;
+  return `${prefix}${next}`;
 }
 
 function escapeCssValue(value: string): string {
@@ -214,25 +177,13 @@ function toPageRoleLabel(role: string | undefined): string {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
-
-  const variantIndex = parseVariantIndex(readSingle(params.v));
-  const requestedDocType = parseDocType(readSingle(params.docType));
-  const requestedPageSizePreset = parsePageSizePreset(readSingle(params.size)) ?? "A4P";
-  const showDebug = readSingle(params.debug) === "1";
-  const customWidthMm = parseNumber(readSingle(params.w));
-  const customHeightMm = parseNumber(readSingle(params.h));
-  const customPageSizeMm =
-    requestedPageSizePreset === "CUSTOM" && typeof customWidthMm === "number" && typeof customHeightMm === "number"
-      ? { widthMm: customWidthMm, heightMm: customHeightMm }
-      : undefined;
+  const requestSpec = normalizeRequestSpecFromQuery(params);
+  const showDebug = (Array.isArray(params.debug) ? params.debug[0] : params.debug) === "1";
 
   const [images, fonts] = await Promise.all([scanImages(), scanFonts()]);
 
   const result = await generateLayout(images, fonts, {
-    variantIndex,
-    requestedDocType,
-    requestedPageSizePreset,
-    customPageSizeMm,
+    requestSpec,
     intent: "regenerate",
     debug: showDebug,
   });
@@ -244,6 +195,8 @@ export default async function Home({ searchParams }: HomeProps) {
   const docTypeLabel = DOC_TYPE_LABEL[result.plan.docType] ?? result.plan.docType;
   const pageSizeLabel = PAGE_SIZE_LABEL[result.plan.pageSizePreset] ?? result.plan.pageSizePreset;
   const nextVariantIndex = result.plan.variantIndex + 1;
+  const nextJobId = bumpJobId(result.plan.requestSpec.jobId);
+  const pageCountLabel = requestPageCountLabel(result.plan.requestSpec.pageCount);
 
   return (
     <main className="app-shell">
@@ -257,10 +210,23 @@ export default async function Home({ searchParams }: HomeProps) {
             {docTypeLabel} / {pageSizeLabel} ({result.plan.pageSize.widthMm}mm x {result.plan.pageSize.heightMm}mm) / {UI_TEXT.labelVersion}{" "}
             {result.plan.variantIndex}
           </p>
+          <p className="hero-meta">
+            {UI_TEXT.labelReferenceStatus}: {result.plan.referenceIndexStatus} / {UI_TEXT.labelReferenceUsage}:{" "}
+            {result.exportAudit.gateProof.usedLayoutClusters}/{result.exportAudit.gateProof.requiredLayoutClusters} / {UI_TEXT.labelThemeFactory}:{" "}
+            {result.plan.themeFactoryProof.status} / {UI_TEXT.labelRuntimeGates}: {result.runtimeGates.passed ? "pass" : "fail"} /{" "}
+            {UI_TEXT.labelRequestHash}: {result.requestHash}
+          </p>
         </div>
 
         <div className="hero-action">
           <form action="/api/export/pptx" method="post">
+            <input type="hidden" name="jobId" value={result.plan.requestSpec.jobId} />
+            <input type="hidden" name="docKind" value={result.plan.requestSpec.docKind} />
+            <input type="hidden" name="pageCount" value={pageCountLabel} />
+            <input type="hidden" name="title" value={result.plan.requestSpec.title} />
+            <input type="hidden" name="language" value={result.plan.requestSpec.language} />
+            <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
+            <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
             <input type="hidden" name="variantIndex" value={String(result.plan.variantIndex)} />
             <input type="hidden" name="seed" value={String(result.plan.seed)} />
             <input type="hidden" name="docType" value={result.plan.docType} />
@@ -272,9 +238,15 @@ export default async function Home({ searchParams }: HomeProps) {
             </button>
           </form>
           <form action="/" method="get">
-            <input type="hidden" name="v" value={String(nextVariantIndex)} />
-            <input type="hidden" name="docType" value={result.plan.docType} />
+            <input type="hidden" name="jobId" value={result.plan.requestSpec.jobId} />
+            <input type="hidden" name="variantIndex" value={String(nextVariantIndex)} />
+            <input type="hidden" name="docKind" value={result.plan.requestSpec.docKind} />
+            <input type="hidden" name="pageCount" value={pageCountLabel} />
             <input type="hidden" name="size" value={result.plan.pageSizePreset} />
+            <input type="hidden" name="title" value={result.plan.requestSpec.title} />
+            <input type="hidden" name="language" value={result.plan.requestSpec.language} />
+            <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
+            <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
             {result.plan.pageSizePreset === "CUSTOM" ? (
               <>
                 <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
@@ -284,6 +256,27 @@ export default async function Home({ searchParams }: HomeProps) {
             {showDebug ? <input type="hidden" name="debug" value="1" /> : null}
             <button className="secondary-button" type="submit">
               {UI_TEXT.regenerateLayout}
+            </button>
+          </form>
+          <form action="/" method="get">
+            <input type="hidden" name="jobId" value={nextJobId} />
+            <input type="hidden" name="variantIndex" value="1" />
+            <input type="hidden" name="docKind" value={result.plan.requestSpec.docKind} />
+            <input type="hidden" name="pageCount" value={pageCountLabel} />
+            <input type="hidden" name="size" value={result.plan.pageSizePreset} />
+            <input type="hidden" name="title" value={result.plan.requestSpec.title} />
+            <input type="hidden" name="language" value={result.plan.requestSpec.language} />
+            <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
+            <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
+            {result.plan.pageSizePreset === "CUSTOM" ? (
+              <>
+                <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
+                <input type="hidden" name="h" value={String(result.plan.pageSize.heightMm)} />
+              </>
+            ) : null}
+            {showDebug ? <input type="hidden" name="debug" value="1" /> : null}
+            <button className="secondary-button" type="submit">
+              {UI_TEXT.newJob}
             </button>
           </form>
           <p className={`export-state ${exportBlocked ? "is-blocked" : "is-ready"}`}>
@@ -429,8 +422,17 @@ export default async function Home({ searchParams }: HomeProps) {
                   <p>
                     {UI_TEXT.labelReferenceUsage}:{" "}
                     <strong>
-                      style {result.plan.referenceUsageReport.usedStyleClusterIds.length} / layout {result.plan.referenceUsageReport.usedLayoutClusterIds.length}
+                      {result.exportAudit.gateProof.usedLayoutClusters}/{result.exportAudit.gateProof.requiredLayoutClusters}
                     </strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelThemeFactory}: <strong>{result.plan.themeFactoryProof.status}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelRuntimeGates}: <strong>{result.runtimeGates.passed ? "pass" : "fail"}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelRequestHash}: <strong>{result.requestHash}</strong>
                   </p>
                   <p>
                     {UI_TEXT.labelPassedPages}: <strong>{result.validation.passedPageCount}/{result.pages.length}</strong>

@@ -4,11 +4,21 @@ import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
 import type { ReferenceUsageReport } from "@/src/planner/types";
 import { stableHashFromParts } from "@/src/io/hash";
 
+export type ExportGateProof = {
+  requestHash: string;
+  referenceIndexStatus: ReferenceUsageReport["referenceIndexStatus"];
+  usedLayoutClusters: number;
+  requiredLayoutClusters: number;
+  themeFactoryStatus: "ran" | "skipped";
+  runtimeGatesStatus: "pass" | "fail";
+};
+
 export type ExportAuditResult = {
   passed: boolean;
   issues: LayoutValidationIssue[];
   auditHash: string;
   referenceUsageReport?: ReferenceUsageReport;
+  gateProof: ExportGateProof;
 };
 
 function withinBounds(page: PageLayout, x: number, y: number): boolean {
@@ -77,6 +87,9 @@ export function runExportAudit(params: {
   debugEnabled: boolean;
   referenceRequired: boolean;
   referenceUsageReport?: ReferenceUsageReport;
+  requestHash: string;
+  themeFactoryStatus: "ran" | "skipped";
+  runtimeGatesPassed: boolean;
 }): ExportAuditResult {
   const issues: LayoutValidationIssue[] = [];
 
@@ -170,6 +183,29 @@ export function runExportAudit(params: {
     });
   }
 
+  if (!params.runtimeGatesPassed) {
+    issues.push({
+      code: "export-audit",
+      message: "runtime gates must pass before export",
+    });
+  }
+
+  const requiredLayoutClusters = params.referenceUsageReport
+    ? Math.max(
+        params.referenceUsageReport.minRequiredLayoutClusters,
+        params.expectedPageCount >= 6 ? 3 : params.expectedPageCount > 1 ? 2 : 1,
+      )
+    : 0;
+
+  const gateProof: ExportGateProof = {
+    requestHash: params.requestHash,
+    referenceIndexStatus: params.referenceUsageReport?.referenceIndexStatus ?? "not-required",
+    usedLayoutClusters: params.referenceUsageReport?.usedLayoutClusterIds.length ?? 0,
+    requiredLayoutClusters,
+    themeFactoryStatus: params.themeFactoryStatus,
+    runtimeGatesStatus: params.runtimeGatesPassed ? "pass" : "fail",
+  };
+
   const payload = {
     pageSignature: createLayoutSignature(params.pages),
     expectedPageCount: params.expectedPageCount,
@@ -179,6 +215,7 @@ export function runExportAudit(params: {
     },
     debugEnabled: params.debugEnabled,
     referenceUsageReport: params.referenceUsageReport ?? null,
+    gateProof,
   };
 
   const auditHash = stableHashFromParts([JSON.stringify(payload)], 12);
@@ -188,5 +225,6 @@ export function runExportAudit(params: {
     issues,
     auditHash,
     referenceUsageReport: params.referenceUsageReport,
+    gateProof,
   };
 }

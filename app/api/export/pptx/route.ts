@@ -1,8 +1,7 @@
 ﻿import { scanFonts } from "@/src/io/scanFonts";
 import { scanImages } from "@/src/io/scanImages";
 import { generateLayout } from "@/src/layout/generateLayout";
-import type { PageSizePreset } from "@/src/layout/pageSize";
-import type { DocType } from "@/src/layout/types";
+import { normalizeRequestSpecFromFormData } from "@/src/request/requestSpec";
 import { renderLayoutsToPptx } from "@/src/render/pptx/renderPptx";
 
 export const runtime = "nodejs";
@@ -43,28 +42,6 @@ function encodeContentDispositionFilename(filename: string): {
   };
 }
 
-function parseNumber(value: FormDataEntryValue | null): number | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const parsed = Number.parseFloat(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-  return parsed;
-}
-
-function parseInteger(value: FormDataEntryValue | null): number | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-  return parsed;
-}
-
 function parseBoolean(value: FormDataEntryValue | null): boolean | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -79,28 +56,6 @@ function parseBoolean(value: FormDataEntryValue | null): boolean | undefined {
   return undefined;
 }
 
-function parseDocType(value: FormDataEntryValue | null): DocType | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const normalized = value.toLowerCase();
-  if (["proposal", "poster", "one-pager", "multi-card", "report"].includes(normalized)) {
-    return normalized as DocType;
-  }
-  return undefined;
-}
-
-function parsePageSizePreset(value: FormDataEntryValue | null): PageSizePreset | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const normalized = value.toUpperCase();
-  if (["A4P", "A4L", "LETTERP", "LETTERL", "CUSTOM"].includes(normalized)) {
-    return normalized as PageSizePreset;
-  }
-  return undefined;
-}
-
 export async function POST(request: Request): Promise<Response> {
   const requestId = `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const logger = createExportLogger(requestId);
@@ -109,18 +64,12 @@ export async function POST(request: Request): Promise<Response> {
     logger.log("export start");
     const formData = await request.formData();
 
-    const variantIndex = parseInteger(formData.get("variantIndex")) ?? 1;
-    const seed = parseInteger(formData.get("seed"));
-    const requestedDocType = parseDocType(formData.get("docType"));
-    const requestedPageSizePreset = parsePageSizePreset(formData.get("pageSizePreset"));
+    const requestSpec = normalizeRequestSpecFromFormData(formData);
     const requestedDebug = formData.get("debug");
-    const requestedDatePrefix = parseBoolean(formData.get("datePrefix"));
     const qaDisableReferenceUsage = parseBoolean(formData.get("qaDisableReferenceUsage")) ?? false;
-    const pageWidthMm = parseNumber(formData.get("pageWidthMm"));
-    const pageHeightMm = parseNumber(formData.get("pageHeightMm"));
     logger.log(
       "request parsed",
-      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"} datePrefix=${requestedDatePrefix === true ? "1" : "0"} qaDisableReferenceUsage=${qaDisableReferenceUsage ? "1" : "0"}`,
+      `job=${requestSpec.jobId} docKind=${requestSpec.docKind} pageCount=${requestSpec.pageCount.mode} variant=${requestSpec.variantIndex} seed=${requestSpec.seed} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"} qaDisableReferenceUsage=${qaDisableReferenceUsage ? "1" : "0"}`,
     );
 
     logger.log("asset scan start");
@@ -139,25 +88,14 @@ export async function POST(request: Request): Promise<Response> {
 
     logger.log("layout generation start");
     const result = await generateLayout(images, fonts, {
+      requestSpec,
       intent: "export",
-      variantIndex,
-      seed,
-      requestedDocType,
-      requestedPageSizePreset,
-      customPageSizeMm:
-        requestedPageSizePreset === "CUSTOM" && typeof pageWidthMm === "number" && typeof pageHeightMm === "number"
-          ? {
-              widthMm: pageWidthMm,
-              heightMm: pageHeightMm,
-            }
-          : undefined,
       debug: false,
-      includeDatePrefix: requestedDatePrefix === true,
       disableReferenceDrivenPlanning: qaDisableReferenceUsage,
     });
     logger.log(
       "layout generation done",
-      `pages=${result.pages.length} validation=${result.validation.passed} audit=${result.exportAudit.passed}`,
+      `requestHash=${result.requestHash} pages=${result.pages.length} validation=${result.validation.passed} audit=${result.exportAudit.passed}`,
     );
 
     if (!result.validation.passed || !result.exportAudit.passed) {
@@ -171,7 +109,9 @@ export async function POST(request: Request): Promise<Response> {
           pageErrors: result.validation.pageResults.filter((page) => !page.passed),
           exportAuditIssues: result.exportAudit.issues,
           exportAuditHash: result.exportAudit.auditHash,
+          exportGateProof: result.exportAudit.gateProof,
           referenceUsageReport: result.exportAudit.referenceUsageReport,
+          requestHash: result.requestHash,
         },
         { status: 400 },
       );
@@ -207,13 +147,16 @@ export async function POST(request: Request): Promise<Response> {
         "Cache-Control": "no-store",
         "X-DocFactory-Export-Debug": "0",
         "X-DocFactory-Audit-Hash": result.exportAudit.auditHash,
+        "X-DocFactory-Request-Hash": result.requestHash,
         "X-DocFactory-Reference-Index-Status": result.plan.referenceIndexStatus,
         "X-DocFactory-Reference-Digest": result.plan.referenceDigest || "none",
         "X-DocFactory-Ref-Used-Style-Clusters": String(refReport?.usedStyleClusterIds.length ?? 0),
         "X-DocFactory-Ref-Used-Layout-Clusters": String(refReport?.usedLayoutClusterIds.length ?? 0),
-        "X-DocFactory-Ref-Layout-Coverage-Required": String(refReport?.minRequiredLayoutClusters ?? 0),
+        "X-DocFactory-Ref-Layout-Coverage-Required": String(result.exportAudit.gateProof.requiredLayoutClusters),
         "X-DocFactory-Style-Preset-Id": result.plan.stylePresetId,
         "X-DocFactory-Layout-Clusters": result.plan.referenceUsageReport.usedLayoutClusterIds.join(","),
+        "X-DocFactory-ThemeFactory": result.plan.themeFactoryProof.status,
+        "X-DocFactory-Runtime-Gates": result.runtimeGates.passed ? "pass" : "fail",
       },
     });
   } catch (error) {

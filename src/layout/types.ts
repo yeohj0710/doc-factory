@@ -156,6 +156,7 @@ export type GenerationParams = {
   variantIndex: number;
   seed: number;
   referenceDigest?: string;
+  requestHash?: string;
 };
 
 export type LayoutDocument = {

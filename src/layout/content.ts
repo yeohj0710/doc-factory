@@ -54,8 +54,6 @@ const BANNED_VAGUE_WORDS = [
   "world class",
   "cutting edge",
 ];
-const B2B_SERVICE_TITLE_KEYWORD = "영양설계서비스소개서";
-const B2B_SERVICE_KEYWORDS = ["소분", "건기식", "약사", "상담", "리포트", "레포트", "패키지", "앱"];
 
 function sanitizeText(value: string): string {
   return value
@@ -63,10 +61,6 @@ function sanitizeText(value: string): string {
     .replace(/\.\.\.$/g, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function normalize(value: string): string {
-  return value.toLowerCase().replace(/[\s_.\-()/\\]+/g, "");
 }
 
 function shortText(value: string, maxLength: number): string {
@@ -96,10 +90,10 @@ function cleanCaptionFromFilename(filename: string): string {
 }
 
 function docTypeLabel(docType: DocumentPlan["docType"]): string {
-  if (docType === "proposal") return "Proposal";
+  if (docType === "proposal") return "Brochure";
   if (docType === "poster") return "Poster";
   if (docType === "one-pager") return "One-pager";
-  if (docType === "multi-card") return "Multi-card";
+  if (docType === "multi-card") return "Cards";
   return "Report";
 }
 
@@ -124,16 +118,16 @@ function sectionLabel(role: PageRole): string {
   if (role === "cover") return "표지";
   if (role === "section-divider") return "구분";
   if (role === "agenda") return "목차";
-  if (role === "insight") return "Insight";
+  if (role === "insight") return "핵심";
   if (role === "solution") return "해결안";
-  if (role === "process") return "Process";
-  if (role === "timeline") return "Timeline";
+  if (role === "process") return "프로세스";
+  if (role === "timeline") return "일정";
   if (role === "metrics") return "지표";
-  if (role === "comparison") return "Comparison";
+  if (role === "comparison") return "비교";
   if (role === "gallery") return "갤러리";
-  if (role === "text-only") return "Text";
-  if (role === "cta") return "CTA";
-  return "Topic";
+  if (role === "text-only") return "텍스트";
+  if (role === "cta") return "다음 단계";
+  return "주제";
 }
 
 function pickImageFit(sourceImage: string | null): ImageFit {
@@ -149,146 +143,23 @@ function pickImageFit(sourceImage: string | null): ImageFit {
   return "cover";
 }
 
-function isB2BSalesServicePlan(plan: DocumentPlan): boolean {
-  if (normalize(plan.docTitle).includes(B2B_SERVICE_TITLE_KEYWORD)) {
-    return true;
-  }
-
-  let score = 0;
-  for (const cluster of plan.topicClusters) {
-    for (const image of cluster.images) {
-      if (B2B_SERVICE_KEYWORDS.some((keyword) => normalize(image.filename).includes(normalize(keyword)))) {
-        score += 1;
-      }
-      if (score >= 3) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-function buildB2BSalesServiceDraft(item: StoryboardItem, plan: DocumentPlan): CopyDraft | null {
-  if (!isB2BSalesServicePlan(plan)) {
-    return null;
-  }
-
-  if (item.pageNumber === 1 || item.role === "cover") {
-    return {
-      kicker: "기업 복지 제안서",
-      title: "고정 복용이 아닌, 매주 조정되는 영양 설계",
-      subtitle: "약국 기반 1알 단위 소분 조제 서비스",
-      body: "AI 추천과 약사 DAY 상담을 결합해 임직원별 복용 조합을 지속적으로 조정합니다.",
-      points: ["1알 단위 소분 조제", "최소 7일 단위 조합 변경", "월 1회 정기 배송"],
-      callout: "핵심 가치는 고정 처방이 아닌 지속 조정입니다.",
-    };
-  }
-
-  if (item.pageNumber === 2 || item.role === "text-only") {
-    return {
-      kicker: "기존 방식의 문제",
-      title: "일괄 구매형 건기식 복지는 개인차를 반영하기 어렵습니다",
-      subtitle: "1통 단위 지급 중심 구조의 운영 한계",
-      body: "구성 변경 주기가 길고 상담 연결이 약해 복약 지속률과 체감 효과가 함께 떨어집니다.",
-      points: [
-        "1통 단위 지급, 개인 맞춤 한계",
-        "상태 변화 반영이 늦음",
-        "상담 부재로 신뢰 저하",
-        "기업 효과 데이터 부족",
-      ],
-      callout: "복지비를 써도 체감 효과가 약하면 재도입 근거가 약해집니다.",
-    };
-  }
-
-  if (item.pageNumber === 3 || item.role === "solution") {
-    return {
-      kicker: "우리의 솔루션",
-      title: "AI 추천과 약사 상담을 결합한 맞춤 소분 조제",
-      subtitle: "개인 데이터와 전문 판단을 함께 반영",
-      body: "자체 설문과 복용 데이터를 분석한 뒤 약사 DAY 상담으로 조합을 확정하고 조제합니다.",
-      points: ["AI 1차 추천", "약사 DAY 최종 상담", "1알 단위 맞춤 조제", "개인 리포트 제공"],
-      callout: "추천 정확도는 데이터와 상담의 결합에서 올라갑니다.",
-    };
-  }
-
-  if (item.pageNumber === 4 || item.role === "process" || item.role === "timeline") {
-    return {
-      kicker: "B2B 운영 프로세스",
-      title: "설문부터 배송까지 월간 운영 체계를 표준화합니다",
-      subtitle: "설문 -> 분석 -> 약사 DAY -> 조제 -> 배송",
-      body: "기업 담당자는 월간 운영 리포트를 확인하고, 임직원은 개인별 조정 내역을 확인합니다.",
-      points: ["자체 설문 수집", "데이터 분석", "약사 DAY 상담", "맞춤 소분 조제", "월 1회 배송"],
-      callout: "단계별 입력 데이터와 책임 주체를 고정해 운영 편차를 줄입니다.",
-    };
-  }
-
-  if (item.pageNumber === 5 || item.role === "comparison") {
-    return {
-      kicker: "차별점",
-      title: "7일 단위 조정과 피드백 루프가 결과를 만듭니다",
-      subtitle: "정적 패키지 방식과의 핵심 차이",
-      body: "복용 피드백을 다음 조제에 반영해 개인 상태 변화에 맞춰 조합을 계속 업데이트합니다.",
-      points: [
-        "최소 7일 단위 리밸런싱",
-        "복용 피드백 반영 루프",
-        "AI + 약사 이중 검토",
-        "월간 리포트로 변화 추적",
-      ],
-      callout: "고정 조합이 아니라 조정 가능한 조합이 실제 복용 지속성을 높입니다.",
-    };
-  }
-
-  if (item.pageNumber === 6 || item.role === "metrics") {
-    return {
-      kicker: "기업 도입 효과",
-      title: "복지 만족도와 운영 가시성을 동시에 높입니다",
-      subtitle: "임직원 체감과 조직 의사결정을 함께 개선",
-      body: "개인 맞춤 복지 경험을 제공하면서 데이터 기반 운영 리포트로 내부 보고 근거를 확보합니다.",
-      points: [
-        "임직원 복지 체감도 향상",
-        "복지 참여율 개선",
-        "데이터 기반 운영 의사결정",
-        "ESG 커뮤니케이션 근거 확보",
-      ],
-      callout: "복지를 비용이 아닌 유지율과 참여율 지표로 관리할 수 있습니다.",
-    };
-  }
-
-  if (item.pageNumber === 7 || item.role === "cta") {
-    return {
-      kicker: "도입 제안",
-      title: "3개월 파일럿으로 빠르게 검증하고 확장하십시오",
-      subtitle: "패키지 구성과 리포트 샘플을 함께 제공합니다",
-      body: "대상 인원과 예산을 확정하면 약사 DAY 일정과 월간 리포트 체계를 포함한 실행안을 제시합니다.",
-      points: ["대상 인원/예산 확정", "샘플 패키지 공유", "약사 DAY 일정 확정", "3개월 파일럿 시작"],
-      callout: "의사결정에 필요한 자료를 1주 내 전달드리겠습니다.",
-    };
-  }
-
-  return null;
-}
-
 function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): CopyDraft {
-  const salesBriefDraft = buildB2BSalesServiceDraft(item, plan);
-  if (salesBriefDraft) {
-    return salesBriefDraft;
-  }
-
-  const topic = item.topicLabel;
+  const language = plan.requestSpec.language;
+  const tone = plan.requestSpec.tone;
+  const unknownMetricLabel = "(추후 기입)";
 
   if (item.role === "cover") {
     return {
-      kicker: docTypeLabel(plan.docType),
+      kicker: `${docTypeLabel(plan.docType)} / ${language}`,
       title: plan.docTitle,
-      subtitle: `문서 타입 ${docTypeLabel(plan.docType)} 기준으로 스토리보드를 구성했습니다.`,
-      body: `${caption} 자산을 기준으로 문제 정의, 실행 방식, 검증 조건, 다음 액션까지 순차적으로 정리합니다.`,
+      subtitle: `${tone} 톤으로 구성한 ${plan.pageCount}페이지 문서`,
+      body: `${caption} 자산을 기반으로 흐름을 먼저 정의하고 페이지별 메시지를 간결한 불릿 중심으로 정리합니다.`,
       points: [
-        "페이지 수는 이미지 수가 아니라 문서 목적 기준으로 계산",
-        "템플릿 반복은 최대 2회로 제한",
-        "검증 통과 전 export 금지",
+        "RequestSpec 기준으로 페이지 수 고정",
+        "레이아웃 게이트 통과 전 export 차단",
+        "참조 인덱스 조건을 감사 로그로 증명",
       ],
-      callout: "핵심 메시지: 계획-검증-내보내기 흐름을 하나의 체계로 유지합니다.",
+      callout: "메시지는 짧게, 근거는 검증 가능한 항목만 사용합니다.",
     };
   }
 
@@ -296,90 +167,117 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
     return {
       kicker: "개요",
       title: "문서 진행 순서",
-      subtitle: "페이지별 역할을 먼저 고정한 뒤 자산을 배치합니다.",
-      body: "아젠다는 의사결정 흐름과 검증 포인트를 기준으로 구성되어 중복 설명을 줄입니다.",
+      subtitle: "판단 흐름이 보이도록 페이지 역할을 먼저 고정합니다",
+      body: "아젠다는 설명 순서가 아니라 의사결정 순서를 기준으로 구성합니다.",
       points: [
-        "핵심 문제와 근거를 먼저 제시",
-        "실행 방식과 일정은 분리해서 설명",
-        "마지막 페이지는 결정 가능한 액션으로 종료",
+        "목표와 제약 조건 확인",
+        "핵심 근거 및 비교 포인트 정리",
+        "실행 계획과 검증 항목 확정",
+        "다음 단계 담당/기한 정의",
       ],
-      callout: "아젠다 페이지는 다음 페이지의 판단 기준을 정의합니다.",
+      callout: "아젠다에서 정한 순서를 나머지 페이지가 그대로 따릅니다.",
+    };
+  }
+
+  if (item.role === "insight") {
+    return {
+      kicker: "핵심 인사이트",
+      title: "현재 상태에서 가장 중요한 관찰",
+      subtitle: "문제 정의와 근거를 같은 축으로 배치합니다",
+      body: "관찰 문장은 한 문장으로 요약하고, 바로 아래에 검증 가능한 근거를 연결합니다.",
+      points: ["핵심 관찰 1개", "확인 가능한 근거 2~3개", "해석과 사실 분리"],
+      callout: "인사이트 페이지는 주장보다 근거가 먼저 보여야 합니다.",
+    };
+  }
+
+  if (item.role === "solution") {
+    return {
+      kicker: "해결안",
+      title: "실행 가능한 구조로 정리한 제안",
+      subtitle: "복잡한 설명 대신 책임과 결과 중심으로 작성",
+      body: "제안은 기능 목록이 아니라 단계와 책임 주체로 표현합니다.",
+      points: ["단계별 책임", "필요 입력", "산출물 형태", "검토 지점"],
+      callout: "실행 단위가 보이면 문서의 설득력이 올라갑니다.",
     };
   }
 
   if (item.role === "process" || item.role === "timeline") {
     return {
-      kicker: "실행",
-      title: item.role === "timeline" ? "실행 타임라인" : "운영 프로세스",
-      subtitle: "단계 간 입력/출력 조건을 명확히 고정합니다.",
-      body: "단계별 담당, 산출물, 검증 기준을 분리하면 운영 중 품질 편차를 줄일 수 있습니다.",
-      points: ["입력 정보 수집", "중간 검토", "배포/운영", "리포트 회수", "다음 사이클 반영"],
-      callout: "각 단계는 완료 조건이 있어야 다음 단계로 이동할 수 있습니다.",
+      kicker: "실행 흐름",
+      title: item.role === "timeline" ? "주요 일정" : "운영 프로세스",
+      subtitle: "단계 간 입력과 출력을 분리해 오류를 줄입니다",
+      body: "각 단계는 완료 조건이 있어야 다음 단계로 진행할 수 있습니다.",
+      points: ["입력 수집", "중간 점검", "실행/배포", "결과 회수", "다음 사이클 반영"],
+      callout: "프로세스 페이지는 읽는 순간 다음 행동이 떠올라야 합니다.",
     };
   }
 
   if (item.role === "metrics") {
     return {
-      kicker: "근거",
-      title: "정량 지표와 결과 확인",
-      subtitle: "측정 가능한 항목만 남기고 추정 문구는 배제합니다.",
-      body: `${caption} 자료에서 확인 가능한 값만 사용해 성과와 리스크를 함께 표시합니다.`,
-      points: ["지표 정의", "측정 주기", "허용 오차", "개선 액션"],
-      callout: "숫자는 기준값, 현재값, 목표값 세 가지로 표현합니다.",
+      kicker: "지표",
+      title: "측정 기준과 상태",
+      subtitle: "수치가 불명확한 항목은 생성하지 않습니다",
+      body: "확정되지 않은 수치 대신 지표 정의와 측정 방식만 먼저 합의합니다.",
+      points: [
+        `기준값: ${unknownMetricLabel}`,
+        `현재값: ${unknownMetricLabel}`,
+        `목표값: ${unknownMetricLabel}`,
+      ],
+      callout: "모르는 숫자는 비워두고 측정 방법을 먼저 고정합니다.",
     };
   }
 
   if (item.role === "comparison") {
     return {
-      kicker: "비교표",
-      title: "선택지 비교",
-      subtitle: "조건/비용/리스크를 동일 축으로 비교합니다.",
-      body: "비교표는 결론을 유도하기 위한 장치이며 항목 정의가 다르면 같은 표에서 비교하지 않습니다.",
-      points: ["필수 조건 충족 여부", "운영 난이도", "도입 비용", "유지관리 부담"],
-      callout: "비교 기준은 사전에 합의된 항목만 사용합니다.",
+      kicker: "비교",
+      title: "선택지 간 차이 정리",
+      subtitle: "같은 기준으로만 비교합니다",
+      body: "조건, 비용, 리스크를 동일한 축에서 비교해 결정을 돕습니다.",
+      points: ["필수 조건 충족 여부", "운영 난이도", "도입 비용", "리스크"],
+      callout: "비교 축이 다르면 표를 분리해서 작성합니다.",
+    };
+  }
+
+  if (item.role === "gallery") {
+    return {
+      kicker: "대표 자산",
+      title: "핵심 장면 하이라이트",
+      subtitle: `${caption} 중심으로 메시지를 단문으로 유지`,
+      body: "이미지 중심 페이지는 본문을 길게 쓰지 않고 핵심 해석만 남깁니다.",
+      points: ["장면 설명", "활용 맥락", "검증 메모"],
+      callout: "이미지와 본문이 서로 같은 메시지를 가리켜야 합니다.",
+    };
+  }
+
+  if (item.role === "text-only") {
+    return {
+      kicker: "텍스트 정리",
+      title: "이미지 없이도 전달되는 핵심 논리",
+      subtitle: "근거-주장-행동 순서로 압축",
+      body: "텍스트 전용 페이지는 문서의 논리 축을 고정하는 용도로 사용합니다.",
+      points: ["핵심 주장", "근거 항목", "예외 조건", "실행 조건"],
+      callout: "문장이 길어지면 먼저 항목 수를 줄입니다.",
     };
   }
 
   if (item.role === "cta") {
     return {
       kicker: "다음 단계",
-      title: "다음 단계 확정",
-      subtitle: "회의 종료 시 실행 항목이 남도록 정리합니다.",
-      body: "담당자, 기한, 산출물, 검토 시점을 한 페이지에 배치해 즉시 실행 가능 상태로 마무리합니다.",
-      points: ["담당자 지정", "기한 확정", "검토 미팅 예약", "리스크 체크"],
-      callout: "CTA는 단문으로 작성하고 실행 목록은 불릿으로 분리합니다.",
-    };
-  }
-
-  if (item.role === "gallery") {
-    return {
-      kicker: "핵심 장면",
-      title: "대표 자산 하이라이트",
-      subtitle: `${caption}를 중심으로 메시지를 한 문장으로 고정합니다.`,
-      body: "이미지는 1개만 사용해 주의를 분산시키지 않고 설명은 필요한 최소 길이로 유지합니다.",
-      points: ["핵심 장면 설명", "활용 맥락", "검증 메모"],
-      callout: "이미지 중심 페이지는 설명 텍스트를 과도하게 늘리지 않습니다.",
-    };
-  }
-
-  if (item.role === "text-only") {
-    return {
-      kicker: "핵심 정리",
-      title: "이미지 없이 정리한 핵심 논리",
-      subtitle: "근거-주장-행동을 텍스트만으로 연결합니다.",
-      body: "이미지가 부족하거나 저신호 자산 비중이 높을 때 텍스트 중심 페이지로 문서 리듬을 회복합니다.",
-      points: ["핵심 주장", "근거 항목", "예외 조건", "실행 조건"],
-      callout: "텍스트 페이지는 멀티 페이지 문서에서 최소 1회 포함됩니다.",
+      title: "바로 실행할 항목 확정",
+      subtitle: "담당자와 기한을 한 페이지에서 마무리",
+      body: "회의 종료 시 즉시 실행 가능한 상태를 만드는 것이 목표입니다.",
+      points: ["담당자 지정", "기한 확정", "검토 일정", "리스크 체크"],
+      callout: "CTA는 선택지가 아니라 실행 목록이어야 합니다.",
     };
   }
 
   return {
     kicker: sectionLabel(item.role),
     title: `${sectionLabel(item.role)} 페이지 핵심`,
-    subtitle: `${topic} 토픽을 기준으로 페이지 메시지를 정리합니다.`,
-    body: `${caption} 자산을 선택 근거로 사용하고, 확인 가능한 항목만 포함합니다. 의미가 불명확하면 중립 문장을 1개만 유지합니다.`,
-    points: ["핵심 메시지 1개 유지", "보조 근거를 짧게 첨부", "페이지 목적과 성공조건 정렬"],
-    callout: "페이지 요소는 템플릿 예산 범위 내에서만 유지합니다.",
+    subtitle: `${item.topicLabel} 토픽 기준 메시지 정리`,
+    body: `${caption} 자산에서 확인 가능한 정보만 사용해 페이지 목적을 명확히 유지합니다.`,
+    points: ["핵심 메시지 1개", "근거 2~3개", "다음 행동 1개"],
+    callout: "텍스트 예산을 넘기면 먼저 텍스트를 줄입니다.",
   };
 }
 
@@ -457,44 +355,23 @@ function fitCheck(params: {
 }
 
 function buildMetrics(item: StoryboardItem, plan: DocumentPlan): NarrativeMetrics {
-  if (isB2BSalesServicePlan(plan)) {
-    if (item.role === "metrics") {
-      return {
-        items: [
-          { label: "조제 단위", value: "1알 단위" },
-          { label: "조정 주기", value: "최소 7일" },
-          { label: "배송 주기", value: "월 1회" },
-        ],
-        debugOnly: false,
-      };
-    }
-    return {
-      items: [
-        { label: "운영 형태", value: "B2B 계약" },
-        { label: "상담 체계", value: "약사 DAY" },
-      ],
-      debugOnly: true,
-    };
-  }
-
-  const summary: NarrativeMetric[] = [
-    { label: "페이지 수", value: `${plan.pageCount}` },
-    { label: "문서 유형", value: docTypeLabel(plan.docType) },
-    { label: "스타일", value: "선택됨" },
-  ];
-
   if (item.role === "metrics") {
     return {
       items: [
-        { label: "검증 자산", value: `${plan.proofAssetCount}` },
-        { label: "저신호 자산", value: `${plan.lowSignalAssetCount}` },
+        { label: "페이지 수", value: String(plan.pageCount) },
+        { label: "검증 자산", value: String(plan.proofAssetCount) },
+        { label: "저신호 자산", value: String(plan.lowSignalAssetCount) },
       ],
       debugOnly: false,
     };
   }
 
   return {
-    items: summary,
+    items: [
+      { label: "문서 유형", value: docTypeLabel(plan.docType) },
+      { label: "언어", value: plan.requestSpec.language },
+      { label: "톤", value: plan.requestSpec.tone },
+    ],
     debugOnly: true,
   };
 }
@@ -600,4 +477,3 @@ export function buildPageBrief(params: {
     imageFit: pickImageFit(sourceImage),
   };
 }
-

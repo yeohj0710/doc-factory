@@ -78,6 +78,51 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
+function rgbToHex(r: number, g: number, b: number): string {
+  const clampRgb = (value: number): number => clamp(Math.round(value), 0, 255);
+  const toHex = (value: number): string => clampRgb(value).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(baseHex: string, targetHex: string, targetWeight: number): string {
+  const weight = clamp(targetWeight, 0, 1);
+  const a = hexToRgb(baseHex);
+  const b = hexToRgb(targetHex);
+  return rgbToHex(
+    a.r * (1 - weight) + b.r * weight,
+    a.g * (1 - weight) + b.g * weight,
+    a.b * (1 - weight) + b.b * weight,
+  );
+}
+
+function ensureMinLuma(hex: string, minLumaValue: number): string {
+  let color = hex;
+  let attempts = 0;
+  while (attempts < 6) {
+    const rgb = hexToRgb(color);
+    if (luma(rgb.r, rgb.g, rgb.b) >= minLumaValue) {
+      return color;
+    }
+    color = mixHex(color, "#FFFFFF", 0.24);
+    attempts += 1;
+  }
+  return color;
+}
+
+function ensureMaxLuma(hex: string, maxLumaValue: number): string {
+  let color = hex;
+  let attempts = 0;
+  while (attempts < 6) {
+    const rgb = hexToRgb(color);
+    if (luma(rgb.r, rgb.g, rgb.b) <= maxLumaValue) {
+      return color;
+    }
+    color = mixHex(color, "#111111", 0.2);
+    attempts += 1;
+  }
+  return color;
+}
+
 function luma(r: number, g: number, b: number): number {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
@@ -210,12 +255,31 @@ function deriveReferencePreset(basePreset: StylePreset, params: {
   shadowOpacity: number;
   accentRule: "muted" | "balanced" | "bold";
 }): StylePreset {
-  const accent = params.palette[0] ?? basePreset.colors.accent;
-  const accentDeep = params.palette[1] ?? basePreset.colors.accentDeep;
-  const highlight = params.palette[2] ?? basePreset.colors.highlight;
-  const highlightSoft = params.palette[3] ?? basePreset.colors.highlightSoft;
-  const softAccent = params.palette[4] ?? basePreset.colors.softAccent;
-  const softAccentAlt = params.palette[5] ?? basePreset.colors.softAccentAlt;
+  const pageColor = basePreset.colors.page;
+  const accentRaw = params.palette[0] ?? basePreset.colors.accent;
+  const accentDeepRaw = params.palette[1] ?? basePreset.colors.accentDeep;
+  const highlightRaw = params.palette[2] ?? basePreset.colors.highlight;
+  const highlightSoftRaw = params.palette[3] ?? basePreset.colors.highlightSoft;
+  const softAccentRaw = params.palette[4] ?? basePreset.colors.softAccent;
+  const softAccentAltRaw = params.palette[5] ?? basePreset.colors.softAccentAlt;
+  const accent = ensureMaxLuma(ensureMinLuma(accentRaw, 0.26), 0.7);
+  const accentDeep = ensureMaxLuma(ensureMinLuma(accentDeepRaw, 0.18), 0.55);
+  const highlight = ensureMaxLuma(
+    ensureMinLuma(mixHex(mixHex(basePreset.colors.highlight, highlightRaw, 0.28), pageColor, 0.24), 0.42),
+    0.84,
+  );
+  const highlightSoft = ensureMinLuma(
+    mixHex(mixHex(basePreset.colors.highlightSoft, highlightSoftRaw, 0.22), pageColor, 0.34),
+    0.82,
+  );
+  const softAccent = ensureMinLuma(
+    mixHex(mixHex(basePreset.colors.softAccent, softAccentRaw, 0.24), pageColor, 0.32),
+    0.8,
+  );
+  const softAccentAlt = ensureMinLuma(
+    mixHex(mixHex(basePreset.colors.softAccentAlt, softAccentAltRaw, 0.24), pageColor, 0.28),
+    0.78,
+  );
   const emphasisBoost = params.accentRule === "bold" ? 1 : params.accentRule === "muted" ? -1 : 0;
 
   return {
@@ -513,4 +577,3 @@ export function selectBuiltinLayoutPlan(params: {
     reason: "fallback layout plan (no fresh reference index)",
   };
 }
-

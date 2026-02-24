@@ -1,351 +1,136 @@
-# doc-factory — AGENTS.md (Reference-Driven Generic Visual Document Builder)
+# doc-factory — AGENTS.md (SLIM)
 
-Updated: 2026-02-24 (rev: reference-index + layout archetypes + deterministic export)
-
-This repo generates an editable PPTX document from ONLY:
-
-- /images (required)
-- /fonts (optional; local only)
-- /references (optional; if present, MUST influence style + layout via code)
-
-Skills may exist under:
-
-- .agents/skills/theme-factory
-- .agents/skills/webapp-testing
-- .agents/skills/playwright
-- .agents/skills/pdf
-- .agents/skills/vercel-deploy
-- .agents/skills/linear
-
-Mode trigger:
-
-- If user message starts with "MAINTENANCE mode:" => maintenance rules
-- Otherwise => default to DESIGN mode
+목적: “대충 적어도” 잘 되는 범용 문서 디자이너를 **프롬프트가 아니라 코드/게이트로 강제**한다.
 
 ---
 
-## 0) Product Goal (Non-negotiable)
+## 1) 절대 규칙 (Hard Constraints)
 
-- User drops assets into /images (and optionally /fonts, /references).
-- App infers docType + page size, creates a storyboard, generates pages, previews them, and exports ONE PPTX.
-- Each slide in PPTX must remain EDITABLE (text/shapes), not screenshot-only.
-- Export MUST be blocked unless validation gates pass (static + runtime + readability + reference-usage gates).
-- Default size is A4 Portrait, but size can vary.
+### 1.1 런타임 네트워크 금지
 
----
+- 외부 이미지/구글폰트/원격 CSS fetch 금지
+- 폰트는 `/fonts` 로컬만 사용
 
-## 1) Hard Constraints
+### 1.2 재현성(Determinism)
 
-### 1.1 No Network Fetch
+같은 입력이면 같은 결과여야 한다.
 
-- MUST: no runtime external fetch (no remote images, no Google fonts, no CDN CSS).
-- MUST: fonts only from /fonts (next/font/local recommended).
+- 입력 = RequestSpec + 정렬된 /images 목록 + /references digest + pageSpec + variantIndex + seed
+- 시간/난수/mtime 의존 금지
+- 파일 순서는 반드시 **결정적 정렬**(path normalize + numeric-aware) 사용
 
-### 1.2 Determinism (Reproducible)
+### 1.3 페이지 사이즈 단일 소스
 
-Output MUST be deterministic given:
-
-- /images + /fonts + /references contents
-- code version
-- generation params:
-  { pageSizePreset, docType, stylePresetId, variantIndex, seed, referenceDigest }
-
-No reliance on current time, random(), or filesystem mtime for ordering.
-
-### 1.3 Single Source of Truth for Page Size
-
-- MUST: DSL page.widthMm / page.heightMm is the only truth.
-- Web + PPTX consume the same docSpec; only unit conversion differs.
+- DSL의 `widthMm/heightMm`이 유일한 진실
+- Web/PPTX 모두 같은 DSL 소비 (차이는 단위 변환 함수만)
 
 ---
 
-## 2) Root Simplicity
+## 2) “새 작업처럼” 동작 (State Isolation)
 
-User-facing root folders ONLY:
-
-- /images
-- /fonts
-- /references
-
-Users must NOT edit internal layout specs.
+- 모든 생성/캐시/산출물은 **requestHash(jobId)** 로 분리한다.
+- 이전 실행 산출물(layout.json 등)이나 전역 캐시가 다음 작업에 영향을 주면 버그다.
+- UI에는 “New Job(새 작업)”이 있어야 하며, New Job은 requestHash를 갱신한다.
 
 ---
 
-## 3) “New design every run” (Controlled Variation)
+## 3) 파이프라인 (프롬프트 의존 금지, 스펙 의존)
 
-- Clicking "Regenerate Layout" increments variantIndex.
-- Same (variantIndex + seed + referenceDigest) must reproduce the same layout.
-- Different variantIndex must produce a noticeably different (yet valid) design.
+항상 아래 순서로 동작해야 한다.
 
----
+### 3.1 RequestSpec (필수)
 
-## 4) Ordering Policy (MUST; deterministic)
+사용자 입력은 먼저 RequestSpec으로 정규화한다. (이후 모든 단계는 RequestSpec만 신뢰)
+최소 필드:
 
-All asset lists (/images, /fonts, /references) MUST be deterministically ordered:
+- docKind: poster | brochure | onepager | report | cards
+- pageCount: exact(N) 또는 range(min,max)
+- pageSize: A4P/A4L/Letter/Custom(mm)
+- title, language(ko), tone(concise/…) + constraints(숫자 창작 금지 등)
+- variantIndex, seed
 
-1. If filename has leading number (001\_, 01-, p1, (1)), sort by that number (asc).
-2. Else sort by normalized relative path (POSIX) using a locale-independent numeric-aware comparator.
-3. If you want filename-agnostic stability, use content-hash IDs produced by the ReferenceIndex (see section 7)
-   and sort by those IDs.
+**금지:** 이미지 파일명 키워드로 특정 “도메인 문구/주제”를 자동 삽입하는 로직.
 
-DO NOT use modified time for ordering.
+### 3.2 Planner(스토리보드) → Generator(레이아웃) → Validators → Export
 
----
-
-## 5) Internal Architecture (Required)
-
-Inputs:
-
-- /images
-- /fonts
-- /references
-
-Code (suggested):
-
-- /src/io (scan assets; ordering; hashing; reference index)
-- /src/planner (doc-type + storyboard planner; REQUIRED)
-- /src/layout (DSL types, templates, style presets, generator, validation)
-- /src/render/web (DSL -> HTML/CSS preview)
-- /src/render/pptx (DSL -> PPTX via pptxgenjs)
-- /src/qa (runtime validation harness + export audit)
-
-Generated (single allowed):
-
-- /src/generated/layout.(ts|json) — the ONLY generated layout artifact
-- /src/generated/reference-index.json — generated from /references (see section 7)
-
-No per-page React components. No per-image special-case maps.
+- Planner는 “문서 전체(목차/리듬/분량)”를 먼저 만든다.
+- “이미지 1장 = 1페이지” 같은 기본값에 의존하지 않는다.
+- 템플릿은 **패턴 패밀리 12~20개** + 파라미터화로 다양성 확보.
 
 ---
 
-## 6) Document Planner (Mandatory; content-agnostic)
+## 4) References 정책 (있으면 강제 반영)
 
-The system MUST NOT do “one image = one page” by default.
+### 4.1 ReferenceIndex (필수, 캐시)
 
-Before generating pages:
+- `/references`에 이미지가 충분(>=8)하면:
+  - **전체 파일을 인덱싱**해 `reference-index.json` 생성(변경 시에만 재빌드)
+  - `referenceDigest` 산출(결정적)
+- 생성 단계는 “전부 다시 보기” 금지. 인덱스만 사용.
 
-1. Scan /images (apply ordering).
-2. Determine docType (generic):
-   - Proposal/Brochure (default)
-   - Poster (1 page)
-   - One-pager (1–2)
-   - Multi-card set (4–12)
-   - Report/Summary
-3. Determine page size (default A4P unless user overrides).
-4. Cluster images into topics using filename/type heuristics.
-5. Build storyboard (variable length, typical 1–14):
-   For each page:
-   - pageRole
-   - templateId (pattern family, not a fixed layout)
-   - primaryAsset (image or none)
-   - copyBudget
-   - successCriteria
-6. Enforce variety:
-   - same template family max 2 in a row
-   - full-bleed templates <= 35–40% of pages
-   - multi-page docs must include at least 1 TEXT_ONLY_EDITORIAL page
+### 4.2 스타일 + 레이아웃 둘 다 반영(강제)
 
-Only after storyboard exists: generate pages.
+- references는 “스타일 토큰 + 레이아웃 아키타입(그리드/hero비율/밀도/리듬)”에 반영해야 함
+- **1:1 레이아웃 복제(좌표 베끼기) 금지**
+
+### 4.3 레퍼런스 사용 증명 게이트(하드)
+
+references>=8이면 Export는 아래 없으면 **무조건 차단**:
+
+- referenceIndexStatus = fresh
+- styleSource = references
+- layoutSource = references
+- usedLayoutClusters 커버리지 충족(멀티페이지는 최소 3, 1~2p는 최소 2)
+- exportAudit에 referenceUsageReport 포함
 
 ---
 
-## 7) REFERENCES POLICY — MUST influence Style + Layout (Code-enforced)
+## 5) 카피 정책 (도메인/주제별 하드코딩 금지)
 
-### 7.0 Key requirement
-
-If /references exists and contains >= 8 images, the system MUST:
-
-- **ingest ALL reference images** (not a small sample) into a ReferenceIndex
-- derive BOTH:
-  1. Style archetypes (typography scale, spacing density, radius/stroke/shadow, accent rules)
-  2. Layout archetypes (grid/column count, hero-vs-text ratio, card density, header/footer proportions, rhythm)
-
-Generation MUST use this index. Export MUST be blocked if reference index is missing/stale/unused.
-
-### 7.1 No 1:1 copying
-
-- MUST NOT copy a reference composition 1:1 (no coordinate matching).
-- References guide **archetypes + constraints**, not exact placement.
-- Allowed: “this reference tends to 2-column split with large hero and tight captions”
-- Forbidden: “place title at x=42,y=61 because reference did so”
-
-### 7.2 ReferenceIndex (mandatory artifact)
-
-On server start OR when /references changes:
-
-- Build `reference-index.json` from ALL reference images.
-- Each entry should include:
-  - id: content hash (sha256 first 12) ✅ stable even if filename changes
-  - relPath
-  - width/height/aspect
-  - color palette (3–6 dominant colors)
-  - density / whitespace ratio
-  - layout fingerprint (rough zones: header/body/footer ratios; column guess; blockiness)
-  - assigned styleClusterId, layoutClusterId
-
-Also compute:
-
-- referenceDigest = hash of sorted reference ids + their fingerprints
-  Used as a generation input for determinism.
-
-Caching:
-
-- MUST cache index and reuse unless references changed.
-- MUST NOT re-read all images on every render if index is fresh.
-
-### 7.3 Style selection (theme-factory integrated)
-
-If .agents/skills/theme-factory exists:
-
-- Use the ReferenceIndex to pick **representative refs** (e.g., medoids) from style clusters
-  (8–16 representatives), then ask theme-factory to propose 3 style candidates.
-- Select 1 preset deterministically using (seed + variantIndex + referenceDigest).
-- Store chosen presetId + tokens in internal state.
-
-If theme-factory absent:
-
-- Derive tokens from style clusters directly (deterministic heuristics).
-
-### 7.4 Layout selection (reference-driven)
-
-- Maintain 12–20 template families (patterns).
-- For each run, create a LayoutPlan by mapping pages to layout archetypes:
-  - choose a subset of layoutClusterIds deterministically (variantIndex + seed + referenceDigest)
-  - ensure coverage across at least 3 distinct layout archetypes for multi-page docs
-  - use archetype constraints to parametrize template families
-    (grid columns, hero ratio, caption style, card density, section divider style, etc.)
-
-### 7.5 Reference-usage gate (hard)
-
-If /references contains >= 8 images:
-
-- Export MUST be blocked unless the run proves:
-  - referenceIndexStatus = "fresh"
-  - style derived from references (stylePreset.source = "references")
-  - layout derived from references (layoutPlan.source = "references")
-  - referenceUsage.coverage:
-    - usedStyleClusters >= 1
-    - usedLayoutClusters >= 3 (for docs >= 6 pages) else >= 2
-  - referenceUsageReport is included in export audit
+- 금지: “자연 캠페인”, “B2B 건기식” 같은 **특정 주제 문구를 코드에 내장**
+- 카피는 RequestSpec 기반으로만 생성(짧고 명확, 불릿 중심)
+- 모르는 수치/성과는 지어내지 말고 `(추후 기입)` 처리
+- 텍스트가 안 맞으면 **폰트 줄이기 전에 텍스트를 먼저 줄인다**
 
 ---
 
-## 8) Template Pack (Generic Patterns; parametrized by archetypes)
+## 6) 검증 게이트 (Export 차단 필수)
 
-Keep 12–20 template families, e.g.:
+### 6.1 정적 DSL 검증
 
-- COVER_HERO (param: heroRatio, titleScale, accentRule)
-- SECTION_DIVIDER (param: typographic style, density)
-- AGENDA_EDITORIAL (param: columns, numbering style)
-- TWO_COLUMN_MEDIA_TEXT (param: split ratio, caption style)
-- METRICS_GRID (param: grid size, card density)
-- PROCESS_FLOW / TIMELINE (param: lane count, spacing)
-- COMPARISON_TABLE (param: table density)
-- GALLERY_SINGLE (param: frame style)
-- TEXT_ONLY_EDITORIAL (param: leading/measure)
-- CTA_CONTACT (param: emphasis)
+- boundary / collision / reserved lanes / min-size / layering / determinism
 
-Templates must compute zones from tokens/page size; no magic numbers.
+### 6.2 런타임 실측 검증 (webapp-testing 우선)
 
----
+- overflow / clip / overlap 검사
+- 실패 시 자동 수정 루프:
+  1. 텍스트 축약 2) 보조요소 제거 3) 템플릿 폴백 4) 재레이아웃 5) 재검증
+- 통과 전 Export 금지
 
-## 9) Copy Policy (Anti-AI tone via constraints)
+### 6.3 “조용한 잘림” 금지
 
-No filler. Avoid buzzwords unless tied to a mechanism/metric.
-Pipeline MUST be: Draft -> Budget-aware shorten -> Remove vague words -> Bulletize -> Fit-check.
+- ellipsis(…/...) / line-clamp / overflow hidden으로 숨기기 금지
+- 안 맞으면 텍스트를 줄이거나 템플릿 변경
 
-If text doesn’t fit:
+### 6.4 debug/meta 누수 금지
 
-1. shorten text
-2. remove secondary blocks (chips/extra cards)
-3. fallback template family variant
-4. (allowed) increase page count
-   Never reduce body below readability minimums.
+- debugOnly는 debug=1에서만 표시, Export에는 절대 포함 금지
 
 ---
 
-## 10) Main Quality Rules (HARD)
+## 7) PPTX Export 규칙
 
-### 10.1 No Ellipsis / No Silent Truncation
-
-- Text must never end with "..." or "…" in preview or PPTX.
-- Do NOT use CSS line-clamp or ellipsis to “make it fit”.
-- If text doesn't fit: shorten or change template.
-
-### 10.2 Readability Minimums (scale with page size)
-
-A4 defaults:
-
-- Body >= 11pt (12 recommended)
-- Caption >= 10pt
-- Small labels >= 9.5pt
-  Never go below; reduce text first.
-
-### 10.3 Debug/Meta must never export
-
-- Debug/meta blocks visible only when debug=1.
-- Export MUST force debug=false and MUST exclude debugOnly elements.
+- Web/PPTX 패리티 유지(같은 DSL)
+- Export audit 필수(슬라이드 수/바운드/편집가능 오브젝트/게이트 결과/refs 사용 증명)
+- 기본 파일명은 결정적:
+  `{title}_{docKind}_{w}x{h}mm_{pageCount}p_v{variantIndex}_{hash8}.pptx`
+  (hash8 = requestHash 일부)
 
 ---
 
-## 11) Validation Gates (Hard; export blocked)
+## 8) 금지 패턴(바로 리젝)
 
-### 11.1 Static DSL gates
-
-- boundary
-- reserved lanes
-- collision
-- min-size readability thresholds
-- layering
-- determinism
-
-### 11.2 Runtime gates (preferred via webapp-testing)
-
-Headless DOM measurement:
-
-- overflow/clip/overlap
-- truncation styles or markers
-  Auto-fix loop: shorten -> remove secondary -> fallback -> re-layout -> re-run.
-
-### 11.3 Reference-usage gates (see 7.5)
-
-- If references exist (>=8), missing/unused reference index => export blocked.
-
----
-
-## 12) Preview ↔ PPTX Parity + Export Audit
-
-Both renderers consume the same DSL. Only unit conversion differs.
-Export audit MUST verify:
-
-- slide count equals page count
-- all objects within bounds
-- editable objects present
-- page size matches preset
-- debug=false
-- no truncation markers/styles
-- referenceUsageReport present when references exist
-
----
-
-## 13) Export Filename (Deterministic by default)
-
-Default (deterministic):
-{docTitle}_{docType}_{w}x{h}mm*{pageCount}p_v{variantIndex}*{hash8}.pptx
-
-hash8 = hash(prompt + ordered image ids + docSpec + variantIndex + referenceDigest)
-
-Optional (user-toggle, OFF by default):
-prefix YYYYMMDD\_
-
----
-
-## 14) Done Criteria
-
-- storyboard exists and demonstrates variety
-- page count variable (not fixed)
-- all pages pass static + runtime + readability + reference-usage gates
-- no ellipsis/truncation anywhere important
-- preview/pptx parity acceptable
-- export filename policy satisfied
-- if references exist: index fresh + used + reported
+- 특정 작업을 맞추기 위한 키워드 분기/특수 카피를 코드에 추가
+- per-page 좌표 땜빵 / 예외 맵 누적
+- 페이지 수 고정(항상 8p 등)
+- references가 있는데도 “사용 증명 없이” export 통과

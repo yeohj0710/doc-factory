@@ -4,6 +4,7 @@ import type { PageSizeSpec, PageSizePreset } from "@/src/layout/pageSize";
 import type { StylePreset } from "@/src/layout/stylePresets";
 import type { TemplateId, TextBudget } from "@/src/layout/templateCatalog";
 import type { DocType } from "@/src/layout/types";
+import type { RequestSpec } from "@/src/request/requestSpec";
 
 export type PageRole =
   | "cover"
@@ -58,7 +59,15 @@ export type ReferenceUsageReport = {
   representativeLayoutRefIds: string[];
 };
 
+export type ThemeFactoryProof = {
+  available: boolean;
+  status: "ran" | "skipped";
+  reason: string;
+};
+
 export type DocumentPlan = {
+  requestSpec: RequestSpec;
+  requestHash: string;
   docTitle: string;
   docType: DocType;
   pageSizePreset: PageSizePreset;
@@ -81,6 +90,7 @@ export type DocumentPlan = {
     reason: string;
   };
   referenceUsageReport: ReferenceUsageReport;
+  themeFactoryProof: ThemeFactoryProof;
   topicClusters: TopicCluster[];
   proofAssetCount: number;
   lowSignalAssetCount: number;

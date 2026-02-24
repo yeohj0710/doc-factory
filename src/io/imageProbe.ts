@@ -336,7 +336,7 @@ export function decodePngRgba(buffer: Buffer): DecodedBitmap | null {
 
   const pixelsRgba = new Uint8Array(widthPx * heightPx * 4);
   let sourceOffset = 0;
-  let previous = new Uint8Array(stride);
+  let previous: Uint8Array<ArrayBufferLike> = new Uint8Array(stride);
 
   for (let y = 0; y < heightPx; y += 1) {
     const filter = inflated[sourceOffset] ?? 0;
@@ -397,4 +397,3 @@ export function decodePngRgba(buffer: Buffer): DecodedBitmap | null {
     pixelsRgba,
   };
 }
-

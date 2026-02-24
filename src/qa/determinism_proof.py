@@ -9,8 +9,9 @@ BASE_URL = "http://127.0.0.1:3000"
 EXPORT_URL = f"{BASE_URL}/api/export/pptx"
 
 
-def trigger_regenerate(variant: int) -> None:
-    url = f"{BASE_URL}/?v={variant}"
+def trigger_regenerate(params: dict[str, str]) -> None:
+    query = urllib.parse.urlencode(params)
+    url = f"{BASE_URL}/?{query}"
     with urllib.request.urlopen(url, timeout=180) as response:
         response.read(2048)
 
@@ -26,7 +27,7 @@ def post_export(payload: dict[str, str]) -> dict:
             return {
                 "status": response.status,
                 "audit_hash": headers.get("x-docfactory-audit-hash"),
-                "reference_digest": headers.get("x-docfactory-reference-digest"),
+                "request_hash": headers.get("x-docfactory-request-hash"),
                 "reference_status": headers.get("x-docfactory-reference-index-status"),
             }
     except urllib.error.HTTPError as error:
@@ -39,16 +40,23 @@ def post_export(payload: dict[str, str]) -> dict:
         return {
             "status": error.code,
             "audit_hash": (parsed or {}).get("exportAuditHash"),
-            "reference_digest": None,
+            "request_hash": (parsed or {}).get("requestHash"),
             "reference_status": (parsed or {}).get("referenceUsageReport", {}).get("referenceIndexStatus"),
             "body": parsed,
         }
 
 
-def export_payload(variant_index: int) -> dict[str, str]:
+def qa_payload() -> dict[str, str]:
     return {
-        "variantIndex": str(variant_index),
-        "docType": "proposal",
+        "jobId": "qa-determinism-1",
+        "docKind": "brochure",
+        "pageCount": "exact(2)",
+        "title": "QA_Determinism",
+        "language": "ko",
+        "tone": "concise",
+        "constraints": "no-fabricated-numbers,bullet-centric-copy",
+        "variantIndex": "1",
+        "seed": "424242",
         "pageSizePreset": "A4P",
         "pageWidthMm": "210",
         "pageHeightMm": "297",
@@ -56,60 +64,39 @@ def export_payload(variant_index: int) -> dict[str, str]:
 
 
 def main() -> None:
-    trigger_regenerate(1)
+    payload = qa_payload()
 
-    scan_results: dict[str, dict] = {}
-    successful_variants: list[int] = []
+    trigger_regenerate(
+        {
+            "jobId": payload["jobId"],
+            "docKind": payload["docKind"],
+            "pageCount": payload["pageCount"],
+            "title": payload["title"],
+            "variantIndex": payload["variantIndex"],
+            "seed": payload["seed"],
+            "size": "A4P",
+        }
+    )
 
-    for variant in range(1, 11):
-        result = post_export(export_payload(variant))
-        scan_results[f"v{variant}"] = result
-        if result.get("status") == 200 and result.get("audit_hash"):
-            successful_variants.append(variant)
-        if len(successful_variants) >= 2:
-            break
+    run_a = post_export(payload)
+    run_b = post_export(payload)
 
-    if successful_variants:
-        base_variant = successful_variants[0]
-    else:
-        base_variant = 1
+    same_request_hash = (
+        run_a.get("request_hash") is not None
+        and run_a.get("request_hash") == run_b.get("request_hash")
+    )
 
-    run_a = post_export(export_payload(base_variant))
-    run_b = post_export(export_payload(base_variant))
-
-    if len(successful_variants) >= 2:
-        compare_variant = successful_variants[1]
-    else:
-        compare_variant = base_variant + 1
-    run_c = post_export(export_payload(compare_variant))
-
-    same_variant_same_hash = (
+    same_audit_hash = (
         run_a.get("audit_hash") is not None
         and run_a.get("audit_hash") == run_b.get("audit_hash")
     )
 
-    variant_change_changes_hash = (
-        run_a.get("audit_hash") is not None
-        and run_c.get("audit_hash") is not None
-        and run_a.get("audit_hash") != run_c.get("audit_hash")
-    )
-
-    gates_kept_for_variants = (
-        run_a.get("status") == 200
-        and run_b.get("status") == 200
-        and run_c.get("status") == 200
-    )
-
     output = {
-        "selected_base_variant": base_variant,
-        "selected_compare_variant": compare_variant,
-        "scan_results": scan_results,
         "run_a": run_a,
         "run_b": run_b,
-        "run_c": run_c,
-        "same_variant_same_hash": same_variant_same_hash,
-        "variant_change_changes_hash": variant_change_changes_hash,
-        "gates_kept_for_variants": gates_kept_for_variants,
+        "same_request_hash": same_request_hash,
+        "same_audit_hash": same_audit_hash,
+        "determinism_passed": run_a.get("status") == 200 and run_b.get("status") == 200 and same_request_hash and same_audit_hash,
     }
 
     print(json.dumps(output, ensure_ascii=False, indent=2))

@@ -109,9 +109,11 @@ export function compareNumericAwareAscii(left: string, right: string): number {
 
     if (tokenA.type === tokenB.type) {
       const cmp =
-        tokenA.type === "number"
+        tokenA.type === "number" && tokenB.type === "number"
           ? compareNumberTokens(tokenA, tokenB)
-          : compareTextTokens(tokenA, tokenB);
+          : tokenA.type === "text" && tokenB.type === "text"
+            ? compareTextTokens(tokenA, tokenB)
+            : 0;
       if (cmp !== 0) {
         return cmp;
       }
@@ -189,4 +191,3 @@ export function sortByDeterministicAssetOrder<T>(items: readonly T[], getPath: (
 export function normalizeRelativePosixPath(value: string): string {
   return toPosixPath(value);
 }
-

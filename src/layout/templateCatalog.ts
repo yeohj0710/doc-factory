@@ -128,10 +128,10 @@ function baseMeasurements(params: BuildZoneParams): {
         : 1;
   const gutter = clamp(params.tokens.spacingMm.gutter * rhythmScale, 3.8, 11.5);
   const headerH = params.layoutTuning
-    ? clamp(params.pageHeightMm * params.layoutTuning.headerRatio, 14, params.pageHeightMm * 0.24)
+    ? clamp(params.pageHeightMm * params.layoutTuning.headerRatio, 12, 30)
     : params.tokens.spacingMm.headerHeight;
   const footerH = params.layoutTuning
-    ? clamp(params.pageHeightMm * params.layoutTuning.footerRatio, 10, params.pageHeightMm * 0.18)
+    ? clamp(params.pageHeightMm * params.layoutTuning.footerRatio, 10, 20)
     : params.tokens.spacingMm.footerHeight;
   const headerY = margin;
   const footerY = params.pageHeightMm - margin - footerH;

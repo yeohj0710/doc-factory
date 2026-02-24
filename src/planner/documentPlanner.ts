@@ -1,8 +1,8 @@
 ﻿import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ScannedImage } from "@/src/io/scanImages";
-import { ensureReferenceIndex } from "@/src/io/referenceIndex";
-import { resolvePageSize, type PageSizePreset } from "@/src/layout/pageSize";
+import { ensureReferenceIndex, type ReferenceIndexContext } from "@/src/io/referenceIndex";
+import { resolvePageSize } from "@/src/layout/pageSize";
 import { getStylePresetById, selectStylePreset } from "@/src/layout/stylePresets";
 import {
   getTemplateSpec,
@@ -10,6 +10,11 @@ import {
   templateSupportsImage,
   type TemplateId,
 } from "@/src/layout/templateCatalog";
+import {
+  mapRequestDocKindToDocType,
+  resolveRequestedPageCount,
+  type RequestSpec,
+} from "@/src/request/requestSpec";
 import type { DocType } from "@/src/layout/types";
 import {
   selectBuiltinLayoutPlan,
@@ -22,23 +27,17 @@ import type {
   PageRole,
   PlannerResult,
   StoryboardItem,
+  ThemeFactoryProof,
   TopicCluster,
 } from "@/src/planner/types";
 
 type PlanOptions = {
-  docTitle?: string;
-  requestedDocType?: DocType;
-  requestedPageSizePreset?: PageSizePreset;
-  customPageSizeMm?: {
-    widthMm: number;
-    heightMm: number;
-  };
-  requestedStylePresetId?: string;
-  variantIndex: number;
-  seed: number;
+  requestSpec: RequestSpec;
+  requestHash: string;
   intent?: "regenerate" | "export";
   rootDir?: string;
   disableReferenceDrivenPlanning?: boolean;
+  referenceContext?: ReferenceIndexContext;
 };
 
 type TopicDetection = {
@@ -52,7 +51,6 @@ type RoleSequencePlan = {
   rhythmId: string;
 };
 
-const DEFAULT_DOC_TITLE = "Visual_Document";
 const RHYTHM_IDS = ["editorial", "visual", "evidence", "narrative"] as const;
 
 const TOPIC_KEYWORDS: Record<AssetTopic, string[]> = {
@@ -198,27 +196,7 @@ function buildTopicClusters(images: ScannedImage[]): {
   };
 }
 
-function inferDocType(images: ScannedImage[], proofAssetCount: number, topicCount: number): DocType {
-  if (images.length <= 1) {
-    return "poster";
-  }
-  if (images.length <= 2) {
-    return "one-pager";
-  }
-  if (proofAssetCount >= Math.ceil(images.length * 0.45)) {
-    return "report";
-  }
-  if (images.length >= 8 || topicCount >= 4) {
-    return "multi-card";
-  }
-  return "proposal";
-}
-
-function inferPageSizePreset(params: { requested?: PageSizePreset }): PageSizePreset {
-  return params.requested ?? "A4P";
-}
-
-function decidePageCount(params: {
+function decideFallbackPageCount(params: {
   docType: DocType;
   imageCount: number;
   topicCount: number;
@@ -229,7 +207,7 @@ function decidePageCount(params: {
     return 1;
   }
   if (params.docType === "one-pager") {
-    return params.imageCount <= 1 ? 1 : 2;
+    return params.imageCount <= 0 ? 1 : 2;
   }
 
   const lowSignalPenalty = params.lowSignalAssetCount > Math.floor(params.imageCount / 2) ? 1 : 0;
@@ -243,25 +221,6 @@ function decidePageCount(params: {
   }
 
   return Math.max(4, Math.min(10, 5 + params.topicCount + Math.floor(params.imageCount / 4) - lowSignalPenalty));
-}
-
-function titleFromImages(images: ScannedImage[]): string {
-  if (images.length === 0) {
-    return DEFAULT_DOC_TITLE;
-  }
-
-  const stem = path.parse(images[0].filename).name;
-  const cleaned = stem
-    .replace(/^\s*(?:\(\s*\d+\s*\)|p\s*\d+|\d+)(?:[\s._-]+)?/i, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!cleaned) {
-    return DEFAULT_DOC_TITLE;
-  }
-
-  return cleaned.slice(0, 56).replace(/\s+/g, "_");
 }
 
 function baseSequencesByDocType(docType: DocType): PageRole[][] {
@@ -580,32 +539,28 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   const logs: string[] = [];
   const rootDir = options.rootDir ?? process.cwd();
   const intent = options.intent ?? "regenerate";
-  const variantIndex = Math.max(1, options.variantIndex || 1);
-  const seed = options.seed;
+  const requestSpec = options.requestSpec;
+  const variantIndex = Math.max(1, requestSpec.variantIndex || 1);
+  const seed = requestSpec.seed;
   const rng = createRng(seed + variantIndex * 17);
 
   const { clusters, topicByFilename, proofAssetCount, lowSignalAssetCount } = buildTopicClusters(images);
 
-  const inferredDocType = inferDocType(images, proofAssetCount, clusters.length);
-  const docType = options.requestedDocType ?? inferredDocType;
-
-  const pageSizePreset = inferPageSizePreset({
-    requested: options.requestedPageSizePreset,
-  });
-
+  const docType = mapRequestDocKindToDocType(requestSpec.docKind);
   const pageSize = resolvePageSize({
-    preset: pageSizePreset,
-    widthMm: options.customPageSizeMm?.widthMm,
-    heightMm: options.customPageSizeMm?.heightMm,
+    preset: requestSpec.pageSize.preset,
+    widthMm: requestSpec.pageSize.widthMm,
+    heightMm: requestSpec.pageSize.heightMm,
   });
 
-  const pageCount = decidePageCount({
+  const fallbackPageCount = decideFallbackPageCount({
     docType,
     imageCount: images.length,
     topicCount: Math.max(clusters.length, 1),
     proofAssetCount,
     lowSignalAssetCount,
   });
+  const pageCount = resolveRequestedPageCount(requestSpec.pageCount, fallbackPageCount);
 
   const rolePlan = buildRoleSequence({
     docType,
@@ -615,15 +570,18 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   });
   const roleSequence = rolePlan.roles;
 
+  logs.push(`[planner] requestHash=${options.requestHash} job=${requestSpec.jobId}`);
   logs.push(`[planner] clusters=${clusters.length} proofAssets=${proofAssetCount} lowSignal=${lowSignalAssetCount}`);
   logs.push(`[planner] docType=${docType} pageSize=${pageSize.preset}(${pageSize.widthMm}x${pageSize.heightMm}mm) pageCount=${pageCount}`);
   logs.push(`[planner] rhythm=${rolePlan.rhythmId} role sequence: ${roleSequence.join(" -> ")}`);
 
-  const referenceContext = await ensureReferenceIndex({
-    rootDir,
-    allowRebuild: intent !== "export",
-    minRequiredCount: 8,
-  });
+  const referenceContext =
+    options.referenceContext ??
+    (await ensureReferenceIndex({
+      rootDir,
+      allowRebuild: intent !== "export",
+      minRequiredCount: 8,
+    }));
 
   const themeFactoryAvailable = await hasThemeFactorySkill(rootDir);
   const useReferenceDriven =
@@ -632,7 +590,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     !options.disableReferenceDrivenPlanning;
 
   let styleCandidateIds: string[] = [];
-  let stylePreset = getStylePresetById(options.requestedStylePresetId ?? "theme-modern-minimalist");
+  let stylePreset = getStylePresetById("theme-modern-minimalist");
   let stylePresetSource: "references" | "builtin" = "builtin";
   let selectedStyleClusterIds: string[] = [];
   let representativeStyleRefIds: string[] = [];
@@ -643,7 +601,6 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
       referenceIndex: referenceContext.index,
       seed,
       variantIndex,
-      requestedPresetId: options.requestedStylePresetId,
       themeFactoryAvailable,
     });
     stylePreset = styleSelection.selectedPreset;
@@ -656,13 +613,22 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     const fallbackStyle = selectStylePreset({
       seed,
       variantIndex,
-      requestedPresetId: options.requestedStylePresetId,
       referenceFilenames: [],
     });
     styleCandidateIds = fallbackStyle.candidatePresetIds;
     stylePreset = getStylePresetById(fallbackStyle.selectedPresetId);
     styleReason = fallbackStyle.reason;
   }
+
+  const themeFactoryProof: ThemeFactoryProof = {
+    available: themeFactoryAvailable,
+    status: themeFactoryAvailable && useReferenceDriven ? "ran" : "skipped",
+    reason: themeFactoryAvailable
+      ? useReferenceDriven
+        ? "reference representatives -> 3 candidates -> deterministic pick"
+        : "references not eligible for theme-factory scoring"
+      : "theme-factory skill not found",
+  };
 
   logs.push(
     `[planner] referenceIndex required=${referenceContext.required} status=${referenceContext.status} count=${referenceContext.referenceCount} digest=${referenceContext.referenceDigest || "none"}`,
@@ -673,6 +639,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   logs.push(
     `[planner] style source=${stylePresetSource} selected=${stylePreset.id} candidates=${styleCandidateIds.join(", ")} reason=${styleReason}`,
   );
+  logs.push(`[planner] theme-factory ${themeFactoryProof.status} available=${themeFactoryProof.available} reason=${themeFactoryProof.reason}`);
 
   const layoutPlan =
     useReferenceDriven && referenceContext.index
@@ -715,7 +682,6 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     const hasAsset = asset !== null;
     const assignment = assignmentByPage.get(index + 1);
     const preferredTemplateIds = assignment?.preferredTemplateIds ?? [];
-
     const templateId = templateForRole({
       role,
       hasAsset,
@@ -751,7 +717,6 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   });
 
   const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex);
-
   const usedLayoutClusterIds = [...new Set(storyboard.map((item) => item.layoutClusterId))];
 
   const referenceUsageReport = {
@@ -770,7 +735,9 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   };
 
   const plan: DocumentPlan = {
-    docTitle: options.docTitle?.trim() || titleFromImages(images),
+    requestSpec,
+    requestHash: options.requestHash,
+    docTitle: requestSpec.title,
     docType,
     pageSizePreset: pageSize.preset,
     pageSize,
@@ -792,6 +759,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
       reason: layoutPlan.reason,
     },
     referenceUsageReport,
+    themeFactoryProof,
     topicClusters: clusters,
     proofAssetCount,
     lowSignalAssetCount,

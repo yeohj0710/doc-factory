@@ -9,9 +9,9 @@ BASE_URL = "http://127.0.0.1:3000"
 EXPORT_URL = f"{BASE_URL}/api/export/pptx"
 
 
-def trigger_regenerate(variant: int) -> None:
-    url = f"{BASE_URL}/?v={variant}"
-    with urllib.request.urlopen(url, timeout=180) as response:
+def trigger_regenerate(params: dict[str, str]) -> None:
+    query = urllib.parse.urlencode(params)
+    with urllib.request.urlopen(f"{BASE_URL}/?{query}", timeout=180) as response:
         response.read(2048)
 
 
@@ -61,10 +61,16 @@ def has_reference_source_gate_issue(response: dict) -> bool:
     return all(any(marker in message for message in messages) for marker in expected_markers)
 
 
-def export_payload(variant_index: int, disable_reference_usage: bool) -> dict[str, str]:
+def export_payload(disable_reference_usage: bool) -> dict[str, str]:
     payload = {
-        "variantIndex": str(variant_index),
-        "docType": "proposal",
+        "jobId": "qa-reference-gate",
+        "docKind": "brochure",
+        "pageCount": "exact(2)",
+        "title": "QA_Reference_Gates",
+        "language": "ko",
+        "tone": "concise",
+        "variantIndex": "1",
+        "seed": "99991",
         "pageSizePreset": "A4P",
         "pageWidthMm": "210",
         "pageHeightMm": "297",
@@ -75,10 +81,20 @@ def export_payload(variant_index: int, disable_reference_usage: bool) -> dict[st
 
 
 def main() -> None:
-    trigger_regenerate(1)
+    trigger_regenerate(
+        {
+            "jobId": "qa-reference-gate",
+            "docKind": "brochure",
+            "pageCount": "exact(2)",
+            "title": "QA_Reference_Gates",
+            "variantIndex": "1",
+            "seed": "99991",
+            "size": "A4P",
+        }
+    )
 
-    blocked = post_export(export_payload(1, disable_reference_usage=True))
-    allowed = post_export(export_payload(1, disable_reference_usage=False))
+    blocked = post_export(export_payload(disable_reference_usage=True))
+    allowed = post_export(export_payload(disable_reference_usage=False))
 
     output = {
         "blocked_status": blocked.get("status"),

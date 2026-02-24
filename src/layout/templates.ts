@@ -36,6 +36,49 @@ type BuildParams = {
   showDebugMeta?: boolean;
 };
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const normalized = hex.replace("#", "").trim();
+  if (normalized.length < 6) {
+    return { r: 127, g: 127, b: 127 };
+  }
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return {
+    r: Number.isNaN(r) ? 127 : r,
+    g: Number.isNaN(g) ? 127 : g,
+    b: Number.isNaN(b) ? 127 : b,
+  };
+}
+
+function colorLuma(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+function textColorForFill(fill: string, tokens: LayoutTokens, tone: "normal" | "muted" = "normal"): string {
+  const fillLuma = colorLuma(fill);
+  if (fillLuma < 0.45) {
+    const inverse = tokens.colors.inverseText;
+    if (colorLuma(inverse) >= 0.62) {
+      return inverse;
+    }
+    return "#FFFFFF";
+  }
+
+  if (tone === "muted") {
+    if (colorLuma(tokens.colors.mutedText) <= 0.52) {
+      return tokens.colors.mutedText;
+    }
+    return "#4B5563";
+  }
+
+  if (colorLuma(tokens.colors.text) <= 0.52) {
+    return tokens.colors.text;
+  }
+  return "#1F2937";
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -118,9 +161,10 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
   values.forEach((chip, index) => {
     const x = zone.xMm + index * (chipW + gap);
     const group = `chip-${index + 1}`;
+    const chipFill = tokens.colors.highlightSoft;
 
     elements.push(
-      rect({ xMm: x, yMm: zone.yMm, wMm: chipW, hMm: zone.hMm }, tokens.colors.highlightSoft, {
+      rect({ xMm: x, yMm: zone.yMm, wMm: chipW, hMm: zone.hMm }, chipFill, {
         id: `${group}-bg`,
         role: "chip",
         collisionGroup: group,
@@ -142,7 +186,7 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
           debugOnly: true,
           bold: true,
           align: "center",
-          color: tokens.colors.accentDeep,
+          color: textColorForFill(chipFill, tokens, "muted"),
         },
       ),
     );
@@ -170,8 +214,9 @@ function renderMetricCards(
   values.forEach((metric, index) => {
     const x = zone.xMm + index * (cardW + gap);
     const group = `metric-${index + 1}`;
+    const metricFill = tokens.colors.page;
     elements.push(
-      rect({ xMm: x, yMm: zone.yMm, wMm: cardW, hMm: zone.hMm }, tokens.colors.page, {
+      rect({ xMm: x, yMm: zone.yMm, wMm: cardW, hMm: zone.hMm }, metricFill, {
         id: `${group}-bg`,
         role: "metric",
         collisionGroup: group,
@@ -193,7 +238,7 @@ function renderMetricCards(
           debugOnly,
           align: "center",
           bold: true,
-          color: tokens.colors.text,
+          color: textColorForFill(metricFill, tokens),
         },
       ),
     );
@@ -217,8 +262,9 @@ function renderFlowCards(
   for (let index = 0; index < steps; index += 1) {
     const x = zone.xMm + index * (cardW + gap);
     const group = `flow-${index + 1}`;
+    const flowFill = tokens.colors.softAccent;
     elements.push(
-      rect({ xMm: x, yMm: zone.yMm, wMm: cardW, hMm: zone.hMm }, tokens.colors.softAccent, {
+      rect({ xMm: x, yMm: zone.yMm, wMm: cardW, hMm: zone.hMm }, flowFill, {
         id: `${group}-bg`,
         role: "shape",
         collisionGroup: group,
@@ -238,7 +284,7 @@ function renderFlowCards(
           isCollisionProtected: true,
           align: "center",
           bold: true,
-          color: tokens.colors.text,
+          color: textColorForFill(flowFill, tokens),
         },
       ),
     );
@@ -275,8 +321,9 @@ function renderTable(
   for (let index = 0; index < rows; index += 1) {
     const y = zone.yMm + index * rowH;
     const rowId = `table-row-${index + 1}`;
+    const rowFill = index % 2 === 0 ? tokens.colors.softAccent : tokens.colors.page;
     elements.push(
-      rect({ xMm: zone.xMm, yMm: y, wMm: zone.wMm, hMm: rowH }, index % 2 === 0 ? tokens.colors.softAccent : tokens.colors.page, {
+      rect({ xMm: zone.xMm, yMm: y, wMm: zone.wMm, hMm: rowH }, rowFill, {
         id: `${rowId}-bg`,
         role: "shape",
         collisionGroup: rowId,
@@ -304,7 +351,7 @@ function renderTable(
           collisionGroup: rowId,
           isCollisionProtected: true,
           bold: true,
-          color: tokens.colors.mutedText,
+          color: textColorForFill(rowFill, tokens, "muted"),
         },
       ),
       text(
@@ -316,17 +363,29 @@ function renderTable(
           role: "text",
           collisionGroup: rowId,
           isCollisionProtected: true,
-          color: tokens.colors.text,
+          color: textColorForFill(rowFill, tokens),
         },
       ),
     );
   }
 }
 
-function renderMedia(elements: Element[], zone: TemplateZone, sourceImage: ScannedImage | null, brief: PageBrief, tokens: LayoutTokens): void {
+function renderMedia(
+  elements: Element[],
+  zone: TemplateZone,
+  sourceImage: ScannedImage | null,
+  brief: PageBrief,
+  tokens: LayoutTokens,
+  required: boolean,
+): void {
   const group = `media-${zone.id}`;
+  if (!sourceImage && !required) {
+    return;
+  }
+
+  const mediaFill = sourceImage ? tokens.colors.softAccent : tokens.colors.highlightSoft;
   elements.push(
-    rect(zoneFrame(zone), tokens.colors.softAccent, {
+    rect(zoneFrame(zone), mediaFill, {
       id: `${group}-frame`,
       role: "media",
       collisionGroup: group,
@@ -349,7 +408,7 @@ function renderMedia(elements: Element[], zone: TemplateZone, sourceImage: Scann
           collisionGroup: group,
           isCollisionProtected: true,
           align: "center",
-          color: tokens.colors.mutedText,
+          color: textColorForFill(mediaFill, tokens, "muted"),
         },
       ),
     );
@@ -399,8 +458,9 @@ function buildElements(params: BuildParams): Element[] {
   );
 
   if (headerZone) {
+    const headerFill = params.tokens.colors.softAccentAlt;
     elements.push(
-      rect(zoneFrame(headerZone), params.tokens.colors.softAccentAlt, {
+      rect(zoneFrame(headerZone), headerFill, {
         id: "header-band",
         role: "header",
         fillOpacity: params.tokens.background.intensity,
@@ -413,7 +473,7 @@ function buildElements(params: BuildParams): Element[] {
           id: "kicker",
           role: "header",
           bold: true,
-          color: params.tokens.colors.accentDeep,
+          color: textColorForFill(headerFill, params.tokens, "muted"),
         },
       ),
     );
@@ -449,7 +509,14 @@ function buildElements(params: BuildParams): Element[] {
   }
 
   if (mediaZone) {
-    renderMedia(elements, mediaZone, params.sourceImage, params.brief, params.tokens);
+    renderMedia(
+      elements,
+      mediaZone,
+      params.sourceImage,
+      params.brief,
+      params.tokens,
+      spec.imagePolicy === "required",
+    );
   }
 
   if (metricsZone && compactLevel < 2) {
@@ -480,8 +547,9 @@ function buildElements(params: BuildParams): Element[] {
       .map((lineValue) => `- ${lineValue}`)
       .join("\n")}`;
 
+    const bodyFill = params.tokens.colors.softAccent;
     elements.push(
-      rect(zoneFrame(bodyZone), params.tokens.colors.softAccent, {
+      rect(zoneFrame(bodyZone), bodyFill, {
         id: "body-bg",
         role: "shape",
         collisionGroup: "body",
@@ -495,15 +563,16 @@ function buildElements(params: BuildParams): Element[] {
         role: "text",
         collisionGroup: "body",
         isCollisionProtected: true,
-        color: params.tokens.colors.text,
+        color: textColorForFill(bodyFill, params.tokens),
       }),
     );
   }
 
   if (calloutZone) {
     const accent = params.templateId === "CTA_CONTACT" || params.templateId.startsWith("COVER");
+    const calloutFill = accent ? params.tokens.colors.accentDeep : params.tokens.colors.highlightSoft;
     elements.push(
-      rect(zoneFrame(calloutZone), accent ? params.tokens.colors.accentDeep : params.tokens.colors.highlightSoft, {
+      rect(zoneFrame(calloutZone), calloutFill, {
         id: "callout-bg",
         role: "shape",
         collisionGroup: "callout",
@@ -516,7 +585,7 @@ function buildElements(params: BuildParams): Element[] {
         collisionGroup: "callout",
         isCollisionProtected: true,
         bold: true,
-        color: accent ? params.tokens.colors.inverseText : params.tokens.colors.text,
+        color: textColorForFill(calloutFill, params.tokens),
       }),
     );
   }

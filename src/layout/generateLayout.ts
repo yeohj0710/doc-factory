@@ -1,36 +1,27 @@
-﻿import { buildPageBrief } from "@/src/layout/content";
+﻿import { ensureReferenceIndex } from "@/src/io/referenceIndex";
+import { computeRequestHash } from "@/src/io/requestHash";
+import { buildPageBrief } from "@/src/layout/content";
 import { getTemplateFallbackChain, type TemplateId } from "@/src/layout/templateCatalog";
 import { createLayoutTokens, type LayoutTokens } from "@/src/layout/tokens";
 import { buildTemplatePage } from "@/src/layout/templates";
 import { createLayoutSignature, validatePageLayout } from "@/src/layout/validation";
-import type { DocType, LayoutDocument, LayoutValidationIssue, PageLayout } from "@/src/layout/types";
-import type { PageSizePreset } from "@/src/layout/pageSize";
+import type { LayoutDocument, LayoutValidationIssue, PageLayout } from "@/src/layout/types";
 import type { ScannedFont } from "@/src/io/scanFonts";
 import type { ScannedImage } from "@/src/io/scanImages";
-import { stableHashFromParts } from "@/src/io/hash";
 import { planDocument } from "@/src/planner/documentPlanner";
 import type { DocumentPlan, StoryboardItem } from "@/src/planner/types";
 import { runExportAudit } from "@/src/qa/exportAudit";
 import { createRuntimeValidator } from "@/src/qa/runtimeValidation";
-import { clearGeneratedLayoutArtifacts, writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
+import { writeExportAuditArtifact, writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
+import type { RequestSpec } from "@/src/request/requestSpec";
 
 type GenerateIntent = "regenerate" | "export";
 
 export type GenerateLayoutOptions = {
-  docTitle?: string;
-  requestedDocType?: DocType;
-  requestedPageSizePreset?: PageSizePreset;
-  customPageSizeMm?: {
-    widthMm: number;
-    heightMm: number;
-  };
-  requestedStylePresetId?: string;
-  variantIndex: number;
-  seed?: number;
+  requestSpec: RequestSpec;
   intent?: GenerateIntent;
   rootDir?: string;
   debug?: boolean;
-  includeDatePrefix?: boolean;
   disableReferenceDrivenPlanning?: boolean;
 };
 
@@ -42,6 +33,7 @@ export type PageValidationSummary = {
 };
 
 export type GenerateLayoutResult = {
+  requestHash: string;
   plan: DocumentPlan;
   storyboard: StoryboardItem[];
   tokens: LayoutTokens;
@@ -53,6 +45,11 @@ export type GenerateLayoutResult = {
     failedPageCount: number;
     pageResults: PageValidationSummary[];
   };
+  runtimeGates: {
+    available: boolean;
+    passed: boolean;
+    failedPageCount: number;
+  };
   exportAudit: ReturnType<typeof runExportAudit>;
   exportMeta: {
     docTitle: string;
@@ -62,6 +59,7 @@ export type GenerateLayoutResult = {
     filename: string;
     auditHash: string;
     referenceDigest: string;
+    requestHash: string;
   };
 };
 
@@ -105,35 +103,16 @@ function validationOptions(plan: DocumentPlan, tokens: LayoutTokens): {
   };
 }
 
-function hashString(value: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function computeSeed(images: ScannedImage[]): number {
-  const fingerprint = images
-    .map((image) => `${image.id}:${image.filename}:${image.widthPx ?? 0}x${image.heightPx ?? 0}`)
-    .join("|");
-  return hashString(fingerprint);
-}
-
-function formatDateYmd(date: Date): string {
-  const yyyy = String(date.getFullYear());
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}${mm}${dd}`;
-}
-
 function sanitizeFilenamePart(value: string, fallback: string): string {
   const cleaned = value
     .trim()
     .replace(/[\\/:*?"<>|]/g, "")
     .replace(/\s+/g, "_");
   return cleaned.length > 0 ? cleaned : fallback;
+}
+
+function formatMm(value: number): string {
+  return Number(value.toFixed(3)).toString();
 }
 
 function mergeIssues(
@@ -441,45 +420,15 @@ function enforceDeterminismSignature(params: {
 
 function buildExportFilename(params: {
   docTitle: string;
-  docType: DocType;
+  docKind: RequestSpec["docKind"];
   widthMm: number;
   heightMm: number;
   pageCount: number;
   variantIndex: number;
-  orderedImageIds: string[];
-  stylePresetId: string;
-  referenceDigest: string;
-  includeDatePrefix: boolean;
+  requestHash: string;
 }): string {
-  const hashInput = stableHashFromParts(
-    [
-      params.docTitle,
-      params.docType,
-      `${params.widthMm}x${params.heightMm}`,
-      String(params.pageCount),
-      `v${params.variantIndex}`,
-      params.stylePresetId,
-      params.referenceDigest,
-      ...params.orderedImageIds,
-    ],
-    8,
-  );
-
-  const base = [
-    sanitizeFilenamePart(params.docTitle, "Visual_Document"),
-    params.docType,
-    `${Math.round(params.widthMm * 1000) / 1000}x${Math.round(params.heightMm * 1000) / 1000}mm`,
-    `${params.pageCount}p`,
-    `v${params.variantIndex}`,
-    hashInput,
-  ].join("_");
-
-  if (!params.includeDatePrefix) {
-    return `${base}.pptx`;
-  }
-
-  const ymd = formatDateYmd(new Date());
-  return `${ymd}_${base}.pptx`;
+  const hash8 = params.requestHash.slice(0, 8);
+  return `${sanitizeFilenamePart(params.docTitle, "Visual_Document")}_${params.docKind}_${formatMm(params.widthMm)}x${formatMm(params.heightMm)}mm_${params.pageCount}p_v${params.variantIndex}_${hash8}.pptx`;
 }
 
 export async function generateLayout(
@@ -490,6 +439,7 @@ export async function generateLayout(
   const logs: string[] = [];
   const startedAt = Date.now();
   const intent = options.intent ?? "regenerate";
+  const requestSpec = options.requestSpec;
   const debugExport = intent === "export" && process.env.DOC_FACTORY_DEBUG_LAYOUT === "1";
   const emitDebug = (line: string): void => {
     if (!debugExport) {
@@ -499,41 +449,41 @@ export async function generateLayout(
     console.log(`[generateLayout][+${elapsed}ms] ${line}`);
   };
 
-  const variantIndex = Math.max(1, options.variantIndex || 1);
-  const seed = options.seed ?? computeSeed(orderedImages);
+  const variantIndex = Math.max(1, requestSpec.variantIndex || 1);
+  const seed = requestSpec.seed;
+  const rootDir = options.rootDir ?? process.cwd();
+
+  const referenceContext = await ensureReferenceIndex({
+    rootDir,
+    allowRebuild: intent !== "export",
+    minRequiredCount: 8,
+  });
+
+  const requestHash = computeRequestHash({
+    requestSpec,
+    orderedImageIds: orderedImages.map((image) => image.id),
+    referenceDigest: referenceContext.referenceDigest,
+    pageSpec: {
+      widthMm: requestSpec.pageSize.widthMm,
+      heightMm: requestSpec.pageSize.heightMm,
+    },
+    variantIndex,
+    seed,
+  });
 
   logs.push(
-    `[intake] images=${orderedImages.length} fonts=${fonts.length} variantIndex=${variantIndex} seed=${seed}`,
+    `[intake] requestHash=${requestHash} job=${requestSpec.jobId} images=${orderedImages.length} fonts=${fonts.length} variantIndex=${variantIndex} seed=${seed}`,
   );
-  emitDebug(`intake images=${orderedImages.length} variant=${variantIndex} seed=${seed}`);
-
-  try {
-    emitDebug("artifact clear start");
-    const removedArtifacts = await clearGeneratedLayoutArtifacts(options.rootDir ?? process.cwd());
-    if (removedArtifacts.length > 0) {
-      logs.push(`[artifact] cleared old generated files: ${removedArtifacts.join(", ")}`);
-    } else {
-      logs.push("[artifact] no prior generated layout.* file found");
-    }
-    emitDebug(`artifact clear done removed=${removedArtifacts.length}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown error";
-    logs.push(`[artifact] failed to clear old generated files: ${message}`);
-    emitDebug(`artifact clear error=${message}`);
-  }
+  emitDebug(`intake requestHash=${requestHash} images=${orderedImages.length} variant=${variantIndex} seed=${seed}`);
 
   emitDebug("planner start");
   const plannerResult = await planDocument(orderedImages, {
-    docTitle: options.docTitle,
-    requestedDocType: options.requestedDocType,
-    requestedPageSizePreset: options.requestedPageSizePreset,
-    customPageSizeMm: options.customPageSizeMm,
-    requestedStylePresetId: options.requestedStylePresetId,
-    variantIndex,
-    seed,
+    requestSpec,
+    requestHash,
     intent,
-    rootDir: options.rootDir,
+    rootDir,
     disableReferenceDrivenPlanning: options.disableReferenceDrivenPlanning,
+    referenceContext,
   });
   emitDebug(`planner done pages=${plannerResult.storyboard.length} style=${plannerResult.plan.stylePresetId}`);
 
@@ -685,6 +635,11 @@ export async function generateLayout(
   const passedPageCount = pageResults.filter((result) => result.passed).length;
   const failedPageCount = pageResults.length - passedPageCount;
 
+  const runtimeGateFailedPageCount = pageResults.filter((result) =>
+    result.issues.some((issue) => issue.code.startsWith("runtime-")),
+  ).length;
+  const runtimeGatesPassed = runtimeGateFailedPageCount === 0;
+
   logs.push(`[validation] static+runtime passed=${passedPageCount}/${deterministic.pages.length}`);
 
   const exportAudit = runExportAudit({
@@ -694,6 +649,9 @@ export async function generateLayout(
     debugEnabled: intent === "export" ? showDebugMeta : false,
     referenceRequired: plannerResult.plan.referenceUsageReport.required,
     referenceUsageReport: plannerResult.plan.referenceUsageReport,
+    requestHash,
+    themeFactoryStatus: plannerResult.plan.themeFactoryProof.status,
+    runtimeGatesPassed,
   });
   emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length} hash=${exportAudit.auditHash}`);
 
@@ -703,18 +661,14 @@ export async function generateLayout(
     logs.push(`[audit] export audit passed hash=${exportAudit.auditHash}`);
   }
 
-  const includeDatePrefix = options.includeDatePrefix ?? process.env.DOC_FACTORY_EXPORT_DATE_PREFIX === "1";
   const filename = buildExportFilename({
     docTitle: plannerResult.plan.docTitle,
-    docType: plannerResult.plan.docType,
+    docKind: requestSpec.docKind,
     widthMm: plannerResult.plan.pageSize.widthMm,
     heightMm: plannerResult.plan.pageSize.heightMm,
     pageCount: deterministic.pages.length,
     variantIndex,
-    orderedImageIds: orderedImages.map((image) => image.id),
-    stylePresetId: plannerResult.plan.stylePreset.id,
-    referenceDigest: plannerResult.plan.referenceDigest,
-    includeDatePrefix,
+    requestHash,
   });
 
   logs.push(`[export] filename=${filename}`);
@@ -733,13 +687,23 @@ export async function generateLayout(
       variantIndex,
       seed,
       referenceDigest: plannerResult.plan.referenceDigest,
+      requestHash,
     },
     pages: deterministic.pages,
   };
 
   try {
-    await writeGeneratedLayoutArtifact(documentArtifact, options.rootDir ?? process.cwd());
-    logs.push("[artifact] src/generated/layout.json updated");
+    await writeGeneratedLayoutArtifact({
+      document: documentArtifact,
+      requestHash,
+      rootDir,
+    });
+    await writeExportAuditArtifact({
+      audit: exportAudit,
+      requestHash,
+      rootDir,
+    });
+    logs.push(`[artifact] src/generated/jobs/${requestHash}/layout.json updated`);
     emitDebug("artifact write done");
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
@@ -748,6 +712,7 @@ export async function generateLayout(
   emitDebug("generateLayout return");
 
   return {
+    requestHash,
     plan: plannerResult.plan,
     storyboard: plannerResult.storyboard,
     tokens,
@@ -759,6 +724,11 @@ export async function generateLayout(
       failedPageCount,
       pageResults,
     },
+    runtimeGates: {
+      available: runtimeValidator.available,
+      passed: runtimeGatesPassed,
+      failedPageCount: runtimeGateFailedPageCount,
+    },
     exportAudit,
     exportMeta: {
       docTitle: plannerResult.plan.docTitle,
@@ -768,6 +738,7 @@ export async function generateLayout(
       filename,
       auditHash: exportAudit.auditHash,
       referenceDigest: plannerResult.plan.referenceDigest,
+      requestHash,
     },
   };
 }
