@@ -1,4 +1,4 @@
-﻿import path from "node:path";
+import path from "node:path";
 import type { ScannedImage } from "@/src/io/scanImages";
 import { scanReferences } from "@/src/io/scanReferences";
 import { resolvePageSize, type PageSizePreset } from "@/src/layout/pageSize";
@@ -37,6 +37,11 @@ type TopicDetection = {
   topic: AssetTopic;
   isLowSignal: boolean;
   isProofAsset: boolean;
+};
+
+type RoleSequencePlan = {
+  roles: PageRole[];
+  rhythmId: string;
 };
 
 const TOPIC_KEYWORDS: Record<AssetTopic, string[]> = {
@@ -81,6 +86,7 @@ const ROLE_TOPIC_PRIORITY: Record<PageRole, AssetTopic[]> = {
 };
 
 const DEFAULT_DOC_TITLE = "Visual_Document";
+const RHYTHM_IDS = ["editorial", "visual", "evidence", "narrative"] as const;
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[\s_.\-()/\\]+/g, "");
@@ -97,6 +103,14 @@ function createRng(seed: number): () => number {
 function pickOne<T>(list: readonly T[], rng: () => number, offset = 0): T {
   const index = Math.floor(rng() * list.length + offset) % list.length;
   return list[index] as T;
+}
+
+function rotateList<T>(items: readonly T[], shift: number): T[] {
+  if (items.length <= 1) {
+    return [...items];
+  }
+  const safeShift = ((shift % items.length) + items.length) % items.length;
+  return [...items.slice(safeShift), ...items.slice(0, safeShift)];
 }
 
 function detectTopic(image: ScannedImage): TopicDetection {
@@ -193,46 +207,8 @@ function inferDocType(images: ScannedImage[], proofAssetCount: number, topicCoun
   return "proposal";
 }
 
-function inferPageSizePreset(params: {
-  requested?: PageSizePreset;
-  docType: DocType;
-  images: ScannedImage[];
-  topicByFilename: Map<string, TopicDetection>;
-}): PageSizePreset {
-  if (params.requested) {
-    return params.requested;
-  }
-
-  if (params.docType === "poster") {
-    const first = params.images[0];
-    const ratio =
-      first?.widthPx && first?.heightPx && first.heightPx > 0
-        ? first.widthPx / first.heightPx
-        : 1;
-    return ratio > 1.15 ? "A4L" : "A4P";
-  }
-
-  const landscapeCount = params.images.filter((image) => {
-    if (!image.widthPx || !image.heightPx || image.heightPx <= 0) {
-      return false;
-    }
-    return image.widthPx / image.heightPx >= 1.2;
-  }).length;
-
-  const reportLikeCount = params.images.filter((image) => {
-    const topic = params.topicByFilename.get(image.filename)?.topic;
-    return topic === "ui" || topic === "chart";
-  }).length;
-
-  if (params.docType === "report" && reportLikeCount >= Math.ceil(params.images.length * 0.5) && landscapeCount >= Math.ceil(params.images.length * 0.45)) {
-    return "LETTERL";
-  }
-
-  if (landscapeCount >= Math.ceil(params.images.length * 0.6)) {
-    return "A4L";
-  }
-
-  return "A4P";
+function inferPageSizePreset(params: { requested?: PageSizePreset }): PageSizePreset {
+  return params.requested ?? "A4P";
 }
 
 function decidePageCount(params: {
@@ -281,41 +257,105 @@ function titleFromImages(images: ScannedImage[]): string {
   return cleaned.slice(0, 56).replace(/\s+/g, "_");
 }
 
-function buildRoleSequence(docType: DocType, pageCount: number): PageRole[] {
-  if (docType === "poster") {
-    return ["cover"];
+function baseSequencesByDocType(docType: DocType): PageRole[][] {
+  if (docType === "report") {
+    return [
+      ["cover", "agenda", "metrics", "comparison", "process", "text-only", "cta"],
+      ["cover", "section-divider", "metrics", "timeline", "comparison", "text-only", "cta"],
+      ["cover", "agenda", "insight", "metrics", "timeline", "text-only", "cta"],
+      ["cover", "topic", "comparison", "metrics", "process", "text-only", "cta"],
+    ];
   }
 
-  if (docType === "one-pager") {
-    return pageCount === 1 ? ["cover"] : ["cover", "text-only"];
+  if (docType === "multi-card") {
+    return [
+      ["cover", "topic", "gallery", "topic", "metrics", "text-only", "cta"],
+      ["cover", "gallery", "topic", "section-divider", "comparison", "text-only", "cta"],
+      ["cover", "topic", "process", "gallery", "timeline", "text-only", "cta"],
+      ["cover", "section-divider", "topic", "comparison", "gallery", "text-only", "cta"],
+    ];
   }
 
-  const base: PageRole[] =
-    docType === "report"
-      ? ["cover", "agenda", "metrics", "comparison", "process", "text-only", "cta"]
-      : docType === "multi-card"
-        ? ["cover", "topic", "topic", "gallery", "metrics", "text-only", "cta"]
-        : ["cover", "agenda", "insight", "solution", "process", "text-only", "cta"];
+  return [
+    ["cover", "agenda", "insight", "solution", "process", "text-only", "cta"],
+    ["cover", "section-divider", "solution", "metrics", "process", "text-only", "cta"],
+    ["cover", "topic", "insight", "comparison", "timeline", "text-only", "cta"],
+    ["cover", "gallery", "solution", "process", "comparison", "text-only", "cta"],
+  ];
+}
 
-  if (pageCount <= base.length) {
-    return base.slice(0, pageCount);
+function extraPoolByDocType(docType: DocType): PageRole[] {
+  if (docType === "report") {
+    return ["metrics", "comparison", "timeline", "insight", "section-divider", "process"];
   }
 
-  const extrasNeeded = pageCount - base.length;
-  const extraPool: PageRole[] =
-    docType === "report"
-      ? ["metrics", "comparison", "timeline", "insight", "section-divider"]
-      : docType === "multi-card"
-        ? ["topic", "gallery", "comparison", "process", "section-divider"]
-        : ["insight", "solution", "metrics", "timeline", "section-divider"];
+  if (docType === "multi-card") {
+    return ["topic", "gallery", "comparison", "process", "section-divider", "timeline"];
+  }
 
+  return ["insight", "solution", "metrics", "timeline", "section-divider", "topic"];
+}
+
+function normalizeRoleSequence(sequence: PageRole[], enforceCta: boolean): PageRole[] {
+  if (sequence.length === 0) {
+    return [];
+  }
+
+  const next = [...sequence];
+  next[0] = "cover";
+  if (enforceCta && next.length > 1) {
+    next[next.length - 1] = "cta";
+  }
+  return next;
+}
+
+function buildRoleSequence(params: {
+  docType: DocType;
+  pageCount: number;
+  seed: number;
+  variantIndex: number;
+}): RoleSequencePlan {
+  if (params.docType === "poster") {
+    return {
+      roles: ["cover"],
+      rhythmId: "single-poster",
+    };
+  }
+
+  if (params.docType === "one-pager") {
+    return {
+      roles: params.pageCount <= 1 ? ["cover"] : ["cover", "text-only"],
+      rhythmId: "single-sheet",
+    };
+  }
+
+  const baseVariants = baseSequencesByDocType(params.docType);
+  const rhythmIndex = Math.abs(params.seed + params.variantIndex * 31) % baseVariants.length;
+  const rhythmId = RHYTHM_IDS[rhythmIndex] ?? `rhythm-${rhythmIndex + 1}`;
+  const base = baseVariants[rhythmIndex] ?? baseVariants[0] ?? ["cover", "text-only", "cta"];
+
+  if (params.pageCount <= base.length) {
+    return {
+      roles: normalizeRoleSequence(base.slice(0, params.pageCount), base.includes("cta")),
+      rhythmId,
+    };
+  }
+
+  const extrasNeeded = params.pageCount - base.length;
+  const extras = rotateList(extraPoolByDocType(params.docType), rhythmIndex);
   const next = [...base];
+
   for (let index = 0; index < extrasNeeded; index += 1) {
-    const role = extraPool[index % extraPool.length] as PageRole;
-    next.splice(next.length - 1, 0, role);
+    const role = extras[index % extras.length] as PageRole;
+    const ctaIndex = next.lastIndexOf("cta");
+    const insertAt = ctaIndex > 0 ? ctaIndex : next.length;
+    next.splice(insertAt, 0, role);
   }
 
-  return next.slice(0, pageCount);
+  return {
+    roles: normalizeRoleSequence(next.slice(0, params.pageCount), base.includes("cta")),
+    rhythmId,
+  };
 }
 
 function successCriteria(role: PageRole): string {
@@ -340,6 +380,7 @@ function templateForRole(params: {
   rng: () => number;
   excludeTemplateId?: TemplateId;
   preferNonFullBleed?: boolean;
+  templateShift?: number;
 }): TemplateId {
   const pool = ROLE_TEMPLATE_POOL[params.role] ?? ROLE_TEMPLATE_POOL.topic;
   const candidates = pool.filter((templateId) => {
@@ -356,7 +397,7 @@ function templateForRole(params: {
   });
 
   if (candidates.length > 0) {
-    return pickOne(candidates, params.rng);
+    return pickOne(candidates, params.rng, params.templateShift ?? 0);
   }
 
   const fallback = pool.find((templateId) => templateSupportsImage(templateId, params.hasAsset));
@@ -416,7 +457,7 @@ function takeAsset(params: {
   return tryTake(allTopics, true);
 }
 
-function ensureDiversity(storyboard: StoryboardItem[], rng: () => number): StoryboardItem[] {
+function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, variantIndex: number): StoryboardItem[] {
   const next = [...storyboard];
 
   for (let index = 2; index < next.length; index += 1) {
@@ -431,6 +472,7 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number): Story
         role: c.role,
         hasAsset: c.primaryAssetFilename !== null,
         excludeTemplateId: c.templateId,
+        templateShift: variantIndex * 11 + index * 3,
         rng,
       });
       const spec = getTemplateSpec(replacement);
@@ -457,6 +499,7 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number): Story
         hasAsset: item.primaryAssetFilename !== null,
         excludeTemplateId: item.templateId,
         preferNonFullBleed: true,
+        templateShift: variantIndex * 7 + index * 2,
         rng,
       });
       const spec = getTemplateSpec(replacement);
@@ -496,8 +539,18 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   const variantIndex = Math.max(1, options.variantIndex || 1);
   const seed = options.seed;
   const rng = createRng(seed + variantIndex * 17);
+  const debug = process.env.DOC_FACTORY_DEBUG_PLANNER === "1";
+  const debugLog = (line: string): void => {
+    if (!debug) {
+      return;
+    }
+    console.log(`[planner:debug] ${line}`);
+  };
+
+  debugLog(`start variant=${variantIndex} seed=${seed} images=${images.length}`);
 
   const { clusters, topicByFilename, proofAssetCount, lowSignalAssetCount } = buildTopicClusters(images);
+  debugLog(`topic clusters built count=${clusters.length}`);
   logs.push(
     `[planner] clusters=${clusters.length} proofAssets=${proofAssetCount} lowSignal=${lowSignalAssetCount}`,
   );
@@ -507,9 +560,6 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
 
   const pageSizePreset = inferPageSizePreset({
     requested: options.requestedPageSizePreset,
-    docType,
-    images,
-    topicByFilename,
   });
 
   const pageSize = resolvePageSize({
@@ -525,13 +575,22 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     proofAssetCount,
     lowSignalAssetCount,
   });
+  debugLog(`page sizing done preset=${pageSize.preset} count=${pageCount}`);
 
-  const roleSequence = buildRoleSequence(docType, pageCount);
+  const rolePlan = buildRoleSequence({
+    docType,
+    pageCount,
+    seed,
+    variantIndex,
+  });
+  const roleSequence = rolePlan.roles;
+  debugLog(`role sequence built rhythm=${rolePlan.rhythmId} len=${roleSequence.length}`);
 
   logs.push(`[planner] docType=${docType} pageSize=${pageSize.preset}(${pageSize.widthMm}x${pageSize.heightMm}mm) pageCount=${pageCount}`);
-  logs.push(`[planner] role sequence: ${roleSequence.join(" -> ")}`);
+  logs.push(`[planner] rhythm=${rolePlan.rhythmId} role sequence: ${roleSequence.join(" -> ")}`);
 
   const references = await scanReferences(options.rootDir ?? process.cwd(), seed + variantIndex);
+  debugLog(`references scanned all=${references.all.length} sampled=${references.sampled.length}`);
   const styleSelection = selectStylePreset({
     seed,
     variantIndex,
@@ -540,6 +599,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   });
 
   const selectedPreset = getStylePresetById(styleSelection.selectedPresetId);
+  debugLog(`style selected=${selectedPreset.id} candidates=${styleSelection.candidatePresetIds.join(",")}`);
   logs.push(
     `[planner] style candidates=${styleSelection.candidatePresetIds.join(", ")} selected=${selectedPreset.id} reason=${styleSelection.reason}`,
   );
@@ -569,6 +629,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     const templateId = templateForRole({
       role,
       hasAsset,
+      templateShift: variantIndex * 19 + index * 7,
       rng,
     });
 
@@ -587,8 +648,10 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
       isFullBleed: spec.isFullBleed,
     };
   });
+  debugLog(`storyboard draft built pages=${storyboardDraft.length}`);
 
-  const storyboard = ensureDiversity(storyboardDraft, rng);
+  const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex);
+  debugLog(`storyboard diversity done pages=${storyboard.length}`);
 
   const plan: DocumentPlan = {
     docTitle: options.docTitle?.trim() || titleFromImages(images),
@@ -624,6 +687,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     `[planner] storyboard pages=${storyboard.length}, textOnly=${storyboard.filter((item) => item.isTextOnly).length}, fullBleed=${storyboard.filter((item) => item.isFullBleed).length}`,
   );
   logs.push(`[planner] template runs: ${templateRuns.join(", ")}`);
+  debugLog("done");
 
   return {
     plan,
@@ -631,4 +695,3 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     logs,
   };
 }
-

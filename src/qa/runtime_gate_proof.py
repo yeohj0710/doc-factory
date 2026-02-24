@@ -12,13 +12,14 @@ def inspect(url: str) -> dict:
         page = browser.new_page()
         page.goto(url, wait_until="networkidle")
 
-        export_button = page.locator("button:has-text('Export PPTX')").first
+        export_button = page.locator("form[action='/api/export/pptx'] button").first
         disabled = export_button.is_disabled()
 
-        logs = page.locator(".page-card .page-brief .page-brief-line").all_text_contents()
+        logs = page.locator(".log-line").all_text_contents()
         runtime_log_present = any("[runtime]" in line and "playwright runtime validator ready" in line for line in logs)
 
-        status_text = page.locator(".status-panel").inner_text()
+        status_text = page.locator(".export-state").first.inner_text()
+        regenerate_label = page.locator("button:has-text('Regenerate Layout')").first.inner_text()
 
         browser.close()
 
@@ -27,12 +28,13 @@ def inspect(url: str) -> dict:
         "export_button_disabled": disabled,
         "runtime_log_present": runtime_log_present,
         "status_text": status_text,
+        "regenerate_button_label": regenerate_label,
     }
 
 
 def main() -> None:
-    normal = inspect(f"{BASE}/?v=1")
-    tiny = inspect(f"{BASE}/?v=1&size=CUSTOM&w=80&h=80")
+    normal = inspect(f"{BASE}/?v=1&debug=1")
+    tiny = inspect(f"{BASE}/?v=1&size=CUSTOM&w=80&h=80&debug=1")
 
     print(json.dumps({"normal": normal, "tiny_custom": tiny}, ensure_ascii=False, indent=2))
 

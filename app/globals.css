@@ -109,6 +109,10 @@ code {
   align-self: center;
 }
 
+.hero-action form {
+  width: 100%;
+}
+
 .primary-button {
   appearance: none;
   border: 1px solid var(--accent);
@@ -140,6 +144,32 @@ code {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.secondary-button {
+  appearance: none;
+  border: 1px solid #c3d0e4;
+  border-radius: 12px;
+  background: #f6f9fe;
+  color: #284769;
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 130ms ease,
+    border-color 130ms ease,
+    transform 120ms ease;
+}
+
+.secondary-button:hover {
+  background: #eef4fd;
+  border-color: #aec1de;
+}
+
+.secondary-button:active {
+  transform: translateY(1px);
 }
 
 .export-state {

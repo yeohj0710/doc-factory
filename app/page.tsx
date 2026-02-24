@@ -15,6 +15,7 @@ type HomeProps = {
 const UI_TEXT = {
   builder: "\uBE44\uC8FC\uC5BC \uBB38\uC11C \uC0DD\uC131\uAE30",
   exportPptx: "PPTX \uB0B4\uBCF4\uB0B4\uAE30",
+  regenerateLayout: "Regenerate Layout",
   exportReady: "\uB0B4\uBCF4\uB0B4\uAE30 \uC900\uBE44 \uC644\uB8CC",
   exportBlocked: "\uAC80\uC99D\uC744 \uD1B5\uACFC\uD574\uC57C \uB0B4\uBCF4\uB0BC \uC218 \uC788\uC2B5\uB2C8\uB2E4",
   summary: "\uBB38\uC11C \uC694\uC57D",
@@ -46,6 +47,8 @@ const UI_TEXT = {
   labelDocType: "\uBB38\uC11C \uC720\uD615",
   labelPageSize: "\uD398\uC774\uC9C0 \uD06C\uAE30",
   labelTemplateVariety: "\uD15C\uD50C\uB9BF \uB2E4\uC591\uC131(\uCC98\uC74C 4\uD398\uC774\uC9C0)",
+  labelStyleCandidates: "\uC2A4\uD0C0\uC77C \uD6C4\uBCF4",
+  labelStyleSelected: "\uC120\uD0DD \uC2A4\uD0C0\uC77C",
   labelPassedPages: "\uD1B5\uACFC \uD398\uC774\uC9C0",
   labelNextFilename: "\uB2E4\uC74C \uD30C\uC77C\uBA85",
   labelVersion: "version",
@@ -210,7 +213,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
   const variantIndex = parseVariantIndex(readSingle(params.v));
   const requestedDocType = parseDocType(readSingle(params.docType));
-  const requestedPageSizePreset = parsePageSizePreset(readSingle(params.size));
+  const requestedPageSizePreset = parsePageSizePreset(readSingle(params.size)) ?? "A4P";
   const showDebug = readSingle(params.debug) === "1";
   const customWidthMm = parseNumber(readSingle(params.w));
   const customHeightMm = parseNumber(readSingle(params.h));
@@ -235,6 +238,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const exportBlocked = !result.validation.passed || !result.exportAudit.passed;
   const docTypeLabel = DOC_TYPE_LABEL[result.plan.docType] ?? result.plan.docType;
   const pageSizeLabel = PAGE_SIZE_LABEL[result.plan.pageSizePreset] ?? result.plan.pageSizePreset;
+  const nextVariantIndex = result.plan.variantIndex + 1;
 
   return (
     <main className="app-shell">
@@ -260,6 +264,21 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="pageHeightMm" value={String(result.plan.pageSize.heightMm)} />
             <button className="primary-button" type="submit" disabled={!hasPages || exportBlocked}>
               {UI_TEXT.exportPptx}
+            </button>
+          </form>
+          <form action="/" method="get">
+            <input type="hidden" name="v" value={String(nextVariantIndex)} />
+            <input type="hidden" name="docType" value={result.plan.docType} />
+            <input type="hidden" name="size" value={result.plan.pageSizePreset} />
+            {result.plan.pageSizePreset === "CUSTOM" ? (
+              <>
+                <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
+                <input type="hidden" name="h" value={String(result.plan.pageSize.heightMm)} />
+              </>
+            ) : null}
+            {showDebug ? <input type="hidden" name="debug" value="1" /> : null}
+            <button className="secondary-button" type="submit">
+              {UI_TEXT.regenerateLayout}
             </button>
           </form>
           <p className={`export-state ${exportBlocked ? "is-blocked" : "is-ready"}`}>
@@ -389,6 +408,12 @@ export default async function Home({ searchParams }: HomeProps) {
                   </p>
                   <p>
                     {UI_TEXT.labelTemplateVariety}: <strong>{templateInFirst4.size}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelStyleCandidates}: <strong>{result.plan.styleCandidateIds.join(", ")}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelStyleSelected}: <strong>{result.plan.stylePresetId}</strong>
                   </p>
                   <p>
                     {UI_TEXT.labelPassedPages}: <strong>{result.validation.passedPageCount}/{result.pages.length}</strong>

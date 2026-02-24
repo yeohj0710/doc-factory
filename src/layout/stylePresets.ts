@@ -646,13 +646,16 @@ export function selectStylePreset(params: {
   const candidateIds: string[] = [];
   const step = seededStep(params.seed + params.variantIndex);
   let cursor = Math.abs(params.seed + params.variantIndex * 13) % ordered.length;
+  const maxIterations = Math.max(ordered.length * 2, 12);
+  let iterations = 0;
 
-  while (candidateIds.length < 3 && candidateIds.length < ordered.length) {
+  while (candidateIds.length < 3 && candidateIds.length < ordered.length && iterations < maxIterations) {
     const preset = ordered[cursor % ordered.length];
     if (preset) {
       uniquePush(candidateIds, preset.id);
     }
     cursor += step;
+    iterations += 1;
   }
 
   if (candidateIds.length < 3) {
@@ -664,8 +667,11 @@ export function selectStylePreset(params: {
     }
   }
 
-  const selectedPresetId = candidateIds[0] ?? STYLE_PRESETS[0]?.id ?? "theme-ocean-depths";
-  const reason = referenceTags.length > 0 ? `reference tags: ${referenceTags.join(", ")}` : "seeded default";
+  const fallbackPresetId = STYLE_PRESETS[0]?.id ?? "theme-ocean-depths";
+  const selectedIndex = candidateIds.length > 0 ? Math.abs(params.variantIndex - 1) % candidateIds.length : 0;
+  const selectedPresetId = candidateIds[selectedIndex] ?? fallbackPresetId;
+  const baseReason = referenceTags.length > 0 ? `reference tags: ${referenceTags.join(", ")}` : "seeded default";
+  const reason = `${baseReason}; variant rotation=${selectedIndex + 1}/${Math.max(1, candidateIds.length)}`;
 
   return {
     candidatePresetIds: candidateIds,

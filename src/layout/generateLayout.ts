@@ -12,7 +12,7 @@ import { planDocument } from "@/src/planner/documentPlanner";
 import type { DocumentPlan, StoryboardItem } from "@/src/planner/types";
 import { runExportAudit } from "@/src/qa/exportAudit";
 import { createRuntimeValidator } from "@/src/qa/runtimeValidation";
-import { writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
+import { clearGeneratedLayoutArtifacts, writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
 
 type GenerateIntent = "regenerate" | "export";
 
@@ -79,6 +79,17 @@ type AttemptResult = {
   templateId: TemplateId;
 };
 
+type AttemptTrace = {
+  attempt: number;
+  pageNumber: number;
+  templateId: TemplateId;
+  copyTightness: number;
+  compactLevel: number;
+  passed: boolean;
+  staticIssueCount: number;
+  runtimeIssueCount: number;
+};
+
 function hashString(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -88,11 +99,11 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
-function computeSeed(images: ScannedImage[], variantIndex: number): number {
+function computeSeed(images: ScannedImage[]): number {
   const fingerprint = images
     .map((image) => `${image.filename}:${Math.round(image.mtimeMs)}:${image.widthPx ?? 0}x${image.heightPx ?? 0}`)
     .join("|");
-  return hashString(`${fingerprint}|v${variantIndex}`);
+  return hashString(fingerprint);
 }
 
 function formatDateYmd(date: Date): string {
@@ -250,6 +261,7 @@ async function resolvePageWithAutofix(params: {
   imageByFilename: Map<string, ScannedImage>;
   runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
   logs: string[];
+  onAttempt?: (trace: AttemptTrace) => void;
 }): Promise<PageLayout> {
   const templateChain = getTemplateFallbackChain(params.item.templateId);
   const attemptedTemplates: TemplateId[] = [];
@@ -278,6 +290,17 @@ async function resolvePageWithAutofix(params: {
     });
 
     lastAttempt = result;
+
+    params.onAttempt?.({
+      attempt: attempt + 1,
+      pageNumber: params.item.pageNumber,
+      templateId,
+      copyTightness: state.copyTightness,
+      compactLevel: state.compactLevel,
+      passed: result.passed,
+      staticIssueCount: result.staticIssues.length,
+      runtimeIssueCount: result.runtimeIssues.length,
+    });
 
     if (result.passed) {
       if (attempt > 0) {
@@ -366,14 +389,40 @@ export async function generateLayout(
   options: GenerateLayoutOptions,
 ): Promise<GenerateLayoutResult> {
   const logs: string[] = [];
+  const startedAt = Date.now();
+  const debugExport = options.intent === "export" && process.env.DOC_FACTORY_DEBUG_LAYOUT === "1";
+  const emitDebug = (line: string): void => {
+    if (!debugExport) {
+      return;
+    }
+    const elapsed = Date.now() - startedAt;
+    console.log(`[generateLayout][+${elapsed}ms] ${line}`);
+  };
 
   const variantIndex = Math.max(1, options.variantIndex || 1);
-  const seed = options.seed ?? computeSeed(orderedImages, variantIndex);
+  const seed = options.seed ?? computeSeed(orderedImages);
 
   logs.push(
     `[intake] images=${orderedImages.length} fonts=${fonts.length} variantIndex=${variantIndex} seed=${seed}`,
   );
+  emitDebug(`intake images=${orderedImages.length} variant=${variantIndex} seed=${seed}`);
 
+  try {
+    emitDebug("artifact clear start");
+    const removedArtifacts = await clearGeneratedLayoutArtifacts(options.rootDir ?? process.cwd());
+    if (removedArtifacts.length > 0) {
+      logs.push(`[artifact] cleared old generated files: ${removedArtifacts.join(", ")}`);
+    } else {
+      logs.push("[artifact] no prior generated layout.* file found");
+    }
+    emitDebug(`artifact clear done removed=${removedArtifacts.length}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logs.push(`[artifact] failed to clear old generated files: ${message}`);
+    emitDebug(`artifact clear error=${message}`);
+  }
+
+  emitDebug("planner start");
   const plannerResult = await planDocument(orderedImages, {
     docTitle: options.docTitle,
     requestedDocType: options.requestedDocType,
@@ -384,6 +433,7 @@ export async function generateLayout(
     seed,
     rootDir: options.rootDir,
   });
+  emitDebug(`planner done pages=${plannerResult.storyboard.length} style=${plannerResult.plan.stylePresetId}`);
 
   logs.push(...plannerResult.logs);
 
@@ -396,10 +446,12 @@ export async function generateLayout(
 
   const runtimeValidator = await createRuntimeValidator();
   logs.push(...runtimeValidator.startupLogs.map((line) => `[runtime] ${line}`));
+  emitDebug(`runtime validator ready available=${runtimeValidator.available}`);
 
   const pages: PageLayout[] = [];
 
   for (const item of plannerResult.storyboard) {
+    emitDebug(`page ${item.pageNumber} start role=${item.role} template=${item.templateId}`);
     const resolved = await resolvePageWithAutofix({
       item,
       plan: plannerResult.plan,
@@ -407,11 +459,18 @@ export async function generateLayout(
       imageByFilename,
       runtimeValidator,
       logs,
+      onAttempt: (trace) => {
+        emitDebug(
+          `page ${trace.pageNumber} attempt ${trace.attempt} template=${trace.templateId} tighten=${trace.copyTightness} compact=${trace.compactLevel} passed=${trace.passed} static=${trace.staticIssueCount} runtime=${trace.runtimeIssueCount}`,
+        );
+      },
     });
     pages.push(resolved);
+    emitDebug(`page ${item.pageNumber} resolved passed=${resolved.meta?.validation.passed ?? false}`);
   }
 
   await runtimeValidator.close();
+  emitDebug("runtime validator closed");
 
   const deterministic = enforceDeterminismSignature({
     pages,
@@ -441,6 +500,7 @@ export async function generateLayout(
     expectedPageCount: plannerResult.plan.pageCount,
     pageSize: plannerResult.plan.pageSize,
   });
+  emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length}`);
 
   if (!exportAudit.passed) {
     logs.push(`[audit] export audit failed (${exportAudit.issues.length} issues)`);
@@ -473,10 +533,12 @@ export async function generateLayout(
   try {
     await writeGeneratedLayoutArtifact(documentArtifact, options.rootDir ?? process.cwd());
     logs.push("[artifact] src/generated/layout.json updated");
+    emitDebug("artifact write done");
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     logs.push(`[artifact] failed to write generated layout: ${message}`);
   }
+  emitDebug("generateLayout return");
 
   return {
     plan: plannerResult.plan,

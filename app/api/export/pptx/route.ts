@@ -8,6 +8,27 @@ import { renderLayoutsToPptx } from "@/src/render/pptx/renderPptx";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function createExportLogger(requestId: string): {
+  log: (stage: string, detail?: string) => void;
+  elapsedMs: () => number;
+} {
+  const startedAt = Date.now();
+
+  return {
+    log(stage, detail) {
+      const elapsed = Date.now() - startedAt;
+      if (detail) {
+        console.log(`[export:pptx][${requestId}][+${elapsed}ms] ${stage} :: ${detail}`);
+      } else {
+        console.log(`[export:pptx][${requestId}][+${elapsed}ms] ${stage}`);
+      }
+    },
+    elapsedMs() {
+      return Date.now() - startedAt;
+    },
+  };
+}
+
 function encodeContentDispositionFilename(filename: string): {
   asciiFallback: string;
   utf8Encoded: string;
@@ -67,7 +88,11 @@ function parsePageSizePreset(value: FormDataEntryValue | null): PageSizePreset |
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const requestId = `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const logger = createExportLogger(requestId);
+
   try {
+    logger.log("export start");
     const formData = await request.formData();
 
     const variantIndex = parseInteger(formData.get("variantIndex")) ?? 1;
@@ -76,10 +101,17 @@ export async function POST(request: Request): Promise<Response> {
     const requestedPageSizePreset = parsePageSizePreset(formData.get("pageSizePreset"));
     const pageWidthMm = parseNumber(formData.get("pageWidthMm"));
     const pageHeightMm = parseNumber(formData.get("pageHeightMm"));
+    logger.log(
+      "request parsed",
+      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"}`,
+    );
 
+    logger.log("asset scan start");
     const [images, fonts] = await Promise.all([scanImages(), scanFonts()]);
+    logger.log("asset scan done", `images=${images.length} fonts=${fonts.length}`);
 
     if (images.length === 0) {
+      logger.log("export blocked", "no images");
       return Response.json(
         {
           error: "No images found. Add files to /images first.",
@@ -88,6 +120,7 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    logger.log("layout generation start");
     const result = await generateLayout(images, fonts, {
       intent: "export",
       variantIndex,
@@ -102,8 +135,16 @@ export async function POST(request: Request): Promise<Response> {
             }
           : undefined,
     });
+    logger.log(
+      "layout generation done",
+      `pages=${result.pages.length} validation=${result.validation.passed} audit=${result.exportAudit.passed}`,
+    );
 
     if (!result.validation.passed || !result.exportAudit.passed) {
+      logger.log(
+        "export blocked",
+        `validationFailures=${result.validation.failedPageCount} auditIssues=${result.exportAudit.issues.length}`,
+      );
       return Response.json(
         {
           error: "Validation failed. Export aborted.",
@@ -114,20 +155,26 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    logger.log("pptx render start", `slides=${result.pages.length}`);
     const pptxBytes = await renderLayoutsToPptx(result.pages, {
       primaryFont: result.tokens.font.primary,
       title: result.plan.docTitle,
       subject: `${result.plan.docType} ${result.plan.pageSizePreset}`,
     });
+    logger.log("pptx render done", `bytes=${pptxBytes.byteLength}`);
     const disposition = encodeContentDispositionFilename(result.exportMeta.filename);
+    logger.log("response stream prepare", `filename=${result.exportMeta.filename}`);
 
     const bodyStream = new ReadableStream({
       start(controller) {
+        logger.log("write start", `bytes=${pptxBytes.byteLength}`);
         controller.enqueue(pptxBytes);
         controller.close();
+        logger.log("write done");
       },
     });
 
+    logger.log("response ready", `total=${logger.elapsedMs()}ms`);
     return new Response(bodyStream, {
       status: 200,
       headers: {
@@ -139,6 +186,7 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to export PPTX.";
+    logger.log("export error", message);
     return Response.json(
       {
         error: "PPTX export failed",
