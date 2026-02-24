@@ -1,12 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { compareOrderedAssetPath } from "@/src/io/ordering";
 
 const FONT_EXTENSIONS = new Set([".ttf", ".otf"]);
-const naturalCollator = new Intl.Collator("en", {
-  numeric: true,
-  sensitivity: "base",
-});
-
 export const SYSTEM_FONT_STACK = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 export type ScannedFont = {
@@ -108,7 +104,7 @@ export async function scanFonts(rootDir = process.cwd()): Promise<ScannedFont[]>
       filename: entry.name,
       absPath: path.join(fontsDir, entry.name),
     }))
-    .sort((a, b) => naturalCollator.compare(a.filename, b.filename));
+    .sort((a, b) => compareOrderedAssetPath(a.filename, b.filename));
 
   return fontFiles.map((file, index) => ({
     id: `font-${index + 1}`,

@@ -1,5 +1,4 @@
-﻿import { getStylePresetById } from "@/src/layout/stylePresets";
-import { buildPageBrief } from "@/src/layout/content";
+﻿import { buildPageBrief } from "@/src/layout/content";
 import { getTemplateFallbackChain, type TemplateId } from "@/src/layout/templateCatalog";
 import { createLayoutTokens, type LayoutTokens } from "@/src/layout/tokens";
 import { buildTemplatePage } from "@/src/layout/templates";
@@ -8,6 +7,7 @@ import type { DocType, LayoutDocument, LayoutValidationIssue, PageLayout } from 
 import type { PageSizePreset } from "@/src/layout/pageSize";
 import type { ScannedFont } from "@/src/io/scanFonts";
 import type { ScannedImage } from "@/src/io/scanImages";
+import { stableHashFromParts } from "@/src/io/hash";
 import { planDocument } from "@/src/planner/documentPlanner";
 import type { DocumentPlan, StoryboardItem } from "@/src/planner/types";
 import { runExportAudit } from "@/src/qa/exportAudit";
@@ -30,6 +30,8 @@ export type GenerateLayoutOptions = {
   intent?: GenerateIntent;
   rootDir?: string;
   debug?: boolean;
+  includeDatePrefix?: boolean;
+  disableReferenceDrivenPlanning?: boolean;
 };
 
 export type PageValidationSummary = {
@@ -51,17 +53,15 @@ export type GenerateLayoutResult = {
     failedPageCount: number;
     pageResults: PageValidationSummary[];
   };
-  exportAudit: {
-    passed: boolean;
-    issues: LayoutValidationIssue[];
-  };
+  exportAudit: ReturnType<typeof runExportAudit>;
   exportMeta: {
     docTitle: string;
     pageSize: string;
-    dateYmd: string;
     variantIndex: number;
     pageCount: number;
     filename: string;
+    auditHash: string;
+    referenceDigest: string;
   };
 };
 
@@ -116,7 +116,7 @@ function hashString(value: string): number {
 
 function computeSeed(images: ScannedImage[]): number {
   const fingerprint = images
-    .map((image) => `${image.filename}:${Math.round(image.mtimeMs)}:${image.widthPx ?? 0}x${image.heightPx ?? 0}`)
+    .map((image) => `${image.id}:${image.filename}:${image.widthPx ?? 0}x${image.heightPx ?? 0}`)
     .join("|");
   return hashString(fingerprint);
 }
@@ -248,6 +248,7 @@ async function runAttempt(params: {
     templateId: params.templateId,
     pageWidthMm: params.plan.pageSize.widthMm,
     pageHeightMm: params.plan.pageSize.heightMm,
+    layoutTuning: params.item.layoutTuning,
     compactLevel: params.compactLevel,
     showDebugMeta: params.showDebugMeta,
   });
@@ -438,6 +439,49 @@ function enforceDeterminismSignature(params: {
   };
 }
 
+function buildExportFilename(params: {
+  docTitle: string;
+  docType: DocType;
+  widthMm: number;
+  heightMm: number;
+  pageCount: number;
+  variantIndex: number;
+  orderedImageIds: string[];
+  stylePresetId: string;
+  referenceDigest: string;
+  includeDatePrefix: boolean;
+}): string {
+  const hashInput = stableHashFromParts(
+    [
+      params.docTitle,
+      params.docType,
+      `${params.widthMm}x${params.heightMm}`,
+      String(params.pageCount),
+      `v${params.variantIndex}`,
+      params.stylePresetId,
+      params.referenceDigest,
+      ...params.orderedImageIds,
+    ],
+    8,
+  );
+
+  const base = [
+    sanitizeFilenamePart(params.docTitle, "Visual_Document"),
+    params.docType,
+    `${Math.round(params.widthMm * 1000) / 1000}x${Math.round(params.heightMm * 1000) / 1000}mm`,
+    `${params.pageCount}p`,
+    `v${params.variantIndex}`,
+    hashInput,
+  ].join("_");
+
+  if (!params.includeDatePrefix) {
+    return `${base}.pptx`;
+  }
+
+  const ymd = formatDateYmd(new Date());
+  return `${ymd}_${base}.pptx`;
+}
+
 export async function generateLayout(
   orderedImages: ScannedImage[],
   fonts: ScannedFont[],
@@ -445,7 +489,8 @@ export async function generateLayout(
 ): Promise<GenerateLayoutResult> {
   const logs: string[] = [];
   const startedAt = Date.now();
-  const debugExport = options.intent === "export" && process.env.DOC_FACTORY_DEBUG_LAYOUT === "1";
+  const intent = options.intent ?? "regenerate";
+  const debugExport = intent === "export" && process.env.DOC_FACTORY_DEBUG_LAYOUT === "1";
   const emitDebug = (line: string): void => {
     if (!debugExport) {
       return;
@@ -486,21 +531,23 @@ export async function generateLayout(
     requestedStylePresetId: options.requestedStylePresetId,
     variantIndex,
     seed,
+    intent,
     rootDir: options.rootDir,
+    disableReferenceDrivenPlanning: options.disableReferenceDrivenPlanning,
   });
   emitDebug(`planner done pages=${plannerResult.storyboard.length} style=${plannerResult.plan.stylePresetId}`);
 
   logs.push(...plannerResult.logs);
 
-  const preset = getStylePresetById(plannerResult.plan.stylePresetId);
+  const preset = plannerResult.plan.stylePreset;
   const tokens = createLayoutTokens(fonts, preset);
 
-  logs.push(`[style] applied preset=${preset.id} (${preset.label})`);
+  logs.push(`[style] applied preset=${preset.id} (${preset.label}) source=${plannerResult.plan.stylePresetSource}`);
 
   const imageByFilename = new Map(orderedImages.map((image) => [image.filename, image] as const));
   const storyboardByPageNumber = new Map(plannerResult.storyboard.map((item) => [item.pageNumber, item] as const));
-  const showDebugMeta = options.intent === "export" ? false : options.debug === true;
-  if (options.intent === "export" && options.debug) {
+  const showDebugMeta = intent === "export" ? false : options.debug === true;
+  if (intent === "export" && options.debug) {
     logs.push("[debug] export path forced debug=false");
   }
 
@@ -544,8 +591,8 @@ export async function generateLayout(
     `[quality] v1 failedPages=${failedPageNumbers.length}${failedPageNumbers.length > 0 ? ` (${failedPageNumbers.join(", ")})` : ""}`,
   );
 
-  const maxQualityVersion = options.intent === "regenerate" ? 3 : 2;
-  const minQualityVersion = options.intent === "regenerate" ? 2 : 1;
+  const maxQualityVersion = intent === "regenerate" ? 3 : 2;
+  const minQualityVersion = intent === "regenerate" ? 2 : 1;
 
   for (let qualityVersion = 2; qualityVersion <= maxQualityVersion; qualityVersion += 1) {
     const shouldRun = qualityVersion <= minQualityVersion || failedPageNumbers.length > 0;
@@ -644,18 +691,31 @@ export async function generateLayout(
     pages: deterministic.pages,
     expectedPageCount: plannerResult.plan.pageCount,
     pageSize: plannerResult.plan.pageSize,
-    debugEnabled: options.intent === "export" ? showDebugMeta : false,
+    debugEnabled: intent === "export" ? showDebugMeta : false,
+    referenceRequired: plannerResult.plan.referenceUsageReport.required,
+    referenceUsageReport: plannerResult.plan.referenceUsageReport,
   });
-  emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length}`);
+  emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length} hash=${exportAudit.auditHash}`);
 
   if (!exportAudit.passed) {
-    logs.push(`[audit] export audit failed (${exportAudit.issues.length} issues)`);
+    logs.push(`[audit] export audit failed (${exportAudit.issues.length} issues) hash=${exportAudit.auditHash}`);
   } else {
-    logs.push("[audit] export audit passed");
+    logs.push(`[audit] export audit passed hash=${exportAudit.auditHash}`);
   }
 
-  const dateYmd = formatDateYmd(new Date());
-  const filename = `${sanitizeFilenamePart(plannerResult.plan.docTitle, "Visual_Document")}_${plannerResult.plan.pageSizePreset}_${dateYmd}_v${variantIndex}_${deterministic.pages.length}p.pptx`;
+  const includeDatePrefix = options.includeDatePrefix ?? process.env.DOC_FACTORY_EXPORT_DATE_PREFIX === "1";
+  const filename = buildExportFilename({
+    docTitle: plannerResult.plan.docTitle,
+    docType: plannerResult.plan.docType,
+    widthMm: plannerResult.plan.pageSize.widthMm,
+    heightMm: plannerResult.plan.pageSize.heightMm,
+    pageCount: deterministic.pages.length,
+    variantIndex,
+    orderedImageIds: orderedImages.map((image) => image.id),
+    stylePresetId: plannerResult.plan.stylePreset.id,
+    referenceDigest: plannerResult.plan.referenceDigest,
+    includeDatePrefix,
+  });
 
   logs.push(`[export] filename=${filename}`);
 
@@ -669,9 +729,10 @@ export async function generateLayout(
           }
         : undefined,
       docType: plannerResult.plan.docType,
-      stylePresetId: plannerResult.plan.stylePresetId,
+      stylePresetId: plannerResult.plan.stylePreset.id,
       variantIndex,
       seed,
+      referenceDigest: plannerResult.plan.referenceDigest,
     },
     pages: deterministic.pages,
   };
@@ -702,10 +763,11 @@ export async function generateLayout(
     exportMeta: {
       docTitle: plannerResult.plan.docTitle,
       pageSize: plannerResult.plan.pageSizePreset,
-      dateYmd,
       variantIndex,
       pageCount: deterministic.pages.length,
       filename,
+      auditHash: exportAudit.auditHash,
+      referenceDigest: plannerResult.plan.referenceDigest,
     },
   };
 }

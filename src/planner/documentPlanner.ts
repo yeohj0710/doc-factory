@@ -1,6 +1,7 @@
+﻿import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ScannedImage } from "@/src/io/scanImages";
-import { scanReferences } from "@/src/io/scanReferences";
+import { ensureReferenceIndex } from "@/src/io/referenceIndex";
 import { resolvePageSize, type PageSizePreset } from "@/src/layout/pageSize";
 import { getStylePresetById, selectStylePreset } from "@/src/layout/stylePresets";
 import {
@@ -10,6 +11,11 @@ import {
   type TemplateId,
 } from "@/src/layout/templateCatalog";
 import type { DocType } from "@/src/layout/types";
+import {
+  selectBuiltinLayoutPlan,
+  selectReferenceLayoutPlan,
+  selectReferenceStylePreset,
+} from "@/src/planner/referenceDriven";
 import type {
   AssetTopic,
   DocumentPlan,
@@ -30,7 +36,9 @@ type PlanOptions = {
   requestedStylePresetId?: string;
   variantIndex: number;
   seed: number;
+  intent?: "regenerate" | "export";
   rootDir?: string;
+  disableReferenceDrivenPlanning?: boolean;
 };
 
 type TopicDetection = {
@@ -44,12 +52,15 @@ type RoleSequencePlan = {
   rhythmId: string;
 };
 
+const DEFAULT_DOC_TITLE = "Visual_Document";
+const RHYTHM_IDS = ["editorial", "visual", "evidence", "narrative"] as const;
+
 const TOPIC_KEYWORDS: Record<AssetTopic, string[]> = {
-  ui: ["ui", "screen", "dashboard", "app", "web", "mock", "wireframe", "화면", "앱"],
-  photo: ["photo", "product", "package", "shot", "render", "소분", "패키지", "상품"],
-  chart: ["chart", "graph", "table", "report", "metric", "kpi", "지표", "리포트", "표"],
+  ui: ["ui", "screen", "dashboard", "app", "web", "mock", "wireframe", "화면"],
+  photo: ["photo", "product", "package", "shot", "render", "제품", "패키지", "상품"],
+  chart: ["chart", "graph", "table", "report", "metric", "kpi", "리포트", "차트"],
   diagram: ["diagram", "flow", "map", "icon", "schema", "timeline", "프로세스", "흐름"],
-  people: ["people", "person", "team", "meeting", "lifestyle", "모델", "사람", "회의"],
+  people: ["people", "person", "team", "meeting", "lifestyle", "사람", "회의", "팀"],
   generic: [],
 };
 
@@ -85,73 +96,8 @@ const ROLE_TOPIC_PRIORITY: Record<PageRole, AssetTopic[]> = {
   topic: ["ui", "photo", "chart", "diagram", "generic", "people"],
 };
 
-const DEFAULT_DOC_TITLE = "Visual_Document";
-const RHYTHM_IDS = ["editorial", "visual", "evidence", "narrative"] as const;
-const B2B_SERVICE_DOC_TITLE = "기업 임직원 맞춤 영양 설계 서비스 소개서";
-const B2B_SERVICE_KEYWORDS = [
-  "소분",
-  "건기식",
-  "약사",
-  "상담",
-  "레포트",
-  "리포트",
-  "패키지",
-  "앱",
-  "화면",
-];
-const B2B_SALES_ROLE_SEQUENCE: PageRole[] = [
-  "cover",
-  "text-only",
-  "solution",
-  "process",
-  "comparison",
-  "metrics",
-  "cta",
-];
-const B2B_STYLE_CANDIDATES = ["preset-civic-blueprint", "theme-modern-minimalist", "theme-arctic-frost"] as const;
-
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[\s_.\-()/\\]+/g, "");
-}
-
-function hasAnyKeyword(source: string, keywords: readonly string[]): boolean {
-  const normalized = normalize(source);
-  return keywords.some((keyword) => normalized.includes(normalize(keyword)));
-}
-
-function detectB2BSalesBrief(images: ScannedImage[]): boolean {
-  if (images.length === 0) {
-    return false;
-  }
-
-  const matched = images.reduce((count, image) => {
-    return count + (hasAnyKeyword(image.filename, B2B_SERVICE_KEYWORDS) ? 1 : 0);
-  }, 0);
-
-  return matched >= 3;
-}
-
-function b2bSalesRolePlan(): RoleSequencePlan {
-  return {
-    roles: [...B2B_SALES_ROLE_SEQUENCE],
-    rhythmId: "b2b-sales-structured",
-  };
-}
-
-function b2bStyleSelection(variantIndex: number): {
-  candidatePresetIds: string[];
-  selectedPresetId: string;
-  reason: string;
-} {
-  const candidatePresetIds = [...B2B_STYLE_CANDIDATES];
-  const selectedIndex = Math.abs(Math.max(1, variantIndex) - 1) % candidatePresetIds.length;
-  const selectedPresetId = candidatePresetIds[selectedIndex] ?? candidatePresetIds[0];
-
-  return {
-    candidatePresetIds,
-    selectedPresetId,
-    reason: "brief tuned style set for Korean B2B proposal",
-  };
 }
 
 function createRng(seed: number): () => number {
@@ -177,7 +123,6 @@ function rotateList<T>(items: readonly T[], shift: number): T[] {
 
 function detectTopic(image: ScannedImage): TopicDetection {
   const name = normalize(image.filename);
-
   const aspect =
     image.widthPx && image.heightPx && image.heightPx > 0
       ? image.widthPx / image.heightPx
@@ -421,31 +366,46 @@ function buildRoleSequence(params: {
 }
 
 function successCriteria(role: PageRole): string {
-  if (role === "cover") return "5초 내 문서 목적이 이해된다.";
-  if (role === "section-divider") return "섹션 전환 의도가 짧고 명확하다.";
-  if (role === "agenda") return "전체 흐름과 읽는 순서가 분명하다.";
-  if (role === "insight") return "핵심 인사이트와 근거가 연결된다.";
-  if (role === "solution") return "실행안과 운영 책임이 구분된다.";
-  if (role === "process") return "단계별 산출물이 끊김 없이 이어진다.";
-  if (role === "timeline") return "일정/마일스톤이 한 페이지에서 확인된다.";
-  if (role === "metrics") return "정량 지표 최소 3개가 읽힌다.";
-  if (role === "comparison") return "선택지 차이가 명확하다.";
-  if (role === "gallery") return "대표 이미지가 메시지 중심으로 배치된다.";
-  if (role === "text-only") return "이미지 없이도 메시지가 완결된다.";
-  if (role === "cta") return "다음 액션이 바로 결정 가능하다.";
-  return "주제별 핵심 포인트가 간결하게 전달된다.";
+  if (role === "cover") return "Document purpose is clear in 5 seconds.";
+  if (role === "section-divider") return "Section transition is visually clear.";
+  if (role === "agenda") return "Flow and order of topics is obvious.";
+  if (role === "insight") return "Evidence and insight are linked.";
+  if (role === "solution") return "Execution responsibility is explicit.";
+  if (role === "process") return "Process outputs are complete.";
+  if (role === "timeline") return "Milestones and schedule are readable.";
+  if (role === "metrics") return "At least three measurable signals are shown.";
+  if (role === "comparison") return "Option differences are explicit.";
+  if (role === "gallery") return "Image placement supports message delivery.";
+  if (role === "text-only") return "Message remains clear without image.";
+  if (role === "cta") return "Next action can be decided immediately.";
+  return "Topic signal is clear and concise.";
 }
 
 function templateForRole(params: {
   role: PageRole;
   hasAsset: boolean;
   rng: () => number;
+  preferredTemplateIds?: TemplateId[];
   excludeTemplateId?: TemplateId;
   preferNonFullBleed?: boolean;
   templateShift?: number;
 }): TemplateId {
   const pool = ROLE_TEMPLATE_POOL[params.role] ?? ROLE_TEMPLATE_POOL.topic;
-  const candidates = pool.filter((templateId) => {
+  const preferred = params.preferredTemplateIds ?? [];
+  const mergedPool: TemplateId[] = [];
+
+  for (const preferredTemplate of preferred) {
+    if (pool.includes(preferredTemplate) && !mergedPool.includes(preferredTemplate)) {
+      mergedPool.push(preferredTemplate);
+    }
+  }
+  for (const templateId of pool) {
+    if (!mergedPool.includes(templateId)) {
+      mergedPool.push(templateId);
+    }
+  }
+
+  const candidates = mergedPool.filter((templateId) => {
     if (params.excludeTemplateId && templateId === params.excludeTemplateId) {
       return false;
     }
@@ -462,7 +422,7 @@ function templateForRole(params: {
     return pickOne(candidates, params.rng, params.templateShift ?? 0);
   }
 
-  const fallback = pool.find((templateId) => templateSupportsImage(templateId, params.hasAsset));
+  const fallback = mergedPool.find((templateId) => templateSupportsImage(templateId, params.hasAsset));
   if (fallback) {
     return fallback;
   }
@@ -533,6 +493,7 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, varian
       const replacement = templateForRole({
         role: c.role,
         hasAsset: c.primaryAssetFilename !== null,
+        preferredTemplateIds: c.templatePreferenceIds,
         excludeTemplateId: c.templateId,
         templateShift: variantIndex * 11 + index * 3,
         rng,
@@ -559,6 +520,7 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, varian
       const replacement = templateForRole({
         role: item.role,
         hasAsset: item.primaryAssetFilename !== null,
+        preferredTemplateIds: item.templatePreferenceIds,
         excludeTemplateId: item.templateId,
         preferNonFullBleed: true,
         templateShift: variantIndex * 7 + index * 2,
@@ -596,30 +558,36 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, varian
   return next;
 }
 
+async function hasThemeFactorySkill(rootDir: string): Promise<boolean> {
+  const candidates = [
+    path.join(rootDir, ".agents", "skills", "theme-factory", "SKILL.md"),
+    path.join(rootDir, ".codex", "skills", "theme-factory", "SKILL.md"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return true;
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
+}
+
 export async function planDocument(images: ScannedImage[], options: PlanOptions): Promise<PlannerResult> {
   const logs: string[] = [];
+  const rootDir = options.rootDir ?? process.cwd();
+  const intent = options.intent ?? "regenerate";
   const variantIndex = Math.max(1, options.variantIndex || 1);
   const seed = options.seed;
   const rng = createRng(seed + variantIndex * 17);
-  const debug = process.env.DOC_FACTORY_DEBUG_PLANNER === "1";
-  const debugLog = (line: string): void => {
-    if (!debug) {
-      return;
-    }
-    console.log(`[planner:debug] ${line}`);
-  };
-
-  debugLog(`start variant=${variantIndex} seed=${seed} images=${images.length}`);
 
   const { clusters, topicByFilename, proofAssetCount, lowSignalAssetCount } = buildTopicClusters(images);
-  debugLog(`topic clusters built count=${clusters.length}`);
-  logs.push(
-    `[planner] clusters=${clusters.length} proofAssets=${proofAssetCount} lowSignal=${lowSignalAssetCount}`,
-  );
 
-  const salesBriefActive = detectB2BSalesBrief(images);
   const inferredDocType = inferDocType(images, proofAssetCount, clusters.length);
-  const docType = salesBriefActive ? options.requestedDocType ?? "proposal" : options.requestedDocType ?? inferredDocType;
+  const docType = options.requestedDocType ?? inferredDocType;
 
   const pageSizePreset = inferPageSizePreset({
     requested: options.requestedPageSizePreset,
@@ -631,55 +599,100 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     heightMm: options.customPageSizeMm?.heightMm,
   });
 
-  const pageCount =
-    salesBriefActive && docType === "proposal"
-      ? B2B_SALES_ROLE_SEQUENCE.length
-      : decidePageCount({
-          docType,
-          imageCount: images.length,
-          topicCount: Math.max(clusters.length, 1),
-          proofAssetCount,
-          lowSignalAssetCount,
-        });
-  debugLog(`page sizing done preset=${pageSize.preset} count=${pageCount}`);
+  const pageCount = decidePageCount({
+    docType,
+    imageCount: images.length,
+    topicCount: Math.max(clusters.length, 1),
+    proofAssetCount,
+    lowSignalAssetCount,
+  });
 
-  const rolePlan =
-    salesBriefActive && docType === "proposal"
-      ? b2bSalesRolePlan()
-      : buildRoleSequence({
-          docType,
-          pageCount,
-          seed,
-          variantIndex,
-        });
-  const roleSequence = rolePlan.roles;
-  debugLog(`role sequence built rhythm=${rolePlan.rhythmId} len=${roleSequence.length}`);
-
-  logs.push(`[planner] docType=${docType} pageSize=${pageSize.preset}(${pageSize.widthMm}x${pageSize.heightMm}mm) pageCount=${pageCount}`);
-  logs.push(`[planner] rhythm=${rolePlan.rhythmId} role sequence: ${roleSequence.join(" -> ")}`);
-  if (salesBriefActive) {
-    logs.push("[planner] brief=b2b_service_intro active (sales-focused 7-page narrative)");
-  }
-
-  const references = await scanReferences(options.rootDir ?? process.cwd(), seed + variantIndex);
-  debugLog(`references scanned all=${references.all.length} sampled=${references.sampled.length}`);
-  const defaultStyleSelection = selectStylePreset({
+  const rolePlan = buildRoleSequence({
+    docType,
+    pageCount,
     seed,
     variantIndex,
-    requestedPresetId: options.requestedStylePresetId,
-    referenceFilenames: references.sampled.map((item) => item.relPath),
   });
-  const styleSelection =
-    salesBriefActive && !options.requestedStylePresetId ? b2bStyleSelection(variantIndex) : defaultStyleSelection;
+  const roleSequence = rolePlan.roles;
 
-  const selectedPreset = getStylePresetById(styleSelection.selectedPresetId);
-  debugLog(`style selected=${selectedPreset.id} candidates=${styleSelection.candidatePresetIds.join(",")}`);
+  logs.push(`[planner] clusters=${clusters.length} proofAssets=${proofAssetCount} lowSignal=${lowSignalAssetCount}`);
+  logs.push(`[planner] docType=${docType} pageSize=${pageSize.preset}(${pageSize.widthMm}x${pageSize.heightMm}mm) pageCount=${pageCount}`);
+  logs.push(`[planner] rhythm=${rolePlan.rhythmId} role sequence: ${roleSequence.join(" -> ")}`);
+
+  const referenceContext = await ensureReferenceIndex({
+    rootDir,
+    allowRebuild: intent !== "export",
+    minRequiredCount: 8,
+  });
+
+  const themeFactoryAvailable = await hasThemeFactorySkill(rootDir);
+  const useReferenceDriven =
+    referenceContext.required &&
+    referenceContext.status === "fresh" &&
+    !options.disableReferenceDrivenPlanning;
+
+  let styleCandidateIds: string[] = [];
+  let stylePreset = getStylePresetById(options.requestedStylePresetId ?? "theme-modern-minimalist");
+  let stylePresetSource: "references" | "builtin" = "builtin";
+  let selectedStyleClusterIds: string[] = [];
+  let representativeStyleRefIds: string[] = [];
+  let styleReason = "seeded default";
+
+  if (useReferenceDriven && referenceContext.index) {
+    const styleSelection = selectReferenceStylePreset({
+      referenceIndex: referenceContext.index,
+      seed,
+      variantIndex,
+      requestedPresetId: options.requestedStylePresetId,
+      themeFactoryAvailable,
+    });
+    stylePreset = styleSelection.selectedPreset;
+    stylePresetSource = "references";
+    styleCandidateIds = styleSelection.candidatePresetIds;
+    selectedStyleClusterIds = styleSelection.selectedStyleClusterIds;
+    representativeStyleRefIds = styleSelection.representativeRefIds;
+    styleReason = styleSelection.reason;
+  } else {
+    const fallbackStyle = selectStylePreset({
+      seed,
+      variantIndex,
+      requestedPresetId: options.requestedStylePresetId,
+      referenceFilenames: [],
+    });
+    styleCandidateIds = fallbackStyle.candidatePresetIds;
+    stylePreset = getStylePresetById(fallbackStyle.selectedPresetId);
+    styleReason = fallbackStyle.reason;
+  }
+
   logs.push(
-    `[planner] style candidates=${styleSelection.candidatePresetIds.join(", ")} selected=${selectedPreset.id} reason=${styleSelection.reason}`,
+    `[planner] referenceIndex required=${referenceContext.required} status=${referenceContext.status} count=${referenceContext.referenceCount} digest=${referenceContext.referenceDigest || "none"}`,
   );
+  if (referenceContext.staleReason) {
+    logs.push(`[planner] referenceIndex staleReason=${referenceContext.staleReason}`);
+  }
   logs.push(
-    `[planner] reference sampling=${references.sampled.length}/${references.all.length} (style token selection only; no composition copy)`,
+    `[planner] style source=${stylePresetSource} selected=${stylePreset.id} candidates=${styleCandidateIds.join(", ")} reason=${styleReason}`,
   );
+
+  const layoutPlan =
+    useReferenceDriven && referenceContext.index
+      ? selectReferenceLayoutPlan({
+          referenceIndex: referenceContext.index,
+          pageCount,
+          roles: roleSequence,
+          seed,
+          variantIndex,
+        })
+      : selectBuiltinLayoutPlan({
+          pageCount,
+          roles: roleSequence,
+        });
+
+  logs.push(
+    `[planner] layout source=${layoutPlan.source} selectedClusters=${layoutPlan.selectedLayoutClusterIds.join(", ")} minCoverage=${layoutPlan.minRequiredLayoutClusters}`,
+  );
+
+  const assignmentByPage = new Map(layoutPlan.assignments.map((assignment) => [assignment.pageNumber, assignment] as const));
 
   const pools = new Map<AssetTopic, ScannedImage[]>();
   for (const topic of ["ui", "photo", "chart", "diagram", "people", "generic"] as const) {
@@ -700,9 +713,13 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
       : null;
 
     const hasAsset = asset !== null;
+    const assignment = assignmentByPage.get(index + 1);
+    const preferredTemplateIds = assignment?.preferredTemplateIds ?? [];
+
     const templateId = templateForRole({
       role,
       hasAsset,
+      preferredTemplateIds,
       templateShift: variantIndex * 19 + index * 7,
       rng,
     });
@@ -714,30 +731,67 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
       pageNumber: index + 1,
       role,
       templateId,
+      templatePreferenceIds: preferredTemplateIds,
       primaryAssetFilename: asset?.filename ?? null,
       topicLabel: topic,
       copyBudget: spec.maxTextBudget,
       successCriteria: successCriteria(role),
       isTextOnly: spec.imagePolicy === "none" || !hasAsset,
       isFullBleed: spec.isFullBleed,
+      layoutClusterId: assignment?.layoutClusterId ?? "layout-builtin-01",
+      layoutTuning: assignment?.layoutTuning ?? {
+        columns: 2,
+        heroRatio: 0.48,
+        cardDensity: 0.44,
+        headerRatio: 0.14,
+        footerRatio: 0.1,
+        rhythm: "balanced",
+      },
     };
   });
-  debugLog(`storyboard draft built pages=${storyboardDraft.length}`);
 
   const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex);
-  debugLog(`storyboard diversity done pages=${storyboard.length}`);
+
+  const usedLayoutClusterIds = [...new Set(storyboard.map((item) => item.layoutClusterId))];
+
+  const referenceUsageReport = {
+    required: referenceContext.required,
+    referenceCount: referenceContext.referenceCount,
+    referenceDigest: referenceContext.referenceDigest,
+    referenceIndexStatus: referenceContext.status,
+    styleSource: stylePresetSource,
+    layoutSource: layoutPlan.source,
+    usedStyleClusterIds: selectedStyleClusterIds,
+    usedLayoutClusterIds,
+    minRequiredLayoutClusters: layoutPlan.minRequiredLayoutClusters,
+    selectedLayoutClusterIds: layoutPlan.selectedLayoutClusterIds,
+    representativeStyleRefIds,
+    representativeLayoutRefIds: layoutPlan.representativeRefIds,
+  };
 
   const plan: DocumentPlan = {
-    docTitle: options.docTitle?.trim() || (salesBriefActive ? B2B_SERVICE_DOC_TITLE : titleFromImages(images)),
+    docTitle: options.docTitle?.trim() || titleFromImages(images),
     docType,
     pageSizePreset: pageSize.preset,
     pageSize,
     pageCount,
     variantIndex,
     seed,
-    stylePresetId: selectedPreset.id,
-    styleCandidateIds: styleSelection.candidatePresetIds,
-    referenceSample: references.sampled,
+    stylePresetId: stylePreset.id,
+    stylePresetSource,
+    stylePreset,
+    styleCandidateIds,
+    referenceDigest: referenceContext.referenceDigest,
+    referenceCount: referenceContext.referenceCount,
+    referenceIndexStatus: referenceContext.status,
+    layoutPlan: {
+      source: layoutPlan.source,
+      selectedLayoutClusterIds: layoutPlan.selectedLayoutClusterIds,
+      representativeRefIds: layoutPlan.representativeRefIds,
+      minRequiredLayoutClusters: layoutPlan.minRequiredLayoutClusters,
+      reason: layoutPlan.reason,
+    },
+    referenceUsageReport,
     topicClusters: clusters,
     proofAssetCount,
     lowSignalAssetCount,
@@ -761,7 +815,6 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     `[planner] storyboard pages=${storyboard.length}, textOnly=${storyboard.filter((item) => item.isTextOnly).length}, fullBleed=${storyboard.filter((item) => item.isFullBleed).length}`,
   );
   logs.push(`[planner] template runs: ${templateRuns.join(", ")}`);
-  debugLog("done");
 
   return {
     plan,

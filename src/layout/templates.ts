@@ -1,7 +1,12 @@
 ﻿import type { ScannedImage } from "@/src/io/scanImages";
 import type { PageBrief } from "@/src/layout/content";
 import type { LayoutTokens } from "@/src/layout/tokens";
-import { getTemplateSpec, type TemplateId, type TemplateZone } from "@/src/layout/templateCatalog";
+import {
+  getTemplateSpec,
+  type LayoutArchetypeTuning,
+  type TemplateId,
+  type TemplateZone,
+} from "@/src/layout/templateCatalog";
 import type {
   Element,
   ImageElement,
@@ -26,9 +31,14 @@ type BuildParams = {
   templateId: TemplateId;
   pageWidthMm: number;
   pageHeightMm: number;
+  layoutTuning?: LayoutArchetypeTuning;
   compactLevel?: number;
   showDebugMeta?: boolean;
 };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
 
 function rect(
   frame: Frame,
@@ -144,9 +154,12 @@ function renderMetricCards(
   zone: TemplateZone,
   metrics: PageBrief["narrative"]["metrics"],
   tokens: LayoutTokens,
+  layoutTuning: LayoutArchetypeTuning | undefined,
   debugOnly = false,
 ): void {
-  const values = metrics.slice(0, 3);
+  const density = layoutTuning?.cardDensity ?? 0.5;
+  const maxCards = density >= 0.62 ? 4 : density <= 0.34 ? 2 : 3;
+  const values = metrics.slice(0, maxCards);
   if (values.length === 0) {
     return;
   }
@@ -187,8 +200,17 @@ function renderMetricCards(
   });
 }
 
-function renderFlowCards(elements: Element[], zone: TemplateZone, bullets: string[], tokens: LayoutTokens): void {
-  const steps = Math.min(5, Math.max(3, bullets.length));
+function renderFlowCards(
+  elements: Element[],
+  zone: TemplateZone,
+  bullets: string[],
+  tokens: LayoutTokens,
+  layoutTuning: LayoutArchetypeTuning | undefined,
+): void {
+  const density = layoutTuning?.cardDensity ?? 0.5;
+  const columnTarget = layoutTuning?.columns ?? 2;
+  const defaultSteps = density >= 0.62 ? 5 : density <= 0.34 ? 3 : 4;
+  const steps = clamp(Math.max(defaultSteps, columnTarget), 3, 6);
   const gap = Math.min(4, zone.wMm * 0.03);
   const cardW = (zone.wMm - gap * (steps - 1)) / steps;
 
@@ -238,8 +260,16 @@ function renderFlowCards(elements: Element[], zone: TemplateZone, bullets: strin
   }
 }
 
-function renderTable(elements: Element[], zone: TemplateZone, bullets: string[], tokens: LayoutTokens): void {
-  const rows = Math.min(4, Math.max(2, bullets.length));
+function renderTable(
+  elements: Element[],
+  zone: TemplateZone,
+  bullets: string[],
+  tokens: LayoutTokens,
+  layoutTuning: LayoutArchetypeTuning | undefined,
+): void {
+  const density = layoutTuning?.cardDensity ?? 0.5;
+  const rowTarget = density >= 0.62 ? 5 : density <= 0.34 ? 3 : 4;
+  const rows = clamp(Math.max(rowTarget, bullets.length > 0 ? 3 : 2), 2, 5);
   const rowH = zone.hMm / rows;
 
   for (let index = 0; index < rows; index += 1) {
@@ -344,6 +374,7 @@ function buildElements(params: BuildParams): Element[] {
     pageWidthMm: params.pageWidthMm,
     pageHeightMm: params.pageHeightMm,
     tokens: params.tokens,
+    layoutTuning: params.layoutTuning,
   });
 
   const headerZone = findReservedZone(zones, "header");
@@ -424,16 +455,23 @@ function buildElements(params: BuildParams): Element[] {
   if (metricsZone && compactLevel < 2) {
     const isDebugMeta = params.brief.narrative.metricsDebugOnly;
     if (!isDebugMeta || showDebugMeta) {
-      renderMetricCards(elements, metricsZone, params.brief.narrative.metrics, params.tokens, isDebugMeta);
+      renderMetricCards(
+        elements,
+        metricsZone,
+        params.brief.narrative.metrics,
+        params.tokens,
+        params.layoutTuning,
+        isDebugMeta,
+      );
     }
   }
 
   if (flowZone) {
-    renderFlowCards(elements, flowZone, params.brief.narrative.bullets, params.tokens);
+    renderFlowCards(elements, flowZone, params.brief.narrative.bullets, params.tokens, params.layoutTuning);
   }
 
   if (tableZone && compactLevel < 2) {
-    renderTable(elements, tableZone, params.brief.narrative.bullets, params.tokens);
+    renderTable(elements, tableZone, params.brief.narrative.bullets, params.tokens, params.layoutTuning);
   }
 
   if (bodyZone) {

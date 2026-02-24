@@ -155,6 +155,7 @@ export type GenerationParams = {
   stylePresetId: string;
   variantIndex: number;
   seed: number;
+  referenceDigest?: string;
 };
 
 export type LayoutDocument = {

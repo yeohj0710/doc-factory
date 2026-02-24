@@ -1,10 +1,14 @@
-import type { PageSizeSpec } from "@/src/layout/pageSize";
-import { hasForbiddenEllipsis } from "@/src/layout/validation";
+﻿import type { PageSizeSpec } from "@/src/layout/pageSize";
+import { createLayoutSignature, hasForbiddenEllipsis } from "@/src/layout/validation";
 import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
+import type { ReferenceUsageReport } from "@/src/planner/types";
+import { stableHashFromParts } from "@/src/io/hash";
 
 export type ExportAuditResult = {
   passed: boolean;
   issues: LayoutValidationIssue[];
+  auditHash: string;
+  referenceUsageReport?: ReferenceUsageReport;
 };
 
 function withinBounds(page: PageLayout, x: number, y: number): boolean {
@@ -15,11 +19,64 @@ function hasEditableObjects(page: PageLayout): boolean {
   return page.elements.some((element) => element.type === "text" || element.type === "rect" || element.type === "line");
 }
 
+function checkReferenceUsageGate(params: {
+  issues: LayoutValidationIssue[];
+  report: ReferenceUsageReport;
+  expectedPageCount: number;
+}): void {
+  if (params.report.referenceIndexStatus !== "fresh") {
+    params.issues.push({
+      code: "export-audit",
+      message: `reference index must be fresh (got ${params.report.referenceIndexStatus})`,
+    });
+  }
+
+  if (params.report.styleSource !== "references") {
+    params.issues.push({
+      code: "export-audit",
+      message: "stylePreset.source must be references when references are required",
+    });
+  }
+
+  if (params.report.layoutSource !== "references") {
+    params.issues.push({
+      code: "export-audit",
+      message: "layoutPlan.source must be references when references are required",
+    });
+  }
+
+  if (params.report.usedStyleClusterIds.length < 1) {
+    params.issues.push({
+      code: "export-audit",
+      message: "reference usage coverage missing style clusters",
+    });
+  }
+
+  const expectedCoverage = params.expectedPageCount >= 6 ? 3 : params.expectedPageCount > 1 ? 2 : 1;
+  const minRequired = Math.max(params.report.minRequiredLayoutClusters, expectedCoverage);
+
+  if (params.report.usedLayoutClusterIds.length < minRequired) {
+    params.issues.push({
+      code: "export-audit",
+      message: `reference usage coverage insufficient layout clusters (${params.report.usedLayoutClusterIds.length}/${minRequired})`,
+    });
+  }
+
+  if (params.report.selectedLayoutClusterIds.length === 0) {
+    params.issues.push({
+      code: "export-audit",
+      message: "layout plan must declare selected layout clusters",
+    });
+  }
+}
+
 export function runExportAudit(params: {
   pages: PageLayout[];
   expectedPageCount: number;
   pageSize: PageSizeSpec;
   debugEnabled: boolean;
+  referenceRequired: boolean;
+  referenceUsageReport?: ReferenceUsageReport;
 }): ExportAuditResult {
   const issues: LayoutValidationIssue[] = [];
 
@@ -98,8 +155,38 @@ export function runExportAudit(params: {
     });
   });
 
+  if (params.referenceRequired && !params.referenceUsageReport) {
+    issues.push({
+      code: "export-audit",
+      message: "referenceUsageReport is required when references exist",
+    });
+  }
+
+  if (params.referenceRequired && params.referenceUsageReport) {
+    checkReferenceUsageGate({
+      issues,
+      report: params.referenceUsageReport,
+      expectedPageCount: params.expectedPageCount,
+    });
+  }
+
+  const payload = {
+    pageSignature: createLayoutSignature(params.pages),
+    expectedPageCount: params.expectedPageCount,
+    pageSize: {
+      widthMm: Number(params.pageSize.widthMm.toFixed(3)),
+      heightMm: Number(params.pageSize.heightMm.toFixed(3)),
+    },
+    debugEnabled: params.debugEnabled,
+    referenceUsageReport: params.referenceUsageReport ?? null,
+  };
+
+  const auditHash = stableHashFromParts([JSON.stringify(payload)], 12);
+
   return {
     passed: issues.length === 0,
     issues,
+    auditHash,
+    referenceUsageReport: params.referenceUsageReport,
   };
 }

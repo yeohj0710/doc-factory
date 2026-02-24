@@ -48,6 +48,22 @@ export type TemplateZone = {
   reserved?: boolean;
 };
 
+export type LayoutArchetypeTuning = {
+  columns: number;
+  heroRatio: number;
+  cardDensity: number;
+  headerRatio: number;
+  footerRatio: number;
+  rhythm: "tight" | "balanced" | "airy";
+};
+
+type BuildZoneParams = {
+  pageWidthMm: number;
+  pageHeightMm: number;
+  tokens: LayoutTokens;
+  layoutTuning?: LayoutArchetypeTuning;
+};
+
 export type TemplateSpec = {
   id: TemplateId;
   label: string;
@@ -58,11 +74,7 @@ export type TemplateSpec = {
   fallbackTemplateIds: TemplateId[];
   isFullBleed: boolean;
   imagePolicy: "required" | "optional" | "none";
-  buildZones: (params: {
-    pageWidthMm: number;
-    pageHeightMm: number;
-    tokens: LayoutTokens;
-  }) => TemplateZone[];
+  buildZones: (params: BuildZoneParams) => TemplateZone[];
 };
 
 const COMMON_BUDGET: TextBudget = {
@@ -90,11 +102,11 @@ function frame(id: string, purpose: TemplateZonePurpose, value: Frame, reserved 
   };
 }
 
-function baseMeasurements(params: {
-  pageWidthMm: number;
-  pageHeightMm: number;
-  tokens: LayoutTokens;
-}): {
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function baseMeasurements(params: BuildZoneParams): {
   margin: number;
   gutter: number;
   headerY: number;
@@ -108,9 +120,19 @@ function baseMeasurements(params: {
   contentH: number;
 } {
   const margin = params.tokens.spacingMm.pageMargin;
-  const gutter = params.tokens.spacingMm.gutter;
-  const headerH = params.tokens.spacingMm.headerHeight;
-  const footerH = params.tokens.spacingMm.footerHeight;
+  const rhythmScale =
+    params.layoutTuning?.rhythm === "tight"
+      ? 0.88
+      : params.layoutTuning?.rhythm === "airy"
+        ? 1.12
+        : 1;
+  const gutter = clamp(params.tokens.spacingMm.gutter * rhythmScale, 3.8, 11.5);
+  const headerH = params.layoutTuning
+    ? clamp(params.pageHeightMm * params.layoutTuning.headerRatio, 14, params.pageHeightMm * 0.24)
+    : params.tokens.spacingMm.headerHeight;
+  const footerH = params.layoutTuning
+    ? clamp(params.pageHeightMm * params.layoutTuning.footerRatio, 10, params.pageHeightMm * 0.18)
+    : params.tokens.spacingMm.footerHeight;
   const headerY = margin;
   const footerY = params.pageHeightMm - margin - footerH;
   const contentTop = headerY + headerH + gutter;
@@ -131,9 +153,31 @@ function baseMeasurements(params: {
   };
 }
 
-function coverHeroZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function resolveHeroRatio(params: BuildZoneParams, fallback: number): number {
+  return clamp(params.layoutTuning?.heroRatio ?? fallback, 0.2, 0.78);
+}
+
+function resolveColumnRatio(params: BuildZoneParams, fallback: number): number {
+  if (!params.layoutTuning) {
+    return fallback;
+  }
+  if (params.layoutTuning.columns >= 3) {
+    return clamp(fallback - 0.12, 0.34, 0.68);
+  }
+  if (params.layoutTuning.columns <= 1) {
+    return clamp(fallback + 0.1, 0.4, 0.78);
+  }
+  return clamp(fallback, 0.36, 0.72);
+}
+
+function resolveCardDensityScale(params: BuildZoneParams): number {
+  const density = params.layoutTuning?.cardDensity ?? 0.5;
+  return clamp(0.88 + density * 0.36, 0.82, 1.24);
+}
+
+function coverHeroZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
-  const mediaH = m.contentH * 0.52;
+  const mediaH = m.contentH * resolveHeroRatio(params, 0.52);
   const bodyY = m.contentTop + mediaH + m.gutter;
 
   return [
@@ -153,9 +197,9 @@ function coverHeroZones(params: { pageWidthMm: number; pageHeightMm: number; tok
   ];
 }
 
-function coverSplitZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function coverSplitZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
-  const leftW = m.contentW * 0.56;
+  const leftW = m.contentW * resolveColumnRatio(params, 0.56);
   return [
     frame("reserved-header", "header", { xMm: m.contentX, yMm: m.headerY, wMm: m.contentW, hMm: m.headerH }, true),
     frame("media", "media", { xMm: m.contentX, yMm: m.contentTop, wMm: leftW, hMm: m.contentH }),
@@ -188,7 +232,7 @@ function coverSplitZones(params: { pageWidthMm: number; pageHeightMm: number; to
   ];
 }
 
-function sectionDividerZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function sectionDividerZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
   const dividerY = m.contentTop + m.contentH * 0.42;
   return [
@@ -200,7 +244,7 @@ function sectionDividerZones(params: { pageWidthMm: number; pageHeightMm: number
   ];
 }
 
-function agendaZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function agendaZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
   const titleY = m.contentTop;
   const subtitleY = titleY + 18;
@@ -223,12 +267,12 @@ function agendaZones(params: { pageWidthMm: number; pageHeightMm: number; tokens
   ];
 }
 
-function titleMediaSafeZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function titleMediaSafeZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
   const mediaY = m.contentTop + 29;
-  const mediaH = m.contentH * 0.42;
+  const mediaH = m.contentH * resolveHeroRatio(params, 0.42);
   const bodyY = mediaY + mediaH + m.gutter;
-  const bodyH = Math.max(16, m.contentH * 0.2);
+  const bodyH = Math.max(16, m.contentH * (0.18 * resolveCardDensityScale(params)));
   const chipsY = bodyY + bodyH + m.gutter;
   const chipsH = 8;
   const metricsY = chipsY + chipsH + m.gutter;
@@ -260,14 +304,14 @@ function titleMediaSafeZones(params: { pageWidthMm: number; pageHeightMm: number
   ];
 }
 
-function twoColumnZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function twoColumnZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
-  const leftW = m.contentW * 0.48;
+  const leftW = m.contentW * resolveColumnRatio(params, 0.48);
   const subtitleY = m.contentTop + 17;
   const bodyY = subtitleY + 13;
-  const bodyH = m.contentH * 0.35;
+  const bodyH = m.contentH * (0.31 * resolveCardDensityScale(params));
   const calloutY = bodyY + bodyH + m.gutter;
-  const calloutH = m.contentH * 0.18;
+  const calloutH = m.contentH * (0.17 * resolveCardDensityScale(params));
   const metricsY = calloutY + calloutH + m.gutter;
   const metricsH = Math.max(10, m.contentBottom - metricsY);
   return [
@@ -297,12 +341,13 @@ function twoColumnZones(params: { pageWidthMm: number; pageHeightMm: number; tok
   ];
 }
 
-function metricsZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function metricsZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const metricsY = m.contentTop + 28;
-  const metricsH = m.contentH * 0.22;
+  const metricsH = m.contentH * (0.2 * densityScale);
   const bodyY = metricsY + metricsH + m.gutter;
-  const bodyH = m.contentH * 0.28;
+  const bodyH = m.contentH * (0.24 * densityScale);
   const mediaY = bodyY + bodyH + m.gutter;
   const mediaH = Math.max(12, m.contentBottom - mediaY);
   return [
@@ -326,12 +371,13 @@ function metricsZones(params: { pageWidthMm: number; pageHeightMm: number; token
   ];
 }
 
-function flowZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function flowZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const flowY = m.contentTop + 28;
-  const flowH = m.contentH * 0.24;
+  const flowH = m.contentH * (0.2 * densityScale);
   const bodyY = flowY + flowH + m.gutter;
-  const bodyH = m.contentH * 0.3;
+  const bodyH = m.contentH * (0.24 * densityScale);
   const calloutY = bodyY + bodyH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [
@@ -355,12 +401,13 @@ function flowZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: 
   ];
 }
 
-function timelineZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function timelineZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const flowY = m.contentTop + 30;
-  const flowH = m.contentH * 0.18;
+  const flowH = m.contentH * (0.16 * densityScale);
   const tableY = flowY + flowH + m.gutter;
-  const tableH = m.contentH * 0.38;
+  const tableH = m.contentH * (0.34 * densityScale);
   const calloutY = tableY + tableH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [
@@ -379,12 +426,13 @@ function timelineZones(params: { pageWidthMm: number; pageHeightMm: number; toke
   ];
 }
 
-function comparisonZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function comparisonZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const tableY = m.contentTop + 28;
-  const tableH = m.contentH * 0.46;
+  const tableH = m.contentH * (0.4 * densityScale);
   const bodyY = tableY + tableH + m.gutter;
-  const bodyH = m.contentH * 0.16;
+  const bodyH = m.contentH * (0.14 * densityScale);
   const calloutY = bodyY + bodyH + m.gutter;
   const calloutH = Math.max(10, m.contentBottom - calloutY);
   return [
@@ -408,28 +456,30 @@ function comparisonZones(params: { pageWidthMm: number; pageHeightMm: number; to
   ];
 }
 
-function galleryZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function galleryZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const heroRatio = resolveHeroRatio(params, 0.72);
   return [
     frame("reserved-header", "header", { xMm: m.contentX, yMm: m.headerY, wMm: m.contentW, hMm: m.headerH }, true),
     frame("title", "title", { xMm: m.contentX, yMm: m.contentTop, wMm: m.contentW, hMm: 12 }),
-    frame("media", "media", { xMm: m.contentX, yMm: m.contentTop + 16, wMm: m.contentW, hMm: m.contentH * 0.72 }),
+    frame("media", "media", { xMm: m.contentX, yMm: m.contentTop + 16, wMm: m.contentW, hMm: m.contentH * heroRatio }),
     frame("callout", "callout", {
       xMm: m.contentX,
-      yMm: m.contentTop + m.contentH * 0.74,
+      yMm: m.contentTop + m.contentH * (heroRatio + 0.02),
       wMm: m.contentW,
-      hMm: m.contentH * 0.26,
+      hMm: Math.max(12, m.contentH * (1 - heroRatio - 0.02)),
     }),
     frame("reserved-footer", "footer", { xMm: m.contentX, yMm: m.footerY, wMm: m.contentW, hMm: m.footerH }, true),
   ];
 }
 
-function textOnlyZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function textOnlyZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const bodyY = m.contentTop + 33;
-  const bodyH = m.contentH * 0.38;
+  const bodyH = m.contentH * (0.34 * densityScale);
   const tableY = bodyY + bodyH + m.gutter;
-  const tableH = m.contentH * 0.22;
+  const tableH = m.contentH * (0.2 * densityScale);
   const calloutY = tableY + tableH + m.gutter;
   const calloutH = Math.max(10, m.contentBottom - calloutY);
   return [
@@ -448,12 +498,13 @@ function textOnlyZones(params: { pageWidthMm: number; pageHeightMm: number; toke
   ];
 }
 
-function ctaZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function ctaZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   const bodyY = m.contentTop + 38;
-  const bodyH = m.contentH * 0.24;
+  const bodyH = m.contentH * (0.21 * densityScale);
   const metricsY = bodyY + bodyH + m.gutter;
-  const metricsH = m.contentH * 0.18;
+  const metricsH = m.contentH * (0.16 * densityScale);
   const calloutY = metricsY + metricsH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [
@@ -477,23 +528,24 @@ function ctaZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: L
   ];
 }
 
-function quoteZones(params: { pageWidthMm: number; pageHeightMm: number; tokens: LayoutTokens }): TemplateZone[] {
+function quoteZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const densityScale = resolveCardDensityScale(params);
   return [
     frame("reserved-header", "header", { xMm: m.contentX, yMm: m.headerY, wMm: m.contentW, hMm: m.headerH }, true),
     frame("title", "title", { xMm: m.contentX, yMm: m.contentTop + 6, wMm: m.contentW, hMm: 14 }),
-    frame("callout", "callout", { xMm: m.contentX, yMm: m.contentTop + 24, wMm: m.contentW, hMm: m.contentH * 0.42 }),
+    frame("callout", "callout", { xMm: m.contentX, yMm: m.contentTop + 24, wMm: m.contentW, hMm: m.contentH * (0.36 * densityScale) }),
     frame("body", "body", {
       xMm: m.contentX,
-      yMm: m.contentTop + m.contentH * 0.49,
+      yMm: m.contentTop + m.contentH * (0.42 * densityScale + 0.07),
       wMm: m.contentW,
-      hMm: m.contentH * 0.29,
+      hMm: m.contentH * (0.26 * densityScale),
     }),
     frame("metrics", "metrics", {
       xMm: m.contentX,
-      yMm: m.contentTop + m.contentH * 0.8,
+      yMm: m.contentTop + m.contentH * (0.7 * densityScale + 0.12),
       wMm: m.contentW,
-      hMm: m.contentH * 0.2,
+      hMm: Math.max(8, m.contentBottom - (m.contentTop + m.contentH * (0.7 * densityScale + 0.12))),
     }),
     frame("reserved-footer", "footer", { xMm: m.contentX, yMm: m.footerY, wMm: m.contentW, hMm: m.footerH }, true),
   ];

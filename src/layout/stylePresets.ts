@@ -1,7 +1,7 @@
 ﻿export type StylePreset = {
   id: string;
   label: string;
-  source: "builtin" | "theme-factory";
+  source: "builtin" | "theme-factory" | "references";
   tags: string[];
   colors: {
     canvas: string;

@@ -49,7 +49,11 @@ const UI_TEXT = {
   labelTemplateVariety: "\uD15C\uD50C\uB9BF \uB2E4\uC591\uC131(\uCC98\uC74C 4\uD398\uC774\uC9C0)",
   labelStyleCandidates: "\uC2A4\uD0C0\uC77C \uD6C4\uBCF4",
   labelStyleSelected: "\uC120\uD0DD \uC2A4\uD0C0\uC77C",
+  labelReferenceStatus: "Reference Index",
+  labelReferenceCount: "Reference Count",
+  labelReferenceUsage: "Reference Usage",
   labelPassedPages: "\uD1B5\uACFC \uD398\uC774\uC9C0",
+  labelAuditHash: "Audit Hash",
   labelNextFilename: "\uB2E4\uC74C \uD30C\uC77C\uBA85",
   labelVersion: "version",
 } as const;
@@ -417,7 +421,22 @@ export default async function Home({ searchParams }: HomeProps) {
                     {UI_TEXT.labelStyleSelected}: <strong>{result.plan.stylePresetId}</strong>
                   </p>
                   <p>
+                    {UI_TEXT.labelReferenceStatus}: <strong>{result.plan.referenceIndexStatus}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelReferenceCount}: <strong>{result.plan.referenceCount}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelReferenceUsage}:{" "}
+                    <strong>
+                      style {result.plan.referenceUsageReport.usedStyleClusterIds.length} / layout {result.plan.referenceUsageReport.usedLayoutClusterIds.length}
+                    </strong>
+                  </p>
+                  <p>
                     {UI_TEXT.labelPassedPages}: <strong>{result.validation.passedPageCount}/{result.pages.length}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelAuditHash}: <strong>{result.exportAudit.auditHash}</strong>
                   </p>
                   <p>
                     {UI_TEXT.labelNextFilename}: <strong>{result.exportMeta.filename}</strong>

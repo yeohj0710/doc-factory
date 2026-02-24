@@ -65,6 +65,20 @@ function parseInteger(value: FormDataEntryValue | null): number | undefined {
   return parsed;
 }
 
+function parseBoolean(value: FormDataEntryValue | null): boolean | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+    return true;
+  }
+  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+    return false;
+  }
+  return undefined;
+}
+
 function parseDocType(value: FormDataEntryValue | null): DocType | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -100,11 +114,13 @@ export async function POST(request: Request): Promise<Response> {
     const requestedDocType = parseDocType(formData.get("docType"));
     const requestedPageSizePreset = parsePageSizePreset(formData.get("pageSizePreset"));
     const requestedDebug = formData.get("debug");
+    const requestedDatePrefix = parseBoolean(formData.get("datePrefix"));
+    const qaDisableReferenceUsage = parseBoolean(formData.get("qaDisableReferenceUsage")) ?? false;
     const pageWidthMm = parseNumber(formData.get("pageWidthMm"));
     const pageHeightMm = parseNumber(formData.get("pageHeightMm"));
     logger.log(
       "request parsed",
-      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"}`,
+      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"} datePrefix=${requestedDatePrefix === true ? "1" : "0"} qaDisableReferenceUsage=${qaDisableReferenceUsage ? "1" : "0"}`,
     );
 
     logger.log("asset scan start");
@@ -136,6 +152,8 @@ export async function POST(request: Request): Promise<Response> {
             }
           : undefined,
       debug: false,
+      includeDatePrefix: requestedDatePrefix === true,
+      disableReferenceDrivenPlanning: qaDisableReferenceUsage,
     });
     logger.log(
       "layout generation done",
@@ -152,6 +170,8 @@ export async function POST(request: Request): Promise<Response> {
           error: "Validation failed. Export aborted.",
           pageErrors: result.validation.pageResults.filter((page) => !page.passed),
           exportAuditIssues: result.exportAudit.issues,
+          exportAuditHash: result.exportAudit.auditHash,
+          referenceUsageReport: result.exportAudit.referenceUsageReport,
         },
         { status: 400 },
       );
@@ -166,6 +186,7 @@ export async function POST(request: Request): Promise<Response> {
     logger.log("pptx render done", `bytes=${pptxBytes.byteLength}`);
     const disposition = encodeContentDispositionFilename(result.exportMeta.filename);
     logger.log("response stream prepare", `filename=${result.exportMeta.filename}`);
+    const refReport = result.exportAudit.referenceUsageReport;
 
     const bodyStream = new ReadableStream({
       start(controller) {
@@ -185,6 +206,14 @@ export async function POST(request: Request): Promise<Response> {
         "Content-Length": String(pptxBytes.byteLength),
         "Cache-Control": "no-store",
         "X-DocFactory-Export-Debug": "0",
+        "X-DocFactory-Audit-Hash": result.exportAudit.auditHash,
+        "X-DocFactory-Reference-Index-Status": result.plan.referenceIndexStatus,
+        "X-DocFactory-Reference-Digest": result.plan.referenceDigest || "none",
+        "X-DocFactory-Ref-Used-Style-Clusters": String(refReport?.usedStyleClusterIds.length ?? 0),
+        "X-DocFactory-Ref-Used-Layout-Clusters": String(refReport?.usedLayoutClusterIds.length ?? 0),
+        "X-DocFactory-Ref-Layout-Coverage-Required": String(refReport?.minRequiredLayoutClusters ?? 0),
+        "X-DocFactory-Style-Preset-Id": result.plan.stylePresetId,
+        "X-DocFactory-Layout-Clusters": result.plan.referenceUsageReport.usedLayoutClusterIds.join(","),
       },
     });
   } catch (error) {
