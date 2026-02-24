@@ -87,9 +87,71 @@ const ROLE_TOPIC_PRIORITY: Record<PageRole, AssetTopic[]> = {
 
 const DEFAULT_DOC_TITLE = "Visual_Document";
 const RHYTHM_IDS = ["editorial", "visual", "evidence", "narrative"] as const;
+const B2B_SERVICE_DOC_TITLE = "기업 임직원 맞춤 영양 설계 서비스 소개서";
+const B2B_SERVICE_KEYWORDS = [
+  "소분",
+  "건기식",
+  "약사",
+  "상담",
+  "레포트",
+  "리포트",
+  "패키지",
+  "앱",
+  "화면",
+];
+const B2B_SALES_ROLE_SEQUENCE: PageRole[] = [
+  "cover",
+  "text-only",
+  "solution",
+  "process",
+  "comparison",
+  "metrics",
+  "cta",
+];
+const B2B_STYLE_CANDIDATES = ["preset-civic-blueprint", "theme-modern-minimalist", "theme-arctic-frost"] as const;
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[\s_.\-()/\\]+/g, "");
+}
+
+function hasAnyKeyword(source: string, keywords: readonly string[]): boolean {
+  const normalized = normalize(source);
+  return keywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+function detectB2BSalesBrief(images: ScannedImage[]): boolean {
+  if (images.length === 0) {
+    return false;
+  }
+
+  const matched = images.reduce((count, image) => {
+    return count + (hasAnyKeyword(image.filename, B2B_SERVICE_KEYWORDS) ? 1 : 0);
+  }, 0);
+
+  return matched >= 3;
+}
+
+function b2bSalesRolePlan(): RoleSequencePlan {
+  return {
+    roles: [...B2B_SALES_ROLE_SEQUENCE],
+    rhythmId: "b2b-sales-structured",
+  };
+}
+
+function b2bStyleSelection(variantIndex: number): {
+  candidatePresetIds: string[];
+  selectedPresetId: string;
+  reason: string;
+} {
+  const candidatePresetIds = [...B2B_STYLE_CANDIDATES];
+  const selectedIndex = Math.abs(Math.max(1, variantIndex) - 1) % candidatePresetIds.length;
+  const selectedPresetId = candidatePresetIds[selectedIndex] ?? candidatePresetIds[0];
+
+  return {
+    candidatePresetIds,
+    selectedPresetId,
+    reason: "brief tuned style set for Korean B2B proposal",
+  };
 }
 
 function createRng(seed: number): () => number {
@@ -555,8 +617,9 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     `[planner] clusters=${clusters.length} proofAssets=${proofAssetCount} lowSignal=${lowSignalAssetCount}`,
   );
 
+  const salesBriefActive = detectB2BSalesBrief(images);
   const inferredDocType = inferDocType(images, proofAssetCount, clusters.length);
-  const docType = options.requestedDocType ?? inferredDocType;
+  const docType = salesBriefActive ? options.requestedDocType ?? "proposal" : options.requestedDocType ?? inferredDocType;
 
   const pageSizePreset = inferPageSizePreset({
     requested: options.requestedPageSizePreset,
@@ -568,35 +631,46 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     heightMm: options.customPageSizeMm?.heightMm,
   });
 
-  const pageCount = decidePageCount({
-    docType,
-    imageCount: images.length,
-    topicCount: Math.max(clusters.length, 1),
-    proofAssetCount,
-    lowSignalAssetCount,
-  });
+  const pageCount =
+    salesBriefActive && docType === "proposal"
+      ? B2B_SALES_ROLE_SEQUENCE.length
+      : decidePageCount({
+          docType,
+          imageCount: images.length,
+          topicCount: Math.max(clusters.length, 1),
+          proofAssetCount,
+          lowSignalAssetCount,
+        });
   debugLog(`page sizing done preset=${pageSize.preset} count=${pageCount}`);
 
-  const rolePlan = buildRoleSequence({
-    docType,
-    pageCount,
-    seed,
-    variantIndex,
-  });
+  const rolePlan =
+    salesBriefActive && docType === "proposal"
+      ? b2bSalesRolePlan()
+      : buildRoleSequence({
+          docType,
+          pageCount,
+          seed,
+          variantIndex,
+        });
   const roleSequence = rolePlan.roles;
   debugLog(`role sequence built rhythm=${rolePlan.rhythmId} len=${roleSequence.length}`);
 
   logs.push(`[planner] docType=${docType} pageSize=${pageSize.preset}(${pageSize.widthMm}x${pageSize.heightMm}mm) pageCount=${pageCount}`);
   logs.push(`[planner] rhythm=${rolePlan.rhythmId} role sequence: ${roleSequence.join(" -> ")}`);
+  if (salesBriefActive) {
+    logs.push("[planner] brief=b2b_service_intro active (sales-focused 7-page narrative)");
+  }
 
   const references = await scanReferences(options.rootDir ?? process.cwd(), seed + variantIndex);
   debugLog(`references scanned all=${references.all.length} sampled=${references.sampled.length}`);
-  const styleSelection = selectStylePreset({
+  const defaultStyleSelection = selectStylePreset({
     seed,
     variantIndex,
     requestedPresetId: options.requestedStylePresetId,
     referenceFilenames: references.sampled.map((item) => item.relPath),
   });
+  const styleSelection =
+    salesBriefActive && !options.requestedStylePresetId ? b2bStyleSelection(variantIndex) : defaultStyleSelection;
 
   const selectedPreset = getStylePresetById(styleSelection.selectedPresetId);
   debugLog(`style selected=${selectedPreset.id} candidates=${styleSelection.candidatePresetIds.join(",")}`);
@@ -654,7 +728,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
   debugLog(`storyboard diversity done pages=${storyboard.length}`);
 
   const plan: DocumentPlan = {
-    docTitle: options.docTitle?.trim() || titleFromImages(images),
+    docTitle: options.docTitle?.trim() || (salesBriefActive ? B2B_SERVICE_DOC_TITLE : titleFromImages(images)),
     docType,
     pageSizePreset: pageSize.preset,
     pageSize,

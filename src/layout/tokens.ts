@@ -32,6 +32,27 @@ function quoteFontFamily(name: string): string {
   return `"${name.replace(/"/g, '\\"')}"`;
 }
 
+function readableFontScale(typography: StylePreset["typography"]): LayoutTokens["fontScalePt"] {
+  const body = Math.max(12, typography.body);
+  const caption = Math.max(10, typography.caption);
+  const micro = Math.max(9.5, typography.micro);
+  const lead = Math.max(body + 1, typography.lead);
+  const subtitle = Math.max(lead + 2, typography.subtitle);
+  const title = Math.max(subtitle + 6, typography.title);
+  const display = Math.max(title + 7, typography.display);
+
+  return {
+    micro,
+    caption,
+    body,
+    lead,
+    subtitle,
+    title,
+    display,
+    lineHeight: typography.lineHeight,
+  };
+}
+
 function pickPrimaryAndFallback(fonts: ScannedFont[]): {
   primary: string;
   fallback: string;
@@ -70,6 +91,7 @@ function pickPrimaryAndFallback(fonts: ScannedFont[]): {
 
 export function createLayoutTokens(fonts: ScannedFont[], preset: StylePreset): LayoutTokens {
   const { primary, fallback } = pickPrimaryAndFallback(fonts);
+  const fontScalePt = readableFontScale(preset.typography);
 
   const cssStack =
     fonts.length >= 2 && primary !== fallback
@@ -87,16 +109,7 @@ export function createLayoutTokens(fonts: ScannedFont[], preset: StylePreset): L
     stroke: preset.stroke,
     background: preset.background,
     accentUsage: preset.accentUsage,
-    fontScalePt: {
-      micro: preset.typography.micro,
-      caption: preset.typography.caption,
-      body: preset.typography.body,
-      lead: preset.typography.lead,
-      subtitle: preset.typography.subtitle,
-      title: preset.typography.title,
-      display: preset.typography.display,
-      lineHeight: preset.typography.lineHeight,
-    },
+    fontScalePt,
     font: {
       primary,
       fallback,

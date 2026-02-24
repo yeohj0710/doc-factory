@@ -29,6 +29,7 @@ export type GenerateLayoutOptions = {
   seed?: number;
   intent?: GenerateIntent;
   rootDir?: string;
+  debug?: boolean;
 };
 
 export type PageValidationSummary = {
@@ -89,6 +90,20 @@ type AttemptTrace = {
   staticIssueCount: number;
   runtimeIssueCount: number;
 };
+
+type RuntimeValidatorRef = Awaited<ReturnType<typeof createRuntimeValidator>>;
+
+function validationOptions(plan: DocumentPlan, tokens: LayoutTokens): {
+  headerBottomMm: number;
+  footerTopMm: number;
+} {
+  const headerBottomMm = tokens.spacingMm.pageMargin + tokens.spacingMm.headerHeight;
+  const footerTopMm = plan.pageSize.heightMm - tokens.spacingMm.pageMargin - tokens.spacingMm.footerHeight;
+  return {
+    headerBottomMm,
+    footerTopMm,
+  };
+}
 
 function hashString(value: string): number {
   let hash = 2166136261;
@@ -163,7 +178,14 @@ function clonePageWithMeta(params: {
 
 function nextAttemptState(state: AttemptState, issues: LayoutValidationIssue[], chainLength: number): AttemptState {
   const hasOverflowLikeIssue = issues.some((issue) =>
-    ["min-size", "reserved-lane", "runtime-overflow", "runtime-clip"].includes(issue.code),
+    [
+      "min-size",
+      "reserved-lane",
+      "text-truncation",
+      "runtime-overflow",
+      "runtime-clip",
+      "runtime-truncation",
+    ].includes(issue.code),
   );
 
   if (hasOverflowLikeIssue && state.copyTightness < 2) {
@@ -201,6 +223,7 @@ async function runAttempt(params: {
   templateId: TemplateId;
   copyTightness: number;
   compactLevel: number;
+  showDebugMeta: boolean;
   tokens: LayoutTokens;
   imageByFilename: Map<string, ScannedImage>;
   runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
@@ -226,18 +249,10 @@ async function runAttempt(params: {
     pageWidthMm: params.plan.pageSize.widthMm,
     pageHeightMm: params.plan.pageSize.heightMm,
     compactLevel: params.compactLevel,
+    showDebugMeta: params.showDebugMeta,
   });
 
-  const headerBottomMm =
-    params.tokens.spacingMm.pageMargin + params.tokens.spacingMm.headerHeight;
-  const footerTopMm =
-    params.plan.pageSize.heightMm - params.tokens.spacingMm.pageMargin - params.tokens.spacingMm.footerHeight;
-
-  const staticValidation = validatePageLayout(page, {
-    headerBottomMm,
-    footerTopMm,
-    minBodyFontPt: 9,
-  });
+  const staticValidation = validatePageLayout(page, validationOptions(params.plan, params.tokens));
 
   const runtimeValidation = await params.runtimeValidator.validatePages([page]);
   const runtimeIssues = runtimeValidation.pageResults[0]?.issues ?? [];
@@ -254,19 +269,58 @@ async function runAttempt(params: {
   };
 }
 
+async function revalidatePages(params: {
+  pages: PageLayout[];
+  plan: DocumentPlan;
+  tokens: LayoutTokens;
+  runtimeValidator: RuntimeValidatorRef;
+}): Promise<PageLayout[]> {
+  const runtimeValidation = await params.runtimeValidator.validatePages(params.pages);
+  const runtimeByPage = new Map(
+    runtimeValidation.pageResults.map((result) => [result.pageNumber, result.issues] as const),
+  );
+
+  return params.pages.map((page) => {
+    const staticValidation = validatePageLayout(page, validationOptions(params.plan, params.tokens));
+    const runtimeIssues = runtimeByPage.get(page.pageNumber) ?? [];
+    const merged = mergeIssues(staticValidation.issues, runtimeIssues);
+    const attemptedTemplates = page.meta?.validation.attemptedTemplates ?? [page.templateId];
+
+    if (!page.meta) {
+      return page;
+    }
+
+    return {
+      ...page,
+      meta: {
+        ...page.meta,
+        validation: {
+          passed: staticValidation.passed && runtimeIssues.length === 0,
+          issues: merged,
+          attemptedTemplates,
+          runtimeIssues,
+        },
+      },
+    };
+  });
+}
+
 async function resolvePageWithAutofix(params: {
   item: StoryboardItem;
   plan: DocumentPlan;
   tokens: LayoutTokens;
   imageByFilename: Map<string, ScannedImage>;
   runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
+  showDebugMeta: boolean;
+  maxAttempts: number;
+  initialState?: AttemptState;
   logs: string[];
   onAttempt?: (trace: AttemptTrace) => void;
 }): Promise<PageLayout> {
   const templateChain = getTemplateFallbackChain(params.item.templateId);
   const attemptedTemplates: TemplateId[] = [];
 
-  let state: AttemptState = {
+  let state: AttemptState = params.initialState ?? {
     templateIndex: 0,
     copyTightness: 0,
     compactLevel: 0,
@@ -274,7 +328,7 @@ async function resolvePageWithAutofix(params: {
 
   let lastAttempt: AttemptResult | null = null;
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < params.maxAttempts; attempt += 1) {
     const templateId = templateChain[Math.min(state.templateIndex, templateChain.length - 1)] ?? "TEXT_ONLY_EDITORIAL";
     attemptedTemplates.push(templateId);
 
@@ -284,6 +338,7 @@ async function resolvePageWithAutofix(params: {
       templateId,
       copyTightness: state.copyTightness,
       compactLevel: state.compactLevel,
+      showDebugMeta: params.showDebugMeta,
       tokens: params.tokens,
       imageByFilename: params.imageByFilename,
       runtimeValidator: params.runtimeValidator,
@@ -324,7 +379,7 @@ async function resolvePageWithAutofix(params: {
   }
 
   params.logs.push(
-    `[autofix] page ${params.item.pageNumber} unresolved after max attempts (template=${lastAttempt.templateId})`,
+    `[autofix] page ${params.item.pageNumber} unresolved after ${params.maxAttempts} attempts (template=${lastAttempt.templateId})`,
   );
 
   return clonePageWithMeta({
@@ -443,30 +498,120 @@ export async function generateLayout(
   logs.push(`[style] applied preset=${preset.id} (${preset.label})`);
 
   const imageByFilename = new Map(orderedImages.map((image) => [image.filename, image] as const));
+  const storyboardByPageNumber = new Map(plannerResult.storyboard.map((item) => [item.pageNumber, item] as const));
+  const showDebugMeta = options.intent === "export" ? false : options.debug === true;
+  if (options.intent === "export" && options.debug) {
+    logs.push("[debug] export path forced debug=false");
+  }
 
   const runtimeValidator = await createRuntimeValidator();
   logs.push(...runtimeValidator.startupLogs.map((line) => `[runtime] ${line}`));
   emitDebug(`runtime validator ready available=${runtimeValidator.available}`);
 
-  const pages: PageLayout[] = [];
+  let pages: PageLayout[] = [];
 
   for (const item of plannerResult.storyboard) {
-    emitDebug(`page ${item.pageNumber} start role=${item.role} template=${item.templateId}`);
+    emitDebug(`page ${item.pageNumber} v1 start role=${item.role} template=${item.templateId}`);
     const resolved = await resolvePageWithAutofix({
       item,
       plan: plannerResult.plan,
       tokens,
       imageByFilename,
       runtimeValidator,
+      showDebugMeta,
+      maxAttempts: 1,
       logs,
       onAttempt: (trace) => {
         emitDebug(
-          `page ${trace.pageNumber} attempt ${trace.attempt} template=${trace.templateId} tighten=${trace.copyTightness} compact=${trace.compactLevel} passed=${trace.passed} static=${trace.staticIssueCount} runtime=${trace.runtimeIssueCount}`,
+          `v1 page ${trace.pageNumber} attempt ${trace.attempt} template=${trace.templateId} tighten=${trace.copyTightness} compact=${trace.compactLevel} passed=${trace.passed} static=${trace.staticIssueCount} runtime=${trace.runtimeIssueCount}`,
         );
       },
     });
     pages.push(resolved);
-    emitDebug(`page ${item.pageNumber} resolved passed=${resolved.meta?.validation.passed ?? false}`);
+  }
+
+  pages = await revalidatePages({
+    pages,
+    plan: plannerResult.plan,
+    tokens,
+    runtimeValidator,
+  });
+
+  let failedPageNumbers = pages
+    .filter((page) => !(page.meta?.validation.passed ?? false))
+    .map((page) => page.pageNumber);
+  logs.push(
+    `[quality] v1 failedPages=${failedPageNumbers.length}${failedPageNumbers.length > 0 ? ` (${failedPageNumbers.join(", ")})` : ""}`,
+  );
+
+  const maxQualityVersion = options.intent === "regenerate" ? 3 : 2;
+  const minQualityVersion = options.intent === "regenerate" ? 2 : 1;
+
+  for (let qualityVersion = 2; qualityVersion <= maxQualityVersion; qualityVersion += 1) {
+    const shouldRun = qualityVersion <= minQualityVersion || failedPageNumbers.length > 0;
+    if (!shouldRun) {
+      break;
+    }
+
+    logs.push(`[quality] v${qualityVersion} start failedPages=${failedPageNumbers.length}`);
+    emitDebug(`quality v${qualityVersion} start failed=${failedPageNumbers.join(",") || "none"}`);
+
+    if (failedPageNumbers.length > 0) {
+      const pagesByNumber = new Map(pages.map((page) => [page.pageNumber, page] as const));
+
+      for (const pageNumber of failedPageNumbers) {
+        const item = storyboardByPageNumber.get(pageNumber);
+        if (!item) {
+          continue;
+        }
+
+        const resolved = await resolvePageWithAutofix({
+          item,
+          plan: plannerResult.plan,
+          tokens,
+          imageByFilename,
+          runtimeValidator,
+          showDebugMeta,
+          maxAttempts: qualityVersion === 2 ? 8 : 10,
+          initialState: {
+            templateIndex: 0,
+            copyTightness: 1,
+            compactLevel: 0,
+          },
+          logs,
+          onAttempt: (trace) => {
+            emitDebug(
+              `v${qualityVersion} page ${trace.pageNumber} attempt ${trace.attempt} template=${trace.templateId} tighten=${trace.copyTightness} compact=${trace.compactLevel} passed=${trace.passed} static=${trace.staticIssueCount} runtime=${trace.runtimeIssueCount}`,
+            );
+          },
+        });
+        pagesByNumber.set(pageNumber, resolved);
+      }
+
+      pages = plannerResult.storyboard
+        .map((item) => pagesByNumber.get(item.pageNumber))
+        .filter((page): page is PageLayout => page !== undefined);
+    }
+
+    pages = await revalidatePages({
+      pages,
+      plan: plannerResult.plan,
+      tokens,
+      runtimeValidator,
+    });
+
+    failedPageNumbers = pages
+      .filter((page) => !(page.meta?.validation.passed ?? false))
+      .map((page) => page.pageNumber);
+    logs.push(
+      `[quality] v${qualityVersion} failedPages=${failedPageNumbers.length}${failedPageNumbers.length > 0 ? ` (${failedPageNumbers.join(", ")})` : ""}`,
+    );
+  }
+
+  if (failedPageNumbers.length > 0) {
+    logs.push(
+      `[quality] unresolved after v${maxQualityVersion}; export remains blocked until truncation/readability/layout issues are fixed`,
+    );
   }
 
   await runtimeValidator.close();
@@ -499,6 +644,7 @@ export async function generateLayout(
     pages: deterministic.pages,
     expectedPageCount: plannerResult.plan.pageCount,
     pageSize: plannerResult.plan.pageSize,
+    debugEnabled: options.intent === "export" ? showDebugMeta : false,
   });
   emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length}`);
 

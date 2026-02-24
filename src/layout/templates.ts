@@ -27,6 +27,7 @@ type BuildParams = {
   pageWidthMm: number;
   pageHeightMm: number;
   compactLevel?: number;
+  showDebugMeta?: boolean;
 };
 
 function rect(
@@ -114,6 +115,7 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
         role: "chip",
         collisionGroup: group,
         isCollisionProtected: true,
+        debugOnly: true,
         radiusMm: tokens.radiusMm.sm,
         stroke: tokens.colors.border,
         strokeWidthMm: tokens.stroke.defaultMm,
@@ -127,6 +129,7 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
           role: "chip",
           collisionGroup: group,
           isCollisionProtected: true,
+          debugOnly: true,
           bold: true,
           align: "center",
           color: tokens.colors.accentDeep,
@@ -141,6 +144,7 @@ function renderMetricCards(
   zone: TemplateZone,
   metrics: PageBrief["narrative"]["metrics"],
   tokens: LayoutTokens,
+  debugOnly = false,
 ): void {
   const values = metrics.slice(0, 3);
   if (values.length === 0) {
@@ -159,6 +163,7 @@ function renderMetricCards(
         role: "metric",
         collisionGroup: group,
         isCollisionProtected: true,
+        debugOnly,
         radiusMm: tokens.radiusMm.sm,
         stroke: tokens.colors.border,
         strokeWidthMm: tokens.stroke.defaultMm,
@@ -172,6 +177,7 @@ function renderMetricCards(
           role: "metric",
           collisionGroup: group,
           isCollisionProtected: true,
+          debugOnly,
           align: "center",
           bold: true,
           color: tokens.colors.text,
@@ -202,7 +208,7 @@ function renderFlowCards(elements: Element[], zone: TemplateZone, bullets: strin
       text(
         { xMm: x + 1.2, yMm: zone.yMm + 1.2, wMm: cardW - 2.4, hMm: zone.hMm - 2.2 },
         `${index + 1}. ${bullets[index] ?? "핵심 단계"}`,
-        tokens.fontScalePt.micro,
+        tokens.fontScalePt.body,
         {
           id: `${group}-text`,
           role: "text",
@@ -261,7 +267,7 @@ function renderTable(elements: Element[], zone: TemplateZone, bullets: string[],
       text(
         { xMm: zone.xMm + 1.4, yMm: y + 1.2, wMm: zone.wMm * 0.34, hMm: rowH - 2.4 },
         `항목 ${index + 1}`,
-        tokens.fontScalePt.micro,
+        tokens.fontScalePt.body,
         {
           id: `${rowId}-left`,
           role: "text",
@@ -274,7 +280,7 @@ function renderTable(elements: Element[], zone: TemplateZone, bullets: string[],
       text(
         { xMm: zone.xMm + zone.wMm * 0.38, yMm: y + 1.2, wMm: zone.wMm * 0.6, hMm: rowH - 2.4 },
         bullets[index] ?? "비교 메모",
-        tokens.fontScalePt.micro,
+        tokens.fontScalePt.body,
         {
           id: `${rowId}-right`,
           role: "text",
@@ -332,6 +338,7 @@ function renderMedia(elements: Element[], zone: TemplateZone, sourceImage: Scann
 
 function buildElements(params: BuildParams): Element[] {
   const compactLevel = params.compactLevel ?? 0;
+  const showDebugMeta = params.showDebugMeta ?? false;
   const spec = getTemplateSpec(params.templateId);
   const zones = spec.buildZones({
     pageWidthMm: params.pageWidthMm,
@@ -406,7 +413,7 @@ function buildElements(params: BuildParams): Element[] {
     );
   }
 
-  if (chipsZone && compactLevel < 1) {
+  if (chipsZone && compactLevel < 1 && showDebugMeta) {
     renderChips(elements, chipsZone, params.brief.narrative.chips, params.tokens);
   }
 
@@ -415,7 +422,10 @@ function buildElements(params: BuildParams): Element[] {
   }
 
   if (metricsZone && compactLevel < 2) {
-    renderMetricCards(elements, metricsZone, params.brief.narrative.metrics, params.tokens);
+    const isDebugMeta = params.brief.narrative.metricsDebugOnly;
+    if (!isDebugMeta || showDebugMeta) {
+      renderMetricCards(elements, metricsZone, params.brief.narrative.metrics, params.tokens, isDebugMeta);
+    }
   }
 
   if (flowZone) {
@@ -485,7 +495,7 @@ function buildElements(params: BuildParams): Element[] {
         id: "footer-divider",
         role: "footer",
       }),
-      text(zoneFrame(footerZone, 1.4), params.brief.narrative.footer, params.tokens.fontScalePt.micro, {
+      text(zoneFrame(footerZone, 1.4), params.brief.narrative.footer, params.tokens.fontScalePt.caption, {
         id: "footer-text",
         role: "footer",
         color: params.tokens.colors.mutedText,

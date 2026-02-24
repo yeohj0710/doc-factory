@@ -99,11 +99,12 @@ export async function POST(request: Request): Promise<Response> {
     const seed = parseInteger(formData.get("seed"));
     const requestedDocType = parseDocType(formData.get("docType"));
     const requestedPageSizePreset = parsePageSizePreset(formData.get("pageSizePreset"));
+    const requestedDebug = formData.get("debug");
     const pageWidthMm = parseNumber(formData.get("pageWidthMm"));
     const pageHeightMm = parseNumber(formData.get("pageHeightMm"));
     logger.log(
       "request parsed",
-      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"}`,
+      `variant=${variantIndex} seed=${seed ?? "auto"} docType=${requestedDocType ?? "auto"} size=${requestedPageSizePreset ?? "auto"} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"}`,
     );
 
     logger.log("asset scan start");
@@ -134,6 +135,7 @@ export async function POST(request: Request): Promise<Response> {
               heightMm: pageHeightMm,
             }
           : undefined,
+      debug: false,
     });
     logger.log(
       "layout generation done",
@@ -182,6 +184,7 @@ export async function POST(request: Request): Promise<Response> {
         "Content-Disposition": `attachment; filename="${disposition.asciiFallback}"; filename*=UTF-8''${disposition.utf8Encoded}`,
         "Content-Length": String(pptxBytes.byteLength),
         "Cache-Control": "no-store",
+        "X-DocFactory-Export-Debug": "0",
       },
     });
   } catch (error) {

@@ -5,6 +5,7 @@ import type { Element, ImageElement, LineElement, PageLayout } from "@/src/layou
 type PageViewProps = {
   page: PageLayout;
   fontFamily: string;
+  showDebugMeta?: boolean;
 };
 
 function renderLine(line: LineElement, key: string): ReactElement {
@@ -93,7 +94,11 @@ function renderImage(image: ImageElement, key: string): ReactElement {
   );
 }
 
-function renderElement(element: Element, index: number, fontFamily: string): ReactElement {
+function renderElement(element: Element, index: number, fontFamily: string, showDebugMeta: boolean): ReactElement | null {
+  if (element.debugOnly && !showDebugMeta) {
+    return null;
+  }
+
   if (element.type === "image") {
     return renderImage(element, `image-${index}`);
   }
@@ -102,6 +107,8 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
     return (
       <p
         key={`text-${index}`}
+        data-role={element.role ?? "text"}
+        data-debug-only={element.debugOnly ? "1" : "0"}
         style={{
           position: "absolute",
           left: `${element.xMm}mm`,
@@ -114,7 +121,8 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
           fontWeight: element.bold ? 700 : 400,
           textAlign: element.align ?? "left",
           whiteSpace: "pre-wrap",
-          overflow: "hidden",
+          overflow: "visible",
+          textOverflow: "clip",
           lineHeight: element.lineHeight ?? 1.25,
           color: element.color ?? "#10213A",
         }}
@@ -149,7 +157,7 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
   return renderLine(element, `line-${index}`);
 }
 
-export function PageView({ page, fontFamily }: PageViewProps): ReactElement {
+export function PageView({ page, fontFamily, showDebugMeta = false }: PageViewProps): ReactElement {
   const style: CSSProperties = {
     fontFamily,
     width: `${page.widthMm}mm`,
@@ -158,7 +166,7 @@ export function PageView({ page, fontFamily }: PageViewProps): ReactElement {
 
   return (
     <article className="doc-page" style={style} data-page-number={page.pageNumber}>
-      {page.elements.map((element, index) => renderElement(element, index, fontFamily))}
+      {page.elements.map((element, index) => renderElement(element, index, fontFamily, showDebugMeta))}
     </article>
   );
 }

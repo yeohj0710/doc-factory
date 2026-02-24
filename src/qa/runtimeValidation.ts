@@ -9,7 +9,7 @@ type RuntimeValidator = {
 };
 
 type RuntimeIssuePayload = {
-  code: "runtime-overflow" | "runtime-clip" | "runtime-overlap";
+  code: "runtime-overflow" | "runtime-clip" | "runtime-overlap" | "runtime-truncation";
   message: string;
   elementId?: string;
 };
@@ -29,7 +29,7 @@ function styleBlock(): string {
     "body { background: #f4f6fa; font-family: Arial, sans-serif; }",
     ".page-container { position: relative; overflow: hidden; background: #fff; border: 1px solid #d4dae4; }",
     ".el { position: absolute; box-sizing: border-box; }",
-    ".el-text { white-space: pre-wrap; overflow: hidden; margin: 0; }",
+    ".el-text { white-space: pre-wrap; overflow: visible; text-overflow: clip; margin: 0; }",
     ".el-image { background: #e7edf6; }",
   ].join("\n");
 }
@@ -39,6 +39,14 @@ function renderElementHtml(element: PageLayout["elements"][number], index: numbe
   const role = escapeHtml(element.role ?? "");
   const collisionGroup = escapeHtml(element.collisionGroup ?? "");
   const protectedValue = element.isCollisionProtected ? "1" : "0";
+  const debugOnly = element.debugOnly ? "1" : "0";
+  const isKeyTextZone =
+    element.type === "text" &&
+    !element.debugOnly &&
+    element.role !== "footer" &&
+    element.role !== "chip" &&
+    element.role !== "metric";
+  const keyZone = isKeyTextZone ? "1" : "0";
 
   if (element.type === "line") {
     const dx = element.x2Mm - element.x1Mm;
@@ -46,18 +54,18 @@ function renderElementHtml(element: PageLayout["elements"][number], index: numbe
     const length = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
     const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
-    return `<div class=\"el el-line\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" style=\"left:${element.x1Mm}mm;top:${element.y1Mm - element.widthMm / 2}mm;width:${length}mm;height:${element.widthMm}mm;background:${element.stroke};transform:rotate(${angle}deg);transform-origin:0 50%;\"></div>`;
+    return `<div class=\"el el-line\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-debug-only=\"${debugOnly}\" style=\"left:${element.x1Mm}mm;top:${element.y1Mm - element.widthMm / 2}mm;width:${length}mm;height:${element.widthMm}mm;background:${element.stroke};transform:rotate(${angle}deg);transform-origin:0 50%;\"></div>`;
   }
 
   if (element.type === "rect") {
-    return `<div class=\"el el-rect\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-type=\"rect\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;background:${element.fill};opacity:${element.fillOpacity ?? 1};border:${element.stroke && element.strokeWidthMm ? `${element.strokeWidthMm}mm solid ${element.stroke}` : "none"};border-radius:${element.radiusMm ?? 0}mm;\"></div>`;
+    return `<div class=\"el el-rect\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-debug-only=\"${debugOnly}\" data-type=\"rect\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;background:${element.fill};opacity:${element.fillOpacity ?? 1};border:${element.stroke && element.strokeWidthMm ? `${element.strokeWidthMm}mm solid ${element.stroke}` : "none"};border-radius:${element.radiusMm ?? 0}mm;\"></div>`;
   }
 
   if (element.type === "image") {
-    return `<div class=\"el el-image\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-type=\"image\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;\"></div>`;
+    return `<div class=\"el el-image\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-debug-only=\"${debugOnly}\" data-type=\"image\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;\"></div>`;
   }
 
-  return `<p class=\"el el-text\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-type=\"text\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;font-size:${element.fontSizePt}pt;line-height:${element.lineHeight ?? 1.25};font-weight:${element.bold ? 700 : 400};text-align:${element.align ?? "left"};color:${element.color ?? "#10213A"};\">${escapeHtml(element.text)}</p>`;
+  return `<p class=\"el el-text\" data-id=\"${id}\" data-role=\"${role}\" data-group=\"${collisionGroup}\" data-protected=\"${protectedValue}\" data-debug-only=\"${debugOnly}\" data-key-zone=\"${keyZone}\" data-type=\"text\" style=\"left:${element.xMm}mm;top:${element.yMm}mm;width:${element.wMm}mm;height:${element.hMm}mm;font-size:${element.fontSizePt}pt;line-height:${element.lineHeight ?? 1.25};font-weight:${element.bold ? 700 : 400};text-align:${element.align ?? "left"};color:${element.color ?? "#10213A"};\">${escapeHtml(element.text)}</p>`;
 }
 
 function buildPageHtml(page: PageLayout): string {
@@ -89,18 +97,51 @@ async function collectRuntimeIssues(playwrightPage: Page): Promise<RuntimeIssueP
 
     const containerRect = container.getBoundingClientRect();
     const issues: Array<{
-      code: "runtime-overflow" | "runtime-clip" | "runtime-overlap";
+      code: "runtime-overflow" | "runtime-clip" | "runtime-overlap" | "runtime-truncation";
       message: string;
       elementId?: string;
     }> = [];
 
-    const textNodes = Array.from(container.querySelectorAll("[data-type='text']"));
+    const textNodes = Array.from(container.querySelectorAll("[data-type='text'][data-key-zone='1']"));
     for (const node of textNodes) {
       const html = node as HTMLElement;
       if (html.scrollHeight > html.clientHeight + 1 || html.scrollWidth > html.clientWidth + 1) {
         issues.push({
           code: "runtime-overflow" as const,
           message: `Text overflow detected`,
+          elementId: html.dataset.id,
+        });
+      }
+
+      const innerText = html.innerText.trim();
+      if (innerText.includes("…") || /\.\.\.$/.test(innerText)) {
+        issues.push({
+          code: "runtime-truncation" as const,
+          message: "Forbidden ellipsis marker detected in key text zone",
+          elementId: html.dataset.id,
+        });
+      }
+
+      const computed = window.getComputedStyle(html);
+      const textOverflow = computed.textOverflow;
+      const lineClamp = computed.getPropertyValue("line-clamp").trim();
+      const webkitLineClamp = computed.getPropertyValue("-webkit-line-clamp").trim();
+      const overflow = computed.overflow;
+      const overflowX = computed.overflowX;
+      const overflowY = computed.overflowY;
+      const lineClampActive =
+        (lineClamp && lineClamp !== "none" && lineClamp !== "unset" && lineClamp !== "initial" && lineClamp !== "0") ||
+        (webkitLineClamp &&
+          webkitLineClamp !== "none" &&
+          webkitLineClamp !== "unset" &&
+          webkitLineClamp !== "initial" &&
+          webkitLineClamp !== "0");
+      const overflowHidden = overflow === "hidden" || overflowX === "hidden" || overflowY === "hidden";
+      const hasTruncationStyle = textOverflow === "ellipsis" || lineClampActive || overflowHidden;
+      if (hasTruncationStyle) {
+        issues.push({
+          code: "runtime-truncation" as const,
+          message: "Truncation style detected in key text zone",
           elementId: html.dataset.id,
         });
       }
@@ -163,7 +204,8 @@ async function collectRuntimeIssues(playwrightPage: Page): Promise<RuntimeIssueP
     .filter((issue): issue is RuntimeIssuePayload =>
       issue.code === "runtime-overflow" ||
       issue.code === "runtime-clip" ||
-      issue.code === "runtime-overlap",
+      issue.code === "runtime-overlap" ||
+      issue.code === "runtime-truncation",
     )
     .map((issue) => ({
       code: issue.code,

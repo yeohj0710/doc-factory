@@ -1,6 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -12,19 +13,20 @@ def post_form(payload: dict[str, str]) -> dict:
     request = urllib.request.Request(BASE, data=data, method="POST")
 
     try:
-      with urllib.request.urlopen(request, timeout=120) as response:
-          headers = {key.lower(): value for key, value in response.headers.items()}
-          return {
-              "status": response.status,
-              "content_type": headers.get("content-type"),
-              "content_disposition": headers.get("content-disposition"),
-          }
+        with urllib.request.urlopen(request, timeout=120) as response:
+            headers = {key.lower(): value for key, value in response.headers.items()}
+            return {
+                "status": response.status,
+                "content_type": headers.get("content-type"),
+                "content_disposition": headers.get("content-disposition"),
+                "export_debug_header": headers.get("x-docfactory-export-debug"),
+            }
     except urllib.error.HTTPError as error:
-      body = error.read().decode("utf-8", errors="ignore")
-      return {
-          "status": error.code,
-          "body": body,
-      }
+        body = error.read().decode("utf-8", errors="ignore")
+        return {
+            "status": error.code,
+            "body": body,
+        }
 
 
 def main() -> None:
@@ -46,8 +48,28 @@ def main() -> None:
             "pageHeightMm": "80",
         }
     )
+    forced_debug = post_form(
+        {
+            "variantIndex": "1",
+            "docType": "proposal",
+            "pageSizePreset": "A4P",
+            "pageWidthMm": "210",
+            "pageHeightMm": "297",
+            "debug": "1",
+        }
+    )
 
-    print(json.dumps({"normal_export": normal, "blocked_export": blocked}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "normal_export": normal,
+                "blocked_export": blocked,
+                "forced_debug_export": forced_debug,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

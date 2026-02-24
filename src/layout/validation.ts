@@ -13,10 +13,60 @@ type ValidationOptions = {
   headerBottomMm?: number;
   footerTopMm?: number;
   minBodyFontPt?: number;
+  minCaptionFontPt?: number;
+  minMicroFontPt?: number;
 };
 
 const MM_PER_PT = 25.4 / 72;
 const EPS = 0.05;
+const A4_AREA_MM2 = 210 * 297;
+
+type ReadabilityMinima = {
+  bodyPt: number;
+  captionPt: number;
+  microPt: number;
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function readabilityScaleForPage(page: PageLayout): number {
+  const area = Math.max(1, page.widthMm * page.heightMm);
+  const areaScale = Math.sqrt(area / A4_AREA_MM2);
+  return clamp(areaScale, 0.85, 1.35);
+}
+
+function resolveReadabilityMinima(page: PageLayout, options: ValidationOptions): ReadabilityMinima {
+  const scale = readabilityScaleForPage(page);
+  const bodyDefault = Number((11 * scale).toFixed(2));
+  const captionDefault = Number((10 * scale).toFixed(2));
+  const microDefault = Number((9.5 * scale).toFixed(2));
+
+  return {
+    bodyPt: options.minBodyFontPt ?? bodyDefault,
+    captionPt: options.minCaptionFontPt ?? captionDefault,
+    microPt: options.minMicroFontPt ?? microDefault,
+  };
+}
+
+function isKeyTextElement(element: TextElement): boolean {
+  if (element.debugOnly) {
+    return false;
+  }
+  return element.role !== "chip" && element.role !== "metric" && element.role !== "footer";
+}
+
+export function hasForbiddenEllipsis(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (trimmed.includes("…")) {
+    return true;
+  }
+  return /\.\.\.$/.test(trimmed);
+}
 
 function intersects(a: Box, b: Box): boolean {
   return a.xMm < b.xMm + b.wMm && a.xMm + a.wMm > b.xMm && a.yMm < b.yMm + b.hMm && a.yMm + a.hMm > b.yMm;
@@ -206,13 +256,41 @@ function estimateTextLines(element: TextElement): { estimatedLines: number; maxL
   return { estimatedLines, maxLines };
 }
 
-function checkMinSize(page: PageLayout, minBodyFontPt: number, issues: LayoutValidationIssue[]): void {
+function minFontForText(element: TextElement, minima: ReadabilityMinima): number {
+  if (element.role === "chip" || element.role === "metric") {
+    return minima.microPt;
+  }
+  if (element.role === "header" || element.role === "footer") {
+    return minima.captionPt;
+  }
+  return minima.bodyPt;
+}
+
+function checkTextTruncation(page: PageLayout, issues: LayoutValidationIssue[]): void {
+  page.elements.forEach((element, index) => {
+    if (element.type !== "text" || !isKeyTextElement(element)) {
+      return;
+    }
+
+    if (hasForbiddenEllipsis(element.text)) {
+      issues.push({
+        code: "text-truncation",
+        message: `Forbidden ellipsis/truncation marker found (${element.id ?? `text-${index}`})`,
+        elementId: element.id,
+        elementIndex: index,
+      });
+    }
+  });
+}
+
+function checkMinSize(page: PageLayout, minima: ReadabilityMinima, issues: LayoutValidationIssue[]): void {
   page.elements.forEach((element, index) => {
     if (element.type === "text") {
-      if (element.fontSizePt < minBodyFontPt - EPS) {
+      const minFontPt = minFontForText(element, minima);
+      if (element.fontSizePt < minFontPt - EPS) {
         issues.push({
           code: "min-size",
-          message: `Text size below minimum (${element.fontSizePt.toFixed(1)}pt < ${minBodyFontPt}pt)`,
+          message: `Text size below minimum (${element.fontSizePt.toFixed(1)}pt < ${minFontPt.toFixed(1)}pt)`,
           elementId: element.id,
           elementIndex: index,
         });
@@ -281,10 +359,12 @@ export function validatePageLayout(
   options: ValidationOptions = {},
 ): { passed: boolean; issues: LayoutValidationIssue[] } {
   const issues: LayoutValidationIssue[] = [];
+  const minima = resolveReadabilityMinima(page, options);
   checkBounds(page, issues);
   checkReservedLanes(page, options, issues);
   checkCollisions(page, issues);
-  checkMinSize(page, options.minBodyFontPt ?? 9, issues);
+  checkMinSize(page, minima, issues);
+  checkTextTruncation(page, issues);
   checkLayering(page, issues);
   return {
     passed: issues.length === 0,

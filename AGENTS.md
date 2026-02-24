@@ -1,6 +1,6 @@
 # doc-factory — AGENTS.md (Generic Visual Document Builder, Skills-Integrated)
 
-Updated: 2026-02-24
+Updated: 2026-02-24 (rev: readability + no-ellipsis + debug-free export)
 
 This repo generates an editable PPTX document from ONLY:
 
@@ -29,7 +29,7 @@ Mode trigger:
 - User drops assets into /images (and optionally /fonts, /references).
 - App infers document type + page size, creates a storyboard, generates pages, previews them, and exports ONE PPTX.
 - Each slide/page in PPTX must remain EDITABLE (text/shapes), not screenshot-only.
-- Export MUST be blocked unless validation gates pass (static + runtime).
+- Export MUST be blocked unless validation gates pass (static + runtime + readability).
 - Default size is A4 Portrait, but size can vary.
 
 ---
@@ -80,8 +80,7 @@ The output MUST be deterministic given:
 - Clicking "Regenerate Layout" increments variantIndex.
 - Same variantIndex must reproduce the same layout.
 - Export filename must include variantIndex.
-
-Users never edit variantIndex/seed manually.
+  Users never edit variantIndex/seed manually.
 
 ---
 
@@ -90,8 +89,7 @@ Users never edit variantIndex/seed manually.
 1. If filename has leading number (001\_, 01-, p1, (1)), sort by that number.
 2. Else sort by modified time ascending.
 3. Else natural sort by filename.
-
-Order must be stable.
+   Order must be stable.
 
 ---
 
@@ -147,8 +145,7 @@ Before generating any page:
    - same template max 2 in a row
    - full-bleed templates <= 35–40% of pages
    - multi-page docs must include at least 1 TEXT_ONLY_EDITORIAL page
-
-Only after storyboard exists: generate pages.
+     Only after storyboard exists: generate pages.
 
 ---
 
@@ -240,8 +237,9 @@ If text doesn’t fit:
 
 1. shorten text
 2. remove secondary blocks (chips/extra cards)
-3. fallback template
-   Never reduce body below 9pt.
+3. fallback template(s)
+4. (allowed) increase page count if needed
+   Never reduce body below the readability minimum (see section 11).
 
 If meaning is unknown:
 
@@ -250,30 +248,80 @@ If meaning is unknown:
 
 ---
 
-## 11) Validation Gates (Hard; Export must be blocked)
+## 11) Main Quality Rules (HARD — applies to ALL DESIGN runs)
 
-Two layers:
+A run is considered FAILED if any rule below is violated.
 
-### 11.1 Static DSL gates (always)
+### 11.1 No Ellipsis / No Silent Truncation (HARD)
+
+- Text must never end with "..." or "…" in preview or PPTX.
+- Do NOT use CSS line-clamp, text-overflow: ellipsis, or hidden overflow as a way to “make it fit”.
+- If text does not fit, you MUST shorten copy or change template, not visually truncate.
+
+Add a validation gate:
+
+- Fail if any key text node contains "…" OR ends with "..." or "…".
+- Fail if computed styles indicate line-clamp/ellipsis on key text zones.
+
+### 11.2 Readability Minimums (A4 defaults; scale with size)
+
+- For A4 Portrait defaults:
+  - Body >= 11pt (default 12pt recommended)
+  - Caption >= 10pt
+  - Small labels/chips >= 9.5pt
+- Do not shrink below these minimums. Reduce text first.
+
+### 11.3 Debug/Meta UI must NOT appear in documents
+
+- Any debug/meta blocks (template tags, “v1”, role badges, internal chips, page stats, etc.)
+  must be hidden in normal preview and ALWAYS excluded from PPTX export.
+- They may appear ONLY when `debug=1` is explicitly enabled in the URL.
+- Export MUST always render with debug disabled.
+
+### 11.4 Page Density Control
+
+- Avoid dense paragraphs. Prefer cards/bullets.
+- Bullets per page: 3–5 max (unless a dedicated editorial template allows more).
+- Avoid multiple “information widgets” that reduce content area.
+
+### 11.5 Iterative Visual Review Loop (Required)
+
+Every DESIGN run must include at least one loop:
+
+1. Generate v1
+2. Visual review per page (screenshot or preview):
+   - check: ellipsis, readability, overcrowding, hierarchy clarity
+3. Fix only failing pages (copy shorten -> remove components -> fallback template)
+4. Generate v2 and re-check
+   Only after passing all rules can Export be enabled.
+
+---
+
+## 12) Validation Gates (Hard; Export must be blocked)
+
+Three layers:
+
+### 12.1 Static DSL gates (always)
 
 - boundary: all elements inside page bounds
 - reserved lanes: header/footer protected zones never invaded
 - collision: semantic blocks do not overlap
-- min-size: readability thresholds
+- min-size: readability thresholds (must reflect section 11)
 - layering: text not occluded
 - determinism: same params -> same DSL structure
 
-### 11.2 Runtime gates (preferred via webapp-testing skill)
+### 12.2 Runtime gates (preferred via webapp-testing skill)
 
 Use a headless browser to measure real DOM:
 
 - text overflow (scrollHeight > clientHeight)
 - clipped elements (bounding rect exceeds page container)
 - unintended overlaps (rect intersections over threshold)
+- truncation detection (ellipsis / line-clamp / text-overflow on key zones)
 
 If runtime gates fail:
 
-- auto-fix loop: shorten -> fallback template -> re-layout -> re-run runtime gates
+- auto-fix loop: shorten -> remove secondary blocks -> fallback template -> re-layout -> re-run runtime gates
   Export only when all gates pass.
 
 ### Skill: webapp-testing (preferred)
@@ -282,10 +330,11 @@ If .agents/skills/webapp-testing exists:
 
 - use it to run runtime gates on every Regenerate and Export
 - produce a page-by-page failure report for the UI
+- export must be disabled + server must return 400 if gates fail
 
 ---
 
-## 12) Preview ↔ PPTX Parity + Export Audit
+## 13) Preview ↔ PPTX Parity + Export Audit
 
 Both renderers consume the same DSL. Only unit conversion differs.
 
@@ -295,12 +344,13 @@ Export audit MUST verify:
 - all objects are within slide bounds
 - slides contain editable objects (text/shapes) and are not raster-only
 - page size matches selected preset
+- export is performed with debug disabled
 
 If audit fails: block export and show errors.
 
 ---
 
-## 13) Export Filename (Mandatory)
+## 14) Export Filename (Mandatory)
 
 Auto-generate:
 {docTitle}_{pageSize}_{YYYYMMDD}_v{variantIndex}_{pageCount}p.pptx
@@ -309,7 +359,7 @@ docTitle inferred from prompt; default "Visual_Document".
 
 ---
 
-## 14) UI Requirements
+## 15) UI Requirements
 
 Localhost page must show:
 
@@ -322,14 +372,31 @@ Localhost page must show:
 
 Export must be disabled if validation fails.
 
+Debug/meta UI:
+
+- visible only when debug=1
+- must never appear in export
+
 ---
 
-## 15) Done Criteria
+## 16) Done Criteria
 
 Before declaring completion:
 
 - storyboard exists and demonstrates variety
 - page count is variable (not fixed to image count)
-- all pages pass static + runtime gates
+- all pages pass static + runtime gates + main quality rules
+- no ellipsis/truncation appears anywhere important
+- readability meets minimums (no tiny text)
 - preview/pptx parity is acceptable
 - export filename follows policy
+
+---
+
+## 17) Maintenance Enforcement Map (Code-level)
+
+- Static gate (`src/layout/validation.ts`) MUST fail on `text-truncation` and readability minima (A4 base: body >= 11pt, caption >= 10pt, chips/labels >= 9.5pt; scaled by page size).
+- Runtime gate (`src/qa/runtimeValidation.ts`) MUST fail on `runtime-truncation` when key text contains ellipsis markers or truncation styles (`text-overflow: ellipsis`, `line-clamp`, `-webkit-line-clamp`, or hidden-overflow truncation pattern).
+- DESIGN run quality loop (`src/layout/generateLayout.ts`) MUST run at least `v1 -> v2`, and may run up to `v3`; export remains blocked if failures remain.
+- Debug/meta elements (`src/layout/templates.ts`, `src/render/web/PageView.tsx`) MUST be `debugOnly` and visible only when `debug=1`.
+- Export path (`app/api/export/pptx/route.ts`, `src/qa/exportAudit.ts`, `src/render/pptx/renderPptx.ts`) MUST force `debug=false`, reject debug/meta leakage, and fail if truncation markers remain.

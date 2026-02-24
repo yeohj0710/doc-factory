@@ -1,4 +1,5 @@
-﻿import type { PageSizeSpec } from "@/src/layout/pageSize";
+import type { PageSizeSpec } from "@/src/layout/pageSize";
+import { hasForbiddenEllipsis } from "@/src/layout/validation";
 import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
 
 export type ExportAuditResult = {
@@ -18,8 +19,16 @@ export function runExportAudit(params: {
   pages: PageLayout[];
   expectedPageCount: number;
   pageSize: PageSizeSpec;
+  debugEnabled: boolean;
 }): ExportAuditResult {
   const issues: LayoutValidationIssue[] = [];
+
+  if (params.debugEnabled) {
+    issues.push({
+      code: "export-audit",
+      message: "export must run with debug=false",
+    });
+  }
 
   if (params.pages.length !== params.expectedPageCount) {
     issues.push({
@@ -45,7 +54,24 @@ export function runExportAudit(params: {
       });
     }
 
+    if (!params.debugEnabled && page.elements.some((element) => element.debugOnly)) {
+      issues.push({
+        code: "export-audit",
+        message: `debug/meta element leaked into export on slide ${page.pageNumber}`,
+        elementIndex: pageIndex,
+      });
+    }
+
     page.elements.forEach((element, elementIndex) => {
+      if (element.type === "text" && hasForbiddenEllipsis(element.text)) {
+        issues.push({
+          code: "export-audit",
+          message: `ellipsis/truncation marker remains on slide ${page.pageNumber}`,
+          elementId: element.id,
+          elementIndex,
+        });
+      }
+
       if (element.type === "line") {
         const validStart = withinBounds(page, element.x1Mm, element.y1Mm);
         const validEnd = withinBounds(page, element.x2Mm, element.y2Mm);
@@ -77,4 +103,3 @@ export function runExportAudit(params: {
     issues,
   };
 }
-

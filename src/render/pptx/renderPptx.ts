@@ -229,6 +229,9 @@ export async function renderLayoutsToPptx(
     const slide = pptx.addSlide();
     slide.background = { color: "FFFFFF" };
     for (const element of page.elements) {
+      if (element.debugOnly) {
+        continue;
+      }
       addElement(pptx, slide, element, rootDir, options.primaryFont);
     }
   }

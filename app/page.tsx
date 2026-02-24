@@ -230,6 +230,7 @@ export default async function Home({ searchParams }: HomeProps) {
     requestedPageSizePreset,
     customPageSizeMm,
     intent: "regenerate",
+    debug: showDebug,
   });
 
   const hasPages = result.pages.length > 0;
@@ -346,7 +347,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   <div className="preview-frame">
                     <div className="preview-scale" style={frameStyle}>
                       <div className="preview-scale-inner">
-                        <PageView page={page} fontFamily={result.tokens.font.cssStack} />
+                        <PageView page={page} fontFamily={result.tokens.font.cssStack} showDebugMeta={showDebug} />
                       </div>
                     </div>
                   </div>

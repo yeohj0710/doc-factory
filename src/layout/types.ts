@@ -21,6 +21,7 @@ type ElementMeta = {
   collisionGroup?: string;
   isCollisionProtected?: boolean;
   allowTextOcclusion?: boolean;
+  debugOnly?: boolean;
 };
 
 export type ImageElement = ElementMeta & {
@@ -102,11 +103,13 @@ export type LayoutValidationIssueCode =
   | "reserved-lane"
   | "collision"
   | "min-size"
+  | "text-truncation"
   | "layering"
   | "determinism"
   | "runtime-overflow"
   | "runtime-clip"
   | "runtime-overlap"
+  | "runtime-truncation"
   | "export-audit";
 
 export type LayoutValidationIssue = {
