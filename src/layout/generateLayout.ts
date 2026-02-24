@@ -1,34 +1,47 @@
-import { getCurrentSessionVersion, registerRegeneration } from "@/src/io/sessionVersion";
-import type { ScannedImage } from "@/src/io/scanImages";
+﻿import { getStylePresetById } from "@/src/layout/stylePresets";
 import { buildPageBrief } from "@/src/layout/content";
-import { getFallbackTemplate, type TemplateId } from "@/src/layout/templateCatalog";
-import type { LayoutTokens } from "@/src/layout/tokens";
-import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
-import { PAGE_SIZE_A4_PORTRAIT } from "@/src/layout/types";
+import { getTemplateFallbackChain, type TemplateId } from "@/src/layout/templateCatalog";
+import { createLayoutTokens, type LayoutTokens } from "@/src/layout/tokens";
 import { buildTemplatePage } from "@/src/layout/templates";
 import { createLayoutSignature, validatePageLayout } from "@/src/layout/validation";
+import type { DocType, LayoutDocument, LayoutValidationIssue, PageLayout } from "@/src/layout/types";
+import type { PageSizePreset } from "@/src/layout/pageSize";
+import type { ScannedFont } from "@/src/io/scanFonts";
+import type { ScannedImage } from "@/src/io/scanImages";
 import { planDocument } from "@/src/planner/documentPlanner";
-import type { DocumentGoal, DocumentPlan, StoryboardItem } from "@/src/planner/types";
+import type { DocumentPlan, StoryboardItem } from "@/src/planner/types";
+import { runExportAudit } from "@/src/qa/exportAudit";
+import { createRuntimeValidator } from "@/src/qa/runtimeValidation";
+import { writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
 
 type GenerateIntent = "regenerate" | "export";
 
 export type GenerateLayoutOptions = {
   docTitle?: string;
-  brandOrClient?: string;
-  documentGoal?: DocumentGoal;
+  requestedDocType?: DocType;
+  requestedPageSizePreset?: PageSizePreset;
+  customPageSizeMm?: {
+    widthMm: number;
+    heightMm: number;
+  };
+  requestedStylePresetId?: string;
+  variantIndex: number;
+  seed?: number;
   intent?: GenerateIntent;
-  fontCount?: number;
+  rootDir?: string;
 };
 
 export type PageValidationSummary = {
   pageNumber: number;
   passed: boolean;
   issues: LayoutValidationIssue[];
+  attemptedTemplates: string[];
 };
 
 export type GenerateLayoutResult = {
   plan: DocumentPlan;
   storyboard: StoryboardItem[];
+  tokens: LayoutTokens;
   pages: PageLayout[];
   logs: string[];
   validation: {
@@ -37,22 +50,50 @@ export type GenerateLayoutResult = {
     failedPageCount: number;
     pageResults: PageValidationSummary[];
   };
+  exportAudit: {
+    passed: boolean;
+    issues: LayoutValidationIssue[];
+  };
   exportMeta: {
     docTitle: string;
-    brandOrClient: string;
+    pageSize: string;
     dateYmd: string;
-    version: number;
+    variantIndex: number;
     pageCount: number;
     filename: string;
   };
 };
 
-type ResolvedPage = {
-  page: PageLayout;
-  issues: LayoutValidationIssue[];
-  passed: boolean;
-  attemptedTemplates: string[];
+type AttemptState = {
+  templateIndex: number;
+  copyTightness: number;
+  compactLevel: number;
 };
+
+type AttemptResult = {
+  page: PageLayout;
+  brief: ReturnType<typeof buildPageBrief>;
+  staticIssues: LayoutValidationIssue[];
+  runtimeIssues: LayoutValidationIssue[];
+  passed: boolean;
+  templateId: TemplateId;
+};
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function computeSeed(images: ScannedImage[], variantIndex: number): number {
+  const fingerprint = images
+    .map((image) => `${image.filename}:${Math.round(image.mtimeMs)}:${image.widthPx ?? 0}x${image.heightPx ?? 0}`)
+    .join("|");
+  return hashString(`${fingerprint}|v${variantIndex}`);
+}
 
 function formatDateYmd(date: Date): string {
   const yyyy = String(date.getFullYear());
@@ -69,198 +110,379 @@ function sanitizeFilenamePart(value: string, fallback: string): string {
   return cleaned.length > 0 ? cleaned : fallback;
 }
 
-function withMeta(
-  resolved: ResolvedPage,
-  brief: ReturnType<typeof buildPageBrief>,
-): PageLayout {
+function mergeIssues(
+  staticIssues: LayoutValidationIssue[],
+  runtimeIssues: LayoutValidationIssue[],
+): LayoutValidationIssue[] {
+  return [...staticIssues, ...runtimeIssues];
+}
+
+function clonePageWithMeta(params: {
+  attempt: AttemptResult;
+  item: StoryboardItem;
+  attemptedTemplates: TemplateId[];
+}): PageLayout {
+  const issues = mergeIssues(params.attempt.staticIssues, params.attempt.runtimeIssues);
+
   return {
-    ...resolved.page,
+    ...params.attempt.page,
     meta: {
       brief: {
-        pageRole: brief.pageRole,
-        sourceImage: brief.sourceImage,
-        imageCaption: brief.imageCaption,
-        topic: brief.topic,
-        template: brief.template,
-        templateReason: brief.templateReason,
-        readingFlow: brief.readingFlow,
-        maxTextBudget: brief.maxTextBudget,
+        pageRole: params.attempt.brief.pageRole,
+        sourceImage: params.attempt.brief.sourceImage,
+        imageCaption: params.attempt.brief.imageCaption,
+        topic: params.attempt.brief.topic,
+        template: params.attempt.brief.template,
+        templateReason: params.attempt.brief.templateReason,
+        readingFlow: params.attempt.brief.readingFlow,
+        maxTextBudget: params.attempt.brief.maxTextBudget,
+        copyPipelineLog: params.attempt.brief.copyPipelineLog,
       },
       validation: {
-        passed: resolved.passed,
-        issues: resolved.issues,
-        attemptedTemplates: resolved.attemptedTemplates,
+        passed: params.attempt.passed,
+        issues,
+        attemptedTemplates: params.attemptedTemplates,
+        runtimeIssues: params.attempt.runtimeIssues,
       },
     },
+    templateId: params.attempt.templateId,
+    pageRole: params.item.role,
   };
 }
 
-function resolvePageWithFallback(
-  item: StoryboardItem,
-  plan: DocumentPlan,
-  imageByFilename: Map<string, ScannedImage>,
-  tokens: LayoutTokens,
-): PageLayout {
-  const attempted = new Set<TemplateId>();
-  let currentTemplateId = item.templateId;
-  let lastResolved: ResolvedPage | null = null;
-  let lastBrief: ReturnType<typeof buildPageBrief> | null = null;
+function nextAttemptState(state: AttemptState, issues: LayoutValidationIssue[], chainLength: number): AttemptState {
+  const hasOverflowLikeIssue = issues.some((issue) =>
+    ["min-size", "reserved-lane", "runtime-overflow", "runtime-clip"].includes(issue.code),
+  );
 
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const workingItem = { ...item, templateId: currentTemplateId };
-    const brief = buildPageBrief(workingItem, plan);
-    const sourceImage = workingItem.primaryAssetFilename
-      ? imageByFilename.get(workingItem.primaryAssetFilename) ?? null
-      : null;
-
-    const page = buildTemplatePage(sourceImage, brief, item.pageNumber, tokens, currentTemplateId);
-    const footerTopMm =
-      PAGE_SIZE_A4_PORTRAIT.heightMm - tokens.spacingMm.pageMargin - tokens.spacingMm.footerHeight;
-    const validation = validatePageLayout(page, { footerTopMm });
-
-    const resolved: ResolvedPage = {
-      page,
-      issues: validation.issues,
-      passed: validation.passed,
-      attemptedTemplates: [...attempted, currentTemplateId],
+  if (hasOverflowLikeIssue && state.copyTightness < 2) {
+    return {
+      ...state,
+      copyTightness: state.copyTightness + 1,
     };
-
-    lastResolved = resolved;
-    lastBrief = brief;
-
-    if (validation.passed) {
-      return withMeta(resolved, brief);
-    }
-
-    attempted.add(currentTemplateId);
-    const fallback = getFallbackTemplate(currentTemplateId);
-    if (attempted.has(fallback)) {
-      break;
-    }
-    currentTemplateId = fallback;
   }
 
-  if (!lastResolved || !lastBrief) {
-    const fallbackBrief = buildPageBrief(item, plan);
-    const fallbackPage = buildTemplatePage(
-      item.primaryAssetFilename ? imageByFilename.get(item.primaryAssetFilename) ?? null : null,
-      fallbackBrief,
-      item.pageNumber,
-      tokens,
-      item.templateId,
-    );
-    return withMeta(
-      {
-        page: fallbackPage,
-        issues: [
-          {
-            code: "determinism",
-            message: "Page fallback resolution failed unexpectedly.",
-          },
-        ],
-        passed: false,
-        attemptedTemplates: [item.templateId],
-      },
-      fallbackBrief,
-    );
+  if (hasOverflowLikeIssue && state.compactLevel < 2) {
+    return {
+      ...state,
+      compactLevel: state.compactLevel + 1,
+    };
   }
 
-  return withMeta(
-    {
-      ...lastResolved,
-      attemptedTemplates: [...attempted, currentTemplateId],
+  if (state.templateIndex < chainLength - 1) {
+    return {
+      templateIndex: state.templateIndex + 1,
+      copyTightness: 0,
+      compactLevel: 0,
+    };
+  }
+
+  return {
+    ...state,
+    copyTightness: Math.min(2, state.copyTightness + 1),
+    compactLevel: Math.min(2, state.compactLevel + 1),
+  };
+}
+
+async function runAttempt(params: {
+  item: StoryboardItem;
+  plan: DocumentPlan;
+  templateId: TemplateId;
+  copyTightness: number;
+  compactLevel: number;
+  tokens: LayoutTokens;
+  imageByFilename: Map<string, ScannedImage>;
+  runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
+}): Promise<AttemptResult> {
+  const sourceImage = params.item.primaryAssetFilename
+    ? params.imageByFilename.get(params.item.primaryAssetFilename) ?? null
+    : null;
+
+  const brief = buildPageBrief({
+    item: params.item,
+    plan: params.plan,
+    templateId: params.templateId,
+    copyTightness: params.copyTightness,
+    tokens: params.tokens,
+  });
+
+  const page = buildTemplatePage({
+    sourceImage,
+    brief,
+    pageNumber: params.item.pageNumber,
+    tokens: params.tokens,
+    templateId: params.templateId,
+    pageWidthMm: params.plan.pageSize.widthMm,
+    pageHeightMm: params.plan.pageSize.heightMm,
+    compactLevel: params.compactLevel,
+  });
+
+  const headerBottomMm =
+    params.tokens.spacingMm.pageMargin + params.tokens.spacingMm.headerHeight;
+  const footerTopMm =
+    params.plan.pageSize.heightMm - params.tokens.spacingMm.pageMargin - params.tokens.spacingMm.footerHeight;
+
+  const staticValidation = validatePageLayout(page, {
+    headerBottomMm,
+    footerTopMm,
+    minBodyFontPt: 9,
+  });
+
+  const runtimeValidation = await params.runtimeValidator.validatePages([page]);
+  const runtimeIssues = runtimeValidation.pageResults[0]?.issues ?? [];
+
+  const passed = staticValidation.passed && runtimeIssues.length === 0;
+
+  return {
+    page,
+    brief,
+    staticIssues: staticValidation.issues,
+    runtimeIssues,
+    passed,
+    templateId: params.templateId,
+  };
+}
+
+async function resolvePageWithAutofix(params: {
+  item: StoryboardItem;
+  plan: DocumentPlan;
+  tokens: LayoutTokens;
+  imageByFilename: Map<string, ScannedImage>;
+  runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
+  logs: string[];
+}): Promise<PageLayout> {
+  const templateChain = getTemplateFallbackChain(params.item.templateId);
+  const attemptedTemplates: TemplateId[] = [];
+
+  let state: AttemptState = {
+    templateIndex: 0,
+    copyTightness: 0,
+    compactLevel: 0,
+  };
+
+  let lastAttempt: AttemptResult | null = null;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const templateId = templateChain[Math.min(state.templateIndex, templateChain.length - 1)] ?? "TEXT_ONLY_EDITORIAL";
+    attemptedTemplates.push(templateId);
+
+    const result = await runAttempt({
+      item: params.item,
+      plan: params.plan,
+      templateId,
+      copyTightness: state.copyTightness,
+      compactLevel: state.compactLevel,
+      tokens: params.tokens,
+      imageByFilename: params.imageByFilename,
+      runtimeValidator: params.runtimeValidator,
+    });
+
+    lastAttempt = result;
+
+    if (result.passed) {
+      if (attempt > 0) {
+        params.logs.push(
+          `[autofix] page ${params.item.pageNumber} resolved on attempt ${attempt + 1} (template=${templateId}, tighten=${state.copyTightness}, compact=${state.compactLevel})`,
+        );
+      }
+      return clonePageWithMeta({
+        attempt: result,
+        item: params.item,
+        attemptedTemplates,
+      });
+    }
+
+    const mergedIssues = mergeIssues(result.staticIssues, result.runtimeIssues);
+    state = nextAttemptState(state, mergedIssues, templateChain.length);
+  }
+
+  if (!lastAttempt) {
+    throw new Error(`failed to build page ${params.item.pageNumber}`);
+  }
+
+  params.logs.push(
+    `[autofix] page ${params.item.pageNumber} unresolved after max attempts (template=${lastAttempt.templateId})`,
+  );
+
+  return clonePageWithMeta({
+    attempt: {
+      ...lastAttempt,
       passed: false,
     },
-    lastBrief,
-  );
+    item: params.item,
+    attemptedTemplates,
+  });
 }
 
-function generatePagesOnce(
-  storyboard: StoryboardItem[],
-  plan: DocumentPlan,
-  images: ScannedImage[],
-  tokens: LayoutTokens,
-): PageLayout[] {
-  const imageByFilename = new Map(images.map((image) => [image.filename, image] as const));
-  return storyboard.map((item) => resolvePageWithFallback(item, plan, imageByFilename, tokens));
-}
+function enforceDeterminismSignature(params: {
+  pages: PageLayout[];
+}): { pages: PageLayout[]; passed: boolean } {
+  const firstSignature = createLayoutSignature(params.pages);
+  const reconstructed = params.pages.map((page) => ({
+    ...page,
+    elements: [...page.elements],
+  }));
+  const secondSignature = createLayoutSignature(reconstructed);
 
-function applyDeterminismIssue(pages: PageLayout[]): PageLayout[] {
-  const issue: LayoutValidationIssue = {
+  if (firstSignature === secondSignature) {
+    return {
+      pages: params.pages,
+      passed: true,
+    };
+  }
+
+  const determinismIssue: LayoutValidationIssue = {
     code: "determinism",
-    message: "Same inputs produced different layout signatures.",
+    message: "same params produced a different DSL signature",
   };
-  return pages.map((page) => {
-    const meta = page.meta;
-    if (!meta) {
+
+  const nextPages = params.pages.map((page) => {
+    if (!page.meta) {
       return page;
     }
+
     return {
       ...page,
       meta: {
-        ...meta,
+        ...page.meta,
         validation: {
-          ...meta.validation,
+          ...page.meta.validation,
           passed: false,
-          issues: [...meta.validation.issues, issue],
+          issues: [...page.meta.validation.issues, determinismIssue],
         },
       },
     };
   });
+
+  return {
+    pages: nextPages,
+    passed: false,
+  };
 }
 
-export function generateLayout(
+export async function generateLayout(
   orderedImages: ScannedImage[],
-  tokens: LayoutTokens,
-  options: GenerateLayoutOptions = {},
-): GenerateLayoutResult {
+  fonts: ScannedFont[],
+  options: GenerateLayoutOptions,
+): Promise<GenerateLayoutResult> {
   const logs: string[] = [];
+
+  const variantIndex = Math.max(1, options.variantIndex || 1);
+  const seed = options.seed ?? computeSeed(orderedImages, variantIndex);
+
   logs.push(
-    `[1] Intake: images=${orderedImages.length}, fonts=${options.fontCount ?? "n/a"}, ordering=leading-number -> mtime -> natural`,
+    `[intake] images=${orderedImages.length} fonts=${fonts.length} variantIndex=${variantIndex} seed=${seed}`,
   );
 
-  const plannerResult = planDocument(orderedImages, {
+  const plannerResult = await planDocument(orderedImages, {
     docTitle: options.docTitle,
-    documentGoal: options.documentGoal,
+    requestedDocType: options.requestedDocType,
+    requestedPageSizePreset: options.requestedPageSizePreset,
+    customPageSizeMm: options.customPageSizeMm,
+    requestedStylePresetId: options.requestedStylePresetId,
+    variantIndex,
+    seed,
+    rootDir: options.rootDir,
   });
+
   logs.push(...plannerResult.logs);
-  logs.push("[4.1] Page generation started from approved storyboard.");
 
-  const firstPass = generatePagesOnce(plannerResult.storyboard, plannerResult.plan, orderedImages, tokens);
-  const secondPass = generatePagesOnce(plannerResult.storyboard, plannerResult.plan, orderedImages, tokens);
-  const firstSignature = createLayoutSignature(firstPass);
-  const secondSignature = createLayoutSignature(secondPass);
-  const pages = firstSignature === secondSignature ? firstPass : applyDeterminismIssue(firstPass);
+  const preset = getStylePresetById(plannerResult.plan.stylePresetId);
+  const tokens = createLayoutTokens(fonts, preset);
 
-  const pageResults: PageValidationSummary[] = pages.map((page) => ({
-    pageNumber: page.pageNumber,
-    passed: page.meta?.validation.passed ?? false,
-    issues: page.meta?.validation.issues ?? [],
-  }));
+  logs.push(`[style] applied preset=${preset.id} (${preset.label})`);
+
+  const imageByFilename = new Map(orderedImages.map((image) => [image.filename, image] as const));
+
+  const runtimeValidator = await createRuntimeValidator();
+  logs.push(...runtimeValidator.startupLogs.map((line) => `[runtime] ${line}`));
+
+  const pages: PageLayout[] = [];
+
+  for (const item of plannerResult.storyboard) {
+    const resolved = await resolvePageWithAutofix({
+      item,
+      plan: plannerResult.plan,
+      tokens,
+      imageByFilename,
+      runtimeValidator,
+      logs,
+    });
+    pages.push(resolved);
+  }
+
+  await runtimeValidator.close();
+
+  const deterministic = enforceDeterminismSignature({
+    pages,
+  });
+
+  if (!deterministic.passed) {
+    logs.push("[determinism] signature mismatch detected and marked as failure");
+  }
+
+  const pageResults: PageValidationSummary[] = deterministic.pages.map((page) => {
+    const passed = page.meta?.validation.passed ?? false;
+    return {
+      pageNumber: page.pageNumber,
+      passed,
+      issues: page.meta?.validation.issues ?? [],
+      attemptedTemplates: page.meta?.validation.attemptedTemplates ?? [page.templateId],
+    };
+  });
+
   const passedPageCount = pageResults.filter((result) => result.passed).length;
   const failedPageCount = pageResults.length - passedPageCount;
 
-  logs.push(`[4.2] Validation completed: passed=${passedPageCount}, failed=${failedPageCount}`);
-  logs.push("[5] Parity model locked: preview/pptx both render from the same layout DSL.");
+  logs.push(`[validation] static+runtime passed=${passedPageCount}/${deterministic.pages.length}`);
 
-  const signature = createLayoutSignature(pages);
-  const intent = options.intent ?? "regenerate";
-  const version = intent === "regenerate" ? registerRegeneration(signature) : getCurrentSessionVersion();
+  const exportAudit = runExportAudit({
+    pages: deterministic.pages,
+    expectedPageCount: plannerResult.plan.pageCount,
+    pageSize: plannerResult.plan.pageSize,
+  });
+
+  if (!exportAudit.passed) {
+    logs.push(`[audit] export audit failed (${exportAudit.issues.length} issues)`);
+  } else {
+    logs.push("[audit] export audit passed");
+  }
+
   const dateYmd = formatDateYmd(new Date());
+  const filename = `${sanitizeFilenamePart(plannerResult.plan.docTitle, "Visual_Document")}_${plannerResult.plan.pageSizePreset}_${dateYmd}_v${variantIndex}_${deterministic.pages.length}p.pptx`;
 
-  const docTitle = plannerResult.plan.docTitle;
-  const brandOrClient = options.brandOrClient?.trim() || "WellnessBox";
-  const filename = `${sanitizeFilenamePart(docTitle, "맞춤_건기식_B2B_소개서")}_${sanitizeFilenamePart(
-    brandOrClient,
-    "WellnessBox",
-  )}_${dateYmd}_v${version}_A4_${pages.length}p.pptx`;
+  logs.push(`[export] filename=${filename}`);
 
-  logs.push(`[6] Export filename prepared: ${filename}`);
+  const documentArtifact: LayoutDocument = {
+    params: {
+      pageSizePreset: plannerResult.plan.pageSizePreset,
+      customPageSize: plannerResult.plan.pageSizePreset === "CUSTOM"
+        ? {
+            widthMm: plannerResult.plan.pageSize.widthMm,
+            heightMm: plannerResult.plan.pageSize.heightMm,
+          }
+        : undefined,
+      docType: plannerResult.plan.docType,
+      stylePresetId: plannerResult.plan.stylePresetId,
+      variantIndex,
+      seed,
+    },
+    pages: deterministic.pages,
+  };
+
+  try {
+    await writeGeneratedLayoutArtifact(documentArtifact, options.rootDir ?? process.cwd());
+    logs.push("[artifact] src/generated/layout.json updated");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logs.push(`[artifact] failed to write generated layout: ${message}`);
+  }
 
   return {
     plan: plannerResult.plan,
     storyboard: plannerResult.storyboard,
-    pages,
+    tokens,
+    pages: deterministic.pages,
     logs,
     validation: {
       passed: failedPageCount === 0,
@@ -268,12 +490,13 @@ export function generateLayout(
       failedPageCount,
       pageResults,
     },
+    exportAudit,
     exportMeta: {
-      docTitle,
-      brandOrClient,
+      docTitle: plannerResult.plan.docTitle,
+      pageSize: plannerResult.plan.pageSizePreset,
       dateYmd,
-      version,
-      pageCount: pages.length,
+      variantIndex,
+      pageCount: deterministic.pages.length,
       filename,
     },
   };

@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "doc-factory | 맞춤 건기식 B2B 소개서 빌더",
+  title: "doc-factory | Generic Visual Document Builder",
   description:
-    "로컬 이미지/폰트만으로 맞춤 건기식 B2B 서비스 소개서를 생성하고 편집 가능한 A4 PPTX로 내보냅니다.",
+    "Generate an editable visual document from /images, validate static/runtime gates, and export a safe PPTX.",
 };
 
 export default function RootLayout({

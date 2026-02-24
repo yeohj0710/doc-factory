@@ -152,10 +152,12 @@ function renderElement(element: Element, index: number, fontFamily: string): Rea
 export function PageView({ page, fontFamily }: PageViewProps): ReactElement {
   const style: CSSProperties = {
     fontFamily,
+    width: `${page.widthMm}mm`,
+    height: `${page.heightMm}mm`,
   };
 
   return (
-    <article className="a4-page" style={style}>
+    <article className="doc-page" style={style} data-page-number={page.pageNumber}>
       {page.elements.map((element, index) => renderElement(element, index, fontFamily))}
     </article>
   );

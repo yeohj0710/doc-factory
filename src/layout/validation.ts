@@ -1,5 +1,4 @@
-import type { Element, LayoutValidationIssue, PageLayout, TextElement } from "@/src/layout/types";
-import { PAGE_SIZE_A4_PORTRAIT } from "@/src/layout/types";
+﻿import type { Element, LayoutValidationIssue, PageLayout, TextElement } from "@/src/layout/types";
 
 type Box = {
   xMm: number;
@@ -11,7 +10,9 @@ type Box = {
 };
 
 type ValidationOptions = {
+  headerBottomMm?: number;
   footerTopMm?: number;
+  minBodyFontPt?: number;
 };
 
 const MM_PER_PT = 25.4 / 72;
@@ -41,21 +42,26 @@ function toBox(element: Element, elementIndex: number): Box | null {
   if (element.type === "line") {
     return null;
   }
-  return { xMm: element.xMm, yMm: element.yMm, wMm: element.wMm, hMm: element.hMm, element, elementIndex };
+  return {
+    xMm: element.xMm,
+    yMm: element.yMm,
+    wMm: element.wMm,
+    hMm: element.hMm,
+    element,
+    elementIndex,
+  };
 }
 
-function boundaryChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
-  const pageW = PAGE_SIZE_A4_PORTRAIT.widthMm;
-  const pageH = PAGE_SIZE_A4_PORTRAIT.heightMm;
-
+function checkBounds(page: PageLayout, issues: LayoutValidationIssue[]): void {
   page.elements.forEach((element, index) => {
     if (element.type === "line") {
       const points = [
         { x: element.x1Mm, y: element.y1Mm },
         { x: element.x2Mm, y: element.y2Mm },
       ];
+
       for (const point of points) {
-        if (point.x < -EPS || point.y < -EPS || point.x > pageW + EPS || point.y > pageH + EPS) {
+        if (point.x < -EPS || point.y < -EPS || point.x > page.widthMm + EPS || point.y > page.heightMm + EPS) {
           issues.push({
             code: "boundary",
             message: `Element exceeds page bounds (${element.id ?? `line-${index}`})`,
@@ -69,7 +75,8 @@ function boundaryChecks(page: PageLayout, issues: LayoutValidationIssue[]): void
 
     const x2 = element.xMm + element.wMm;
     const y2 = element.yMm + element.hMm;
-    if (element.xMm < -EPS || element.yMm < -EPS || x2 > pageW + EPS || y2 > pageH + EPS) {
+
+    if (element.xMm < -EPS || element.yMm < -EPS || x2 > page.widthMm + EPS || y2 > page.heightMm + EPS) {
       issues.push({
         code: "boundary",
         message: `Element exceeds page bounds (${element.id ?? `${element.type}-${index}`})`,
@@ -80,24 +87,35 @@ function boundaryChecks(page: PageLayout, issues: LayoutValidationIssue[]): void
   });
 }
 
-function footerLaneChecks(
-  page: PageLayout,
-  footerTopMm: number | undefined,
-  issues: LayoutValidationIssue[],
-): void {
-  if (typeof footerTopMm !== "number") {
-    return;
-  }
+function checkReservedLanes(page: PageLayout, options: ValidationOptions, issues: LayoutValidationIssue[]): void {
+  const { headerBottomMm, footerTopMm } = options;
 
   page.elements.forEach((element, index) => {
-    const isExemptRole =
-      element.role === "footer" || element.role === "background" || element.role === "decorative";
+    const isHeaderAllowed =
+      element.role === "header" ||
+      element.role === "background" ||
+      element.role === "decorative";
+    const isFooterAllowed =
+      element.role === "footer" ||
+      element.role === "background" ||
+      element.role === "decorative";
 
     if (element.type === "line") {
+      const yMin = Math.min(element.y1Mm, element.y2Mm);
       const yMax = Math.max(element.y1Mm, element.y2Mm);
-      if (!isExemptRole && yMax > footerTopMm + EPS) {
+
+      if (typeof headerBottomMm === "number" && yMin < headerBottomMm - EPS && !isHeaderAllowed) {
         issues.push({
-          code: "footer-lane",
+          code: "reserved-lane",
+          message: `Element invades reserved header lane (${element.id ?? `line-${index}`})`,
+          elementId: element.id,
+          elementIndex: index,
+        });
+      }
+
+      if (typeof footerTopMm === "number" && yMax > footerTopMm + EPS && !isFooterAllowed) {
+        issues.push({
+          code: "reserved-lane",
           message: `Element invades reserved footer lane (${element.id ?? `line-${index}`})`,
           elementId: element.id,
           elementIndex: index,
@@ -106,10 +124,21 @@ function footerLaneChecks(
       return;
     }
 
-    const y2 = element.yMm + element.hMm;
-    if (!isExemptRole && y2 > footerTopMm + EPS) {
+    const yMin = element.yMm;
+    const yMax = element.yMm + element.hMm;
+
+    if (typeof headerBottomMm === "number" && yMin < headerBottomMm - EPS && !isHeaderAllowed) {
       issues.push({
-        code: "footer-lane",
+        code: "reserved-lane",
+        message: `Element invades reserved header lane (${element.id ?? `${element.type}-${index}`})`,
+        elementId: element.id,
+        elementIndex: index,
+      });
+    }
+
+    if (typeof footerTopMm === "number" && yMax > footerTopMm + EPS && !isFooterAllowed) {
+      issues.push({
+        code: "reserved-lane",
         message: `Element invades reserved footer lane (${element.id ?? `${element.type}-${index}`})`,
         elementId: element.id,
         elementIndex: index,
@@ -118,28 +147,40 @@ function footerLaneChecks(
   });
 }
 
-function collisionChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
-  const protectedBoxes = page.elements
+function checkCollisions(page: PageLayout, issues: LayoutValidationIssue[]): void {
+  const boxes = page.elements
     .map((element, index) => toBox(element, index))
-    .filter((box): box is Box => box !== null)
+    .filter((item): item is Box => item !== null)
     .filter((box) => box.element.isCollisionProtected === true);
 
-  for (let i = 0; i < protectedBoxes.length; i += 1) {
-    const left = protectedBoxes[i];
-    for (let j = i + 1; j < protectedBoxes.length; j += 1) {
-      const right = protectedBoxes[j];
-      if (left.element.collisionGroup && right.element.collisionGroup && left.element.collisionGroup === right.element.collisionGroup) {
+  for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
+      const left = boxes[leftIndex];
+      const right = boxes[rightIndex];
+
+      if (!left || !right) {
         continue;
       }
+
+      if (
+        left.element.collisionGroup &&
+        right.element.collisionGroup &&
+        left.element.collisionGroup === right.element.collisionGroup
+      ) {
+        continue;
+      }
+
       if (!intersects(left, right)) {
         continue;
       }
+
       if (overlapArea(left, right) <= 0.5) {
         continue;
       }
+
       issues.push({
         code: "collision",
-        message: `Collision between protected zones (${left.element.id ?? left.elementIndex} vs ${right.element.id ?? right.elementIndex})`,
+        message: `Collision detected (${left.element.id ?? left.elementIndex} vs ${right.element.id ?? right.elementIndex})`,
         elementId: left.element.id,
         elementIndex: left.elementIndex,
       });
@@ -151,12 +192,13 @@ function estimateTextLines(element: TextElement): { estimatedLines: number; maxL
   const lineHeight = element.lineHeight ?? 1.25;
   const charWidthMm = Math.max(element.fontSizePt * MM_PER_PT * 0.52, 0.8);
   const charsPerLine = Math.max(1, Math.floor(element.wMm / charWidthMm));
-  const sourceLines = element.text.split(/\r?\n/);
 
+  const sourceLines = element.text.split(/\r?\n/);
   let estimatedLines = 0;
-  for (const line of sourceLines) {
-    const lineChars = line.trim().length === 0 ? 1 : line.length;
-    estimatedLines += Math.max(1, Math.ceil(lineChars / charsPerLine));
+
+  for (const sourceLine of sourceLines) {
+    const charCount = sourceLine.trim().length === 0 ? 1 : sourceLine.length;
+    estimatedLines += Math.max(1, Math.ceil(charCount / charsPerLine));
   }
 
   const lineHeightMm = element.fontSizePt * MM_PER_PT * lineHeight;
@@ -164,41 +206,65 @@ function estimateTextLines(element: TextElement): { estimatedLines: number; maxL
   return { estimatedLines, maxLines };
 }
 
-function textFitChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
+function checkMinSize(page: PageLayout, minBodyFontPt: number, issues: LayoutValidationIssue[]): void {
   page.elements.forEach((element, index) => {
-    if (element.type !== "text") {
+    if (element.type === "text") {
+      if (element.fontSizePt < minBodyFontPt - EPS) {
+        issues.push({
+          code: "min-size",
+          message: `Text size below minimum (${element.fontSizePt.toFixed(1)}pt < ${minBodyFontPt}pt)`,
+          elementId: element.id,
+          elementIndex: index,
+        });
+      }
+
+      const { estimatedLines, maxLines } = estimateTextLines(element);
+      if (estimatedLines > maxLines) {
+        issues.push({
+          code: "min-size",
+          message: `Text overflow estimated (${estimatedLines}/${maxLines}) (${element.id ?? `text-${index}`})`,
+          elementId: element.id,
+          elementIndex: index,
+        });
+      }
       return;
     }
-    const { estimatedLines, maxLines } = estimateTextLines(element);
-    if (estimatedLines > maxLines) {
-      issues.push({
-        code: "text-fit",
-        message: `Text overflow estimated (${estimatedLines}/${maxLines}) (${element.id ?? `text-${index}`})`,
-        elementId: element.id,
-        elementIndex: index,
-      });
+
+    if (element.type !== "line") {
+      if (element.wMm < 2 || element.hMm < 2) {
+        issues.push({
+          code: "min-size",
+          message: `Element too small (${element.id ?? `${element.type}-${index}`})`,
+          elementId: element.id,
+          elementIndex: index,
+        });
+      }
     }
   });
 }
 
-function layeringChecks(page: PageLayout, issues: LayoutValidationIssue[]): void {
+function checkLayering(page: PageLayout, issues: LayoutValidationIssue[]): void {
   const boxes = page.elements
     .map((element, index) => toBox(element, index))
-    .filter((box): box is Box => box !== null);
+    .filter((item): item is Box => item !== null);
 
   for (const textBox of boxes) {
     if (textBox.element.type !== "text") {
       continue;
     }
-    for (let i = textBox.elementIndex + 1; i < page.elements.length; i += 1) {
-      const later = page.elements[i];
-      if (later.allowTextOcclusion || !hasOpaqueFill(later)) {
+
+    for (let index = textBox.elementIndex + 1; index < page.elements.length; index += 1) {
+      const later = page.elements[index];
+
+      if (!later || later.allowTextOcclusion || !hasOpaqueFill(later)) {
         continue;
       }
-      const laterBox = toBox(later, i);
-      if (!laterBox || !intersects(textBox, laterBox) || overlapArea(textBox, laterBox) < 0.5) {
+
+      const laterBox = toBox(later, index);
+      if (!laterBox || !intersects(textBox, laterBox) || overlapArea(textBox, laterBox) <= 0.5) {
         continue;
       }
+
       issues.push({
         code: "layering",
         message: `Text occluded by later opaque element (${textBox.element.id ?? `text-${textBox.elementIndex}`})`,
@@ -215,12 +281,15 @@ export function validatePageLayout(
   options: ValidationOptions = {},
 ): { passed: boolean; issues: LayoutValidationIssue[] } {
   const issues: LayoutValidationIssue[] = [];
-  boundaryChecks(page, issues);
-  footerLaneChecks(page, options.footerTopMm, issues);
-  collisionChecks(page, issues);
-  textFitChecks(page, issues);
-  layeringChecks(page, issues);
-  return { passed: issues.length === 0, issues };
+  checkBounds(page, issues);
+  checkReservedLanes(page, options, issues);
+  checkCollisions(page, issues);
+  checkMinSize(page, options.minBodyFontPt ?? 9, issues);
+  checkLayering(page, issues);
+  return {
+    passed: issues.length === 0,
+    issues,
+  };
 }
 
 function cleanElementForSignature(element: Element): unknown {
@@ -232,10 +301,10 @@ function cleanElementForSignature(element: Element): unknown {
       y1: Number(element.y1Mm.toFixed(3)),
       x2: Number(element.x2Mm.toFixed(3)),
       y2: Number(element.y2Mm.toFixed(3)),
-      s: element.stroke,
       w: Number(element.widthMm.toFixed(3)),
     };
   }
+
   return {
     t: element.type,
     id: element.id ?? "",
@@ -253,8 +322,10 @@ export function createLayoutSignature(pages: PageLayout[]): string {
     pages.map((page) => ({
       n: page.pageNumber,
       t: page.templateId,
-      b: page.meta?.brief,
+      w: Number(page.widthMm.toFixed(3)),
+      h: Number(page.heightMm.toFixed(3)),
       e: page.elements.map(cleanElementForSignature),
     })),
   );
 }
+

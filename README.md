@@ -1,30 +1,53 @@
-# doc-factory
+﻿# doc-factory
 
-Local image-only document page builder:
+Generic visual document builder that creates **one editable PPTX** from local assets only.
 
-- Put images in `/images` (required).
-- Optionally put `.ttf`/`.otf` files in `/fonts`.
-- Preview A4 portrait pages at `http://localhost:3000`.
-- Export all pages as one editable A4 PPTX.
-- Default page copy is tuned for a Korean B2B wellness service brochure.
+## Inputs
+
+- `/images` (required)
+- `/fonts` (optional)
+- `/references` (optional, style inspiration only)
+
+No network assets are fetched at runtime.
+
+## What the pipeline does
+
+1. Scans assets with stable ordering rules.
+2. Infers `docType` and `pageSize` (default `A4P`, supports A4/Letter/Custom mm).
+3. Builds a variable-length storyboard (1-14 pages) with template diversity constraints.
+4. Selects style preset candidates (theme-factory integrated) and picks one deterministically.
+5. Generates editable DSL pages (text/shape/image, no screenshot-only slides).
+6. Runs static DSL gates + runtime Playwright gates.
+7. Blocks export unless all validations and export audit pass.
+
+## Determinism + variation
+
+Generation is deterministic for:
+
+- assets (`/images`, `/fonts`, `/references`)
+- code version
+- params `{ pageSizePreset, docType, stylePresetId, variantIndex, seed }`
+
+Regenerate uses `variantIndex` (`?v=` query param). Same variant reproduces the same layout.
 
 ## Run
 
 ```bash
-npm i
+npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-## How page order is decided
+## Runtime gate proofs (webapp-testing skill)
 
-1. If a filename has a leading number pattern (`001_`, `01-`, `p1`, `(1)`), that number is used.
-2. Otherwise files are ordered by modified time ascending.
-3. If modified time is equal, natural filename sort is used.
+```bash
+npm run qa:runtime-gates
+npm run qa:export-gates
+```
 
-## Notes
+These scripts use `.agents/skills/webapp-testing/scripts/with_server.py` + Playwright.
 
-- Filenames are cleaned and used as captions.
-- Slides are exported in A4 portrait size (`210mm x 297mm`).
-- A4 portrait is used for both web preview and PPTX export to keep layout parity.
+## Export filename policy
+
+`{docTitle}_{pageSize}_{YYYYMMDD}_v{variantIndex}_{pageCount}p.pptx`

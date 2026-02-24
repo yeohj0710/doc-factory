@@ -1,28 +1,19 @@
-﻿import { A4_PORTRAIT_MM } from "@/src/layout/units";
+﻿import type { PageSizePreset } from "@/src/layout/pageSize";
 
-export type TextBudgetSummary = {
-  title: number;
-  subtitle: number;
-  body: number;
-  bullet: number;
-  bullets: number;
-  callout: number;
-};
-
-export const PAGE_SIZE_A4_PORTRAIT = A4_PORTRAIT_MM;
-
-export type PageSize = typeof PAGE_SIZE_A4_PORTRAIT;
+export type DocType = "proposal" | "poster" | "one-pager" | "multi-card" | "report";
 
 export type ImageFit = "cover" | "contain";
 
 export type LayoutElementRole =
   | "background"
+  | "header"
+  | "footer"
   | "media"
   | "text"
-  | "chip"
   | "metric"
-  | "footer"
-  | "decorative";
+  | "chip"
+  | "decorative"
+  | "shape";
 
 type ElementMeta = {
   id?: string;
@@ -32,7 +23,7 @@ type ElementMeta = {
   allowTextOcclusion?: boolean;
 };
 
-export type ImageElement = {
+export type ImageElement = ElementMeta & {
   type: "image";
   xMm: number;
   yMm: number;
@@ -44,9 +35,9 @@ export type ImageElement = {
   intrinsicHeightPx?: number;
   anchorX?: number;
   anchorY?: number;
-} & ElementMeta;
+};
 
-export type TextElement = {
+export type TextElement = ElementMeta & {
   type: "text";
   xMm: number;
   yMm: number;
@@ -58,9 +49,9 @@ export type TextElement = {
   align?: "left" | "center" | "right";
   color?: string;
   lineHeight?: number;
-} & ElementMeta;
+};
 
-export type RectElement = {
+export type RectElement = ElementMeta & {
   type: "rect";
   xMm: number;
   yMm: number;
@@ -71,9 +62,9 @@ export type RectElement = {
   radiusMm?: number;
   stroke?: string;
   strokeWidthMm?: number;
-} & ElementMeta;
+};
 
-export type LineElement = {
+export type LineElement = ElementMeta & {
   type: "line";
   x1Mm: number;
   y1Mm: number;
@@ -81,29 +72,17 @@ export type LineElement = {
   y2Mm: number;
   stroke: string;
   widthMm: number;
-} & ElementMeta;
+};
 
 export type Element = ImageElement | TextElement | RectElement | LineElement;
 
-export type LayoutValidationIssueCode =
-  | "boundary"
-  | "footer-lane"
-  | "collision"
-  | "text-fit"
-  | "layering"
-  | "determinism";
-
-export type LayoutValidationIssue = {
-  code: LayoutValidationIssueCode;
-  message: string;
-  elementId?: string;
-  elementIndex?: number;
-};
-
-export type LayoutValidationResult = {
-  passed: boolean;
-  issues: LayoutValidationIssue[];
-  attemptedTemplates: string[];
+export type TextBudgetSummary = {
+  title: number;
+  subtitle: number;
+  body: number;
+  bullet: number;
+  bullets: number;
+  callout: number;
 };
 
 export type PageBriefSummary = {
@@ -115,14 +94,68 @@ export type PageBriefSummary = {
   templateReason: string;
   readingFlow: string;
   maxTextBudget: TextBudgetSummary;
+  copyPipelineLog: string[];
+};
+
+export type LayoutValidationIssueCode =
+  | "boundary"
+  | "reserved-lane"
+  | "collision"
+  | "min-size"
+  | "layering"
+  | "determinism"
+  | "runtime-overflow"
+  | "runtime-clip"
+  | "runtime-overlap"
+  | "export-audit";
+
+export type LayoutValidationIssue = {
+  code: LayoutValidationIssueCode;
+  message: string;
+  elementId?: string;
+  elementIndex?: number;
+};
+
+export type RuntimePageValidation = {
+  pageNumber: number;
+  passed: boolean;
+  issues: LayoutValidationIssue[];
+};
+
+export type LayoutValidationResult = {
+  passed: boolean;
+  issues: LayoutValidationIssue[];
+  attemptedTemplates: string[];
+  runtimeIssues: LayoutValidationIssue[];
 };
 
 export type PageLayout = {
   pageNumber: number;
+  pageRole: string;
   templateId: string;
+  widthMm: number;
+  heightMm: number;
   elements: Element[];
   meta?: {
     brief: PageBriefSummary;
     validation: LayoutValidationResult;
   };
 };
+
+export type GenerationParams = {
+  pageSizePreset: PageSizePreset;
+  customPageSize?: {
+    widthMm: number;
+    heightMm: number;
+  };
+  docType: DocType;
+  stylePresetId: string;
+  variantIndex: number;
+  seed: number;
+};
+
+export type LayoutDocument = {
+  params: GenerationParams;
+  pages: PageLayout[];
+};
+

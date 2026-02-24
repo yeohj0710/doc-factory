@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "qa:runtime-gates": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/runtime_gate_proof.py",
+    "qa:export-gates": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/export_gate_proof.py"
   },
   "dependencies": {
     "next": "16.1.6",
+    "playwright": "^1.58.2",
     "pptxgenjs": "^4.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"

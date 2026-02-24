@@ -1,24 +1,29 @@
 ﻿import type { ScannedImage } from "@/src/io/scanImages";
+import type { ScannedReference } from "@/src/io/scanReferences";
+import type { PageSizeSpec, PageSizePreset } from "@/src/layout/pageSize";
 import type { TemplateId, TextBudget } from "@/src/layout/templateCatalog";
-
-export type DocumentGoal = "소개서" | "제안서" | "브로셔";
+import type { DocType } from "@/src/layout/types";
 
 export type PageRole =
   | "cover"
+  | "section-divider"
   | "agenda"
-  | "problem"
+  | "insight"
   | "solution"
   | "process"
-  | "proof"
-  | "package"
+  | "timeline"
+  | "metrics"
+  | "comparison"
+  | "gallery"
+  | "text-only"
   | "cta"
   | "topic";
 
+export type AssetTopic = "ui" | "photo" | "chart" | "diagram" | "people" | "generic";
+
 export type TopicCluster = {
-  key: string;
-  label: string;
+  topic: AssetTopic;
   images: ScannedImage[];
-  proofAssetCount: number;
   lowSignalCount: number;
 };
 
@@ -31,17 +36,23 @@ export type StoryboardItem = {
   copyBudget: TextBudget;
   successCriteria: string;
   isTextOnly: boolean;
-  fullBleed: boolean;
+  isFullBleed: boolean;
 };
 
 export type DocumentPlan = {
   docTitle: string;
-  targetAudience: string;
-  documentGoal: DocumentGoal;
-  narrativeSections: PageRole[];
+  docType: DocType;
+  pageSizePreset: PageSizePreset;
+  pageSize: PageSizeSpec;
   pageCount: number;
+  variantIndex: number;
+  seed: number;
+  stylePresetId: string;
+  styleCandidateIds: string[];
+  referenceSample: ScannedReference[];
   topicClusters: TopicCluster[];
   proofAssetCount: number;
+  lowSignalAssetCount: number;
 };
 
 export type PlannerResult = {
@@ -49,3 +60,4 @@ export type PlannerResult = {
   storyboard: StoryboardItem[];
   logs: string[];
 };
+

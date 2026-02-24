@@ -1,17 +1,15 @@
-import path from "node:path";
+﻿import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 import { resolveCoverCropWindow, resolveImagePlacement } from "@/src/layout/imagePlacement";
-import { PAGE_SIZE_A4_PORTRAIT, type Element, type PageLayout } from "@/src/layout/types";
-import { mmToIn } from "@/src/layout/units";
+import { mmToIn, mmToPt } from "@/src/layout/pageSize";
+import type { Element, PageLayout } from "@/src/layout/types";
 
 export type RenderPptxOptions = {
   primaryFont: string;
   rootDir?: string;
+  subject?: string;
+  title?: string;
 };
-
-function mmToPt(mm: number): number {
-  return mmToIn(mm) * 72;
-}
 
 function toHex(color: string): string {
   return color.replace(/^#/, "").toUpperCase();
@@ -21,7 +19,6 @@ function opacityToTransparency(opacity: number | undefined): number | undefined 
   if (typeof opacity !== "number" || Number.isNaN(opacity)) {
     return undefined;
   }
-
   const clamped = Math.min(Math.max(opacity, 0), 1);
   return Math.round((1 - clamped) * 100);
 }
@@ -44,7 +41,6 @@ function sanitizeFilename(rawValue: string): string {
   if (normalized === "." || normalized === "..") {
     throw new Error(`Invalid filename: ${rawValue}`);
   }
-
   return normalized;
 }
 
@@ -60,12 +56,6 @@ function resolvePublicPath(srcPublicPath: string, rootDir: string): string {
   if (relativePosix.startsWith(imageApiPrefix)) {
     const filename = sanitizeFilename(relativePosix.slice(imageApiPrefix.length));
     return path.join(rootDir, "images", filename);
-  }
-
-  const legacyInboxPrefix = "inbox/";
-  if (relativePosix.startsWith(legacyInboxPrefix)) {
-    const filename = sanitizeFilename(relativePosix.slice(legacyInboxPrefix.length));
-    return path.join(rootDir, "public", "inbox", filename);
   }
 
   return path.join(rootDir, "public", ...relativePosix.split("/"));
@@ -90,10 +80,8 @@ function addElement(
 
     try {
       const placement = resolveImagePlacement(element);
-
       if (placement && element.fit === "cover") {
         const cropWindow = resolveCoverCropWindow(element, placement);
-
         if (cropWindow) {
           slide.addImage({
             path: pathOnDisk,
@@ -139,8 +127,8 @@ function addElement(
     } catch {
       slide.addShape(pptx.ShapeType.rect, {
         ...frame,
-        fill: { color: "F5F7FB" },
-        line: { color: "D1DAE6" },
+        fill: { color: "F2F4F8" },
+        line: { color: "CBD3E0" },
       });
       slide.addText("Image unavailable", {
         ...frame,
@@ -184,10 +172,7 @@ function addElement(
         fill:
           fillTransparency === undefined
             ? { color: toHex(element.fill) }
-            : {
-                color: toHex(element.fill),
-                transparency: fillTransparency,
-              },
+            : { color: toHex(element.fill), transparency: fillTransparency },
         line: element.stroke
           ? {
               color: toHex(element.stroke),
@@ -224,28 +209,30 @@ export async function renderLayoutsToPptx(
   const rootDir = options.rootDir ?? process.cwd();
   const pptx = new PptxGenJS();
 
+  const firstPage = pages[0];
+  const widthMm = firstPage?.widthMm ?? 210;
+  const heightMm = firstPage?.heightMm ?? 297;
+  const layoutName = `DOC_FACTORY_${widthMm.toFixed(1)}x${heightMm.toFixed(1)}`;
+
   pptx.defineLayout({
-    name: "A4_PORTRAIT",
-    width: mmToIn(PAGE_SIZE_A4_PORTRAIT.widthMm),
-    height: mmToIn(PAGE_SIZE_A4_PORTRAIT.heightMm),
+    name: layoutName,
+    width: mmToIn(widthMm),
+    height: mmToIn(heightMm),
   });
-  pptx.layout = "A4_PORTRAIT";
+
+  pptx.layout = layoutName;
   pptx.author = "doc-factory";
-  pptx.subject = "A4 B2B wellness service brochure";
-  pptx.title = "custom-wellness-b2b-service-brochure";
+  pptx.subject = options.subject ?? "Editable visual document";
+  pptx.title = options.title ?? "visual-document";
 
   for (const page of pages) {
     const slide = pptx.addSlide();
     slide.background = { color: "FFFFFF" };
-
     for (const element of page.elements) {
       addElement(pptx, slide, element, rootDir, options.primaryFont);
     }
   }
 
-  const arrayBuffer = (await pptx.write({
-    outputType: "arraybuffer",
-  })) as ArrayBuffer;
-
+  const arrayBuffer = (await pptx.write({ outputType: "arraybuffer" })) as ArrayBuffer;
   return new Uint8Array(arrayBuffer);
 }
