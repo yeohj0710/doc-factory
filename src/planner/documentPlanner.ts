@@ -64,7 +64,7 @@ const TOPIC_KEYWORDS: Record<AssetTopic, string[]> = {
 
 const ROLE_TEMPLATE_POOL: Record<PageRole, TemplateId[]> = {
   cover: ["COVER_HERO_BAND", "COVER_SPLIT_MEDIA", "TITLE_MEDIA_SAFE"],
-  "section-divider": ["SECTION_DIVIDER", "QUOTE_FOCUS", "TEXT_ONLY_EDITORIAL"],
+  "section-divider": ["SECTION_DIVIDER", "AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL"],
   agenda: ["AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS"],
   insight: ["TITLE_MEDIA_SAFE", "TWO_COLUMN_MEDIA_TEXT", "TEXT_ONLY_EDITORIAL"],
   solution: ["TWO_COLUMN_MEDIA_TEXT", "TITLE_MEDIA_SAFE", "COMPARISON_TABLE"],
@@ -73,8 +73,8 @@ const ROLE_TEMPLATE_POOL: Record<PageRole, TemplateId[]> = {
   metrics: ["METRICS_GRID", "COMPARISON_TABLE", "TITLE_MEDIA_SAFE"],
   comparison: ["COMPARISON_TABLE", "METRICS_GRID", "TEXT_ONLY_EDITORIAL"],
   gallery: ["GALLERY_SINGLE", "TITLE_MEDIA_SAFE", "TWO_COLUMN_MEDIA_TEXT"],
-  "text-only": ["TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS", "AGENDA_EDITORIAL"],
-  cta: ["CTA_CONTACT", "QUOTE_FOCUS", "TEXT_ONLY_EDITORIAL"],
+  "text-only": ["TEXT_ONLY_EDITORIAL", "AGENDA_EDITORIAL", "COMPARISON_TABLE"],
+  cta: ["CTA_CONTACT", "TEXT_ONLY_EDITORIAL", "AGENDA_EDITORIAL"],
   topic: ["TITLE_MEDIA_SAFE", "TWO_COLUMN_MEDIA_TEXT", "GALLERY_SINGLE"],
 };
 
@@ -461,7 +461,6 @@ function ensureDiversity(
   storyboard: StoryboardItem[],
   rng: () => number,
   variantIndex: number,
-  docType: DocType,
 ): StoryboardItem[] {
   const next = [...storyboard];
 
@@ -518,23 +517,6 @@ function ensureDiversity(
         isFullBleed: spec.isFullBleed,
       };
       fullBleedCount = next.filter((entry) => entry.isFullBleed).length;
-    }
-  }
-
-  if (docType !== "poster" && next.length > 1 && !next.some((item) => item.isTextOnly)) {
-    const targetIndex = next.findIndex((item) => item.role !== "cover");
-    if (targetIndex >= 0) {
-      const spec = getTemplateSpec("TEXT_ONLY_EDITORIAL");
-      next[targetIndex] = {
-        ...next[targetIndex],
-        role: "text-only",
-        primaryAssetFilename: null,
-        topicLabel: "text",
-        templateId: "TEXT_ONLY_EDITORIAL",
-        copyBudget: spec.maxTextBudget,
-        isTextOnly: true,
-        isFullBleed: false,
-      };
     }
   }
 
@@ -740,7 +722,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     };
   });
 
-  const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex, docType);
+  const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex);
   const usedLayoutClusterIds = [...new Set(storyboard.map((item) => item.layoutClusterId))];
 
   const referenceUsageReport = {

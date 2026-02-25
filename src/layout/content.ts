@@ -32,6 +32,7 @@ export type PageBrief = PageBriefSummary & {
   fallbackTemplateIds: TemplateId[];
   narrative: PageNarrative;
   imageFit: ImageFit;
+  docKind: DocumentPlan["requestSpec"]["docKind"];
 };
 
 type CopyDraft = {
@@ -205,6 +206,15 @@ function topicHint(topicLabel: string): string {
   return "핵심 장면";
 }
 
+function topicMetricLabel(topicLabel: string): string {
+  if (topicLabel === "ui") return "UI";
+  if (topicLabel === "photo") return "Photo";
+  if (topicLabel === "chart") return "Data";
+  if (topicLabel === "diagram") return "Flow";
+  if (topicLabel === "people") return "People";
+  return "General";
+}
+
 function uniquePreserveOrder(values: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -217,6 +227,10 @@ function uniquePreserveOrder(values: string[]): string[] {
     result.push(value);
   }
   return result;
+}
+
+function pickHighlightByPattern(highlights: string[], pattern: RegExp): string | undefined {
+  return highlights.find((line) => pattern.test(line));
 }
 
 function buildImageHints(plan: DocumentPlan): string[] {
@@ -242,17 +256,24 @@ function buildContentSeed(item: StoryboardItem, plan: DocumentPlan, caption: str
   const subject = titleCandidate || sentenceSubject || imageHints[0] || PLACEHOLDERS.subject;
   const summary = sourceSentences[1] || sourceSentences[0] || `${topicBasedHint} 메시지를 정리합니다.`;
   const detail = sourceSentences[2] || `${caption} 중심으로 핵심 정보만 배치합니다.`;
+  const schoolSignals = sourceSentences.filter((line) => /학교|대학|대학원/iu.test(line));
+  const researchSignals = sourceSentences.filter((line) => /원자력|논문|학회|랩실|연구|학과/iu.test(line));
+  const characterSignals = sourceSentences.filter((line) => /펭귄|인형|재미|친구|만만|어이/iu.test(line));
+
   const highlights = uniquePreserveOrder(
     [
-      sourceSentences[0],
-      sourceSentences[1],
+      sourceSentences[0] ?? "",
+      ...characterSignals,
+      ...researchSignals,
+      ...schoolSignals,
+      ...sourceSentences,
       imageHints[0],
       imageHints[1],
       topicBasedHint,
     ]
       .map((value) => stripInternalTerms(value ?? ""))
       .filter(Boolean),
-  ).slice(0, 4);
+  ).slice(0, 8);
 
   const introMode = /(?:소개|프로필|profile|about|friend|친구)/iu.test(sourceText) || /(?:소개|프로필)/iu.test(plan.docTitle);
 
@@ -267,23 +288,21 @@ function buildContentSeed(item: StoryboardItem, plan: DocumentPlan, caption: str
 }
 
 function posterDraft(seed: ContentSeed, plan: DocumentPlan): CopyDraft {
-  const title = seed.introMode ? PLACEHOLDERS.name : seed.subject;
-  const subtitle = seed.introMode ? PLACEHOLDERS.intro : shortText(seed.summary, 30);
-  const bullets = seed.introMode
-    ? [PLACEHOLDERS.feature1, PLACEHOLDERS.feature2, PLACEHOLDERS.feature3]
-    : [
-        shortText(seed.highlights[0] ?? PLACEHOLDERS.feature1, 16),
-        shortText(seed.highlights[1] ?? PLACEHOLDERS.feature2, 16),
-        shortText(seed.highlights[2] ?? PLACEHOLDERS.feature3, 16),
-      ];
+  const title = shortText(seed.subject, 20) || PLACEHOLDERS.name;
+  const subtitle = shortText(seed.summary, 28) || PLACEHOLDERS.intro;
+  const bullets = [
+    shortText(seed.highlights[0] ?? "웃김 지수 상시 최대치", 18),
+    shortText(seed.highlights[1] ?? "펭귄 인형 애착러", 18),
+    shortText(seed.highlights[2] ?? "논문 모드 장착 완료", 18),
+  ];
 
   return {
-    kicker: `${docTypeLabel(plan.docType)} / ${plan.requestSpec.language}`,
+    kicker: `FUN POSTER / ${plan.requestSpec.language}`,
     title,
     subtitle,
     body: shortText(seed.detail, 52),
     points: bullets,
-    callout: `연락처 ${seed.contact}`,
+    callout: `출몰 제보 ${seed.contact}`,
   };
 }
 
@@ -293,6 +312,65 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
 
   if (item.role === "cover" && isPosterSeries) {
     return posterDraft(seed, plan);
+  }
+
+  if (item.role === "topic" && isPosterSeries) {
+    return {
+      kicker: "근용이 관찰 일지",
+      title: shortText(seed.subject, 24),
+      subtitle: shortText(seed.summary, 30),
+      body: shortText(seed.detail, 72),
+      points: [
+        shortText(seed.highlights[1] ?? "펭귄 인형과 취침 루틴", 20),
+        shortText(seed.highlights[2] ?? "원자력 논문 정독 모드", 20),
+        shortText(seed.highlights[3] ?? "학회 투어 상시 진행", 20),
+      ],
+      callout: "만만한데 자꾸 웃긴 타입",
+    };
+  }
+
+  if (item.role === "gallery" && isPosterSeries) {
+    return {
+      kicker: "근용이 스냅샷",
+      title: shortText(seed.subject, 24),
+      subtitle: shortText(seed.summary, 30),
+      body: shortText(`${caption} 장면에서 캐릭터가 제일 잘 드러납니다.`, 72),
+      points: [
+        shortText(seed.highlights[0] ?? "한 컷으로 캐릭터 설명 완료", 20),
+        shortText(seed.highlights[1] ?? "조용한데 은근히 웃김", 20),
+        shortText(seed.highlights[2] ?? "디테일은 후반 페이지에서 공개", 20),
+      ],
+      callout: "펭귄 인형 발견 시 즉시 제보",
+    };
+  }
+
+  if (item.role === "cta" && isPosterSeries) {
+    const schoolLine =
+      pickHighlightByPattern(seed.highlights, /고등학교|과학고|대학교|한양/iu) ??
+      pickHighlightByPattern(seed.highlights, /학교|대학|대학원/iu);
+    const researchLine = pickHighlightByPattern(seed.highlights, /원자력|논문|학회|랩실|연구|학과/iu);
+    const penguinLine = pickHighlightByPattern(seed.highlights, /펭귄|인형/iu);
+    const characterLine = pickHighlightByPattern(seed.highlights, /재미|친구|만만|어이/iu);
+    const summaryBody = uniquePreserveOrder([researchLine, schoolLine].filter((line): line is string => Boolean(line))).join(
+      " / ",
+    );
+    const calloutBase = schoolLine ? shortText(schoolLine, 12) : "프로필";
+
+    return {
+      kicker: "근용이 요약",
+      title: "어이없는데 자꾸 생각남",
+      subtitle: shortText(schoolLine ?? researchLine ?? "주요 이력은 추후 기입", 30),
+      body: shortText(
+        summaryBody || "원자력공학 베이스로 랩실-논문-학회 루프를 도는 중.",
+        72,
+      ),
+      points: [
+        shortText(characterLine ?? seed.highlights[0] ?? "재미 담당", 18),
+        shortText(penguinLine ?? seed.highlights[1] ?? "펭귄 담당", 18),
+        shortText(schoolLine ?? seed.highlights[4] ?? "연구 담당", 18),
+      ],
+      callout: `${calloutBase} · 출몰 제보 ${PLACEHOLDERS.contact}`,
+    };
   }
 
   if (item.role === "cover") {
@@ -307,6 +385,21 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
         shortText(seed.highlights[2] ?? "다음 행동 제안", 24),
       ],
       callout: `문의 및 링크 ${seed.contact}`,
+    };
+  }
+
+  if (item.role === "section-divider") {
+    return {
+      kicker: "섹션 전환",
+      title: shortText(seed.subject, 26),
+      subtitle: shortText(seed.summary, 36),
+      body: shortText(`${seed.detail} 다음 페이지에서 근거와 실행 항목을 이어서 제시합니다.`, 102),
+      points: [
+        shortText(seed.highlights[0] ?? "핵심 질문을 먼저 확인", 24),
+        shortText(seed.highlights[1] ?? "근거와 사례를 구분해 정리", 24),
+        shortText(seed.highlights[2] ?? "다음 행동 항목으로 연결", 24),
+      ],
+      callout: "전환 페이지에서도 맥락과 다음 행동을 함께 보여줍니다.",
     };
   }
 
@@ -402,7 +495,13 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
       title: shortText(seed.subject, 28),
       subtitle: "이미지 없이도 핵심이 전달되게 구성",
       body: shortText(seed.detail, 106),
-      points: ["핵심 주장", "근거", "예외 조건", "실행 조건"],
+      points: [
+        shortText(seed.highlights[0] ?? "핵심 주장", 22),
+        shortText(seed.highlights[1] ?? "근거", 22),
+        shortText(seed.highlights[2] ?? "예외 조건", 22),
+        shortText(seed.highlights[3] ?? "실행 조건", 22),
+        shortText(seed.highlights[4] ?? "다음 점검 항목", 22),
+      ],
       callout: "문장은 짧게, 항목은 명확하게 유지합니다.",
     };
   }
@@ -434,12 +533,12 @@ function budgetByDocKind(budget: TextBudget, docKind: DocumentPlan["requestSpec"
   }
 
   return {
-    title: Math.min(budget.title, 22),
-    subtitle: Math.min(budget.subtitle, 30),
-    body: Math.min(budget.body, 66),
-    bullet: Math.min(budget.bullet, 16),
+    title: Math.min(budget.title, 18),
+    subtitle: Math.min(budget.subtitle, 26),
+    body: Math.min(budget.body, 56),
+    bullet: Math.min(budget.bullet, 15),
     bullets: Math.min(budget.bullets, 3),
-    callout: Math.min(budget.callout, 34),
+    callout: Math.min(budget.callout, 30),
   };
 }
 
@@ -517,6 +616,10 @@ function fitCheck(params: {
 }
 
 function buildMetrics(item: StoryboardItem, plan: DocumentPlan): NarrativeMetrics {
+  const progress = `${item.pageNumber}/${plan.pageCount}p`;
+  const roleLabel = sectionLabel(item.role);
+  const topicLabel = topicMetricLabel(item.topicLabel);
+
   if (item.role === "metrics") {
     return {
       items: [
@@ -528,13 +631,35 @@ function buildMetrics(item: StoryboardItem, plan: DocumentPlan): NarrativeMetric
     };
   }
 
+  if (item.role === "section-divider") {
+    return {
+      items: [
+        { label: "섹션", value: roleLabel },
+        { label: "주제 축", value: topicLabel },
+        { label: "진행", value: progress },
+      ],
+      debugOnly: false,
+    };
+  }
+
+  if (item.role === "cta") {
+    return {
+      items: [
+        { label: "마감 상태", value: "실행 항목 정리" },
+        { label: "다음 점검", value: "담당/기한 확정" },
+        { label: "진행", value: progress },
+      ],
+      debugOnly: false,
+    };
+  }
+
   return {
     items: [
-      { label: "문서 유형", value: docTypeLabel(plan.docType) },
-      { label: "언어", value: plan.requestSpec.language },
-      { label: "톤", value: plan.requestSpec.tone },
+      { label: "섹션", value: roleLabel },
+      { label: "주제 축", value: topicLabel },
+      { label: "진행", value: progress },
     ],
-    debugOnly: true,
+    debugOnly: false,
   };
 }
 
@@ -638,5 +763,6 @@ export function buildPageBrief(params: {
     fallbackTemplateIds: spec.fallbackTemplateIds,
     narrative,
     imageFit: pickImageFit(sourceImage),
+    docKind: params.plan.requestSpec.docKind,
   };
 }

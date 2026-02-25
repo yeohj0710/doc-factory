@@ -103,6 +103,7 @@ export type LayoutValidationIssueCode =
   | "reserved-lane"
   | "collision"
   | "min-size"
+  | "content-density"
   | "text-truncation"
   | "layering"
   | "determinism"

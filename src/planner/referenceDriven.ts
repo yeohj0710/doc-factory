@@ -172,7 +172,7 @@ function roleFamilyBias(role: PageRole): TemplateId[] {
     return ["COVER_HERO_BAND", "COVER_SPLIT_MEDIA", "TITLE_MEDIA_SAFE", "GALLERY_SINGLE"];
   }
   if (role === "section-divider") {
-    return ["SECTION_DIVIDER", "QUOTE_FOCUS", "TEXT_ONLY_EDITORIAL"];
+    return ["SECTION_DIVIDER", "AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL"];
   }
   if (role === "agenda") {
     return ["AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL", "COMPARISON_TABLE"];
@@ -190,10 +190,10 @@ function roleFamilyBias(role: PageRole): TemplateId[] {
     return ["GALLERY_SINGLE", "TITLE_MEDIA_SAFE", "TWO_COLUMN_MEDIA_TEXT"];
   }
   if (role === "cta") {
-    return ["CTA_CONTACT", "QUOTE_FOCUS", "TEXT_ONLY_EDITORIAL"];
+    return ["CTA_CONTACT", "TEXT_ONLY_EDITORIAL", "AGENDA_EDITORIAL"];
   }
   if (role === "text-only") {
-    return ["TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS", "AGENDA_EDITORIAL"];
+    return ["TEXT_ONLY_EDITORIAL", "AGENDA_EDITORIAL", "COMPARISON_TABLE"];
   }
   return ["TITLE_MEDIA_SAFE", "TWO_COLUMN_MEDIA_TEXT", "TEXT_ONLY_EDITORIAL"];
 }
@@ -235,7 +235,9 @@ function templatePreferencesForArchetype(archetype: LayoutArchetype, role: PageR
   }
 
   if (archetype.rhythm === "airy") {
-    ["SECTION_DIVIDER", "TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS"].forEach((id) => push(id as TemplateId));
+    ["SECTION_DIVIDER", "AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS"].forEach((id) =>
+      push(id as TemplateId),
+    );
   }
 
   if (archetype.rhythm === "tight") {

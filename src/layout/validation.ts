@@ -27,6 +27,20 @@ type ReadabilityMinima = {
   microPt: number;
 };
 
+type DensityThreshold = {
+  minChars: number;
+  minCoverage: number;
+  minGroups: number;
+  requireBodyLike: boolean;
+};
+
+type DensityStats = {
+  textChars: number;
+  coverageRatio: number;
+  contentGroups: number;
+  hasBodyLike: boolean;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -266,6 +280,175 @@ function minFontForText(element: TextElement, minima: ReadabilityMinima): number
   return minima.bodyPt;
 }
 
+function normalizeTemplateId(page: PageLayout): string {
+  return String(page.templateId || "").toUpperCase();
+}
+
+function densityThresholdForPage(page: PageLayout): DensityThreshold {
+  const templateId = normalizeTemplateId(page);
+
+  if (templateId === "SECTION_DIVIDER") {
+    return {
+      minChars: 66,
+      minCoverage: 0.22,
+      minGroups: 3,
+      requireBodyLike: true,
+    };
+  }
+
+  if (templateId === "GALLERY_SINGLE") {
+    return {
+      minChars: 36,
+      minCoverage: 0.18,
+      minGroups: 2,
+      requireBodyLike: true,
+    };
+  }
+
+  if (templateId === "QUOTE_FOCUS") {
+    return {
+      minChars: 58,
+      minCoverage: 0.2,
+      minGroups: 3,
+      requireBodyLike: true,
+    };
+  }
+
+  if (templateId === "CTA_CONTACT") {
+    return {
+      minChars: 64,
+      minCoverage: 0.21,
+      minGroups: 3,
+      requireBodyLike: true,
+    };
+  }
+
+  if (templateId.startsWith("COVER_")) {
+    return {
+      minChars: 76,
+      minCoverage: 0.24,
+      minGroups: 3,
+      requireBodyLike: true,
+    };
+  }
+
+  return {
+    minChars: 72,
+    minCoverage: 0.21,
+    minGroups: 3,
+    requireBodyLike: true,
+  };
+}
+
+function densityGroupKey(element: Element, index: number): string {
+  const group = element.collisionGroup?.trim();
+  if (group) {
+    return group;
+  }
+  const id = element.id?.trim();
+  if (id) {
+    return id;
+  }
+  return `${element.type}-${index}`;
+}
+
+function elementArea(element: Element): number {
+  if (element.type === "line") {
+    return 0;
+  }
+  return Math.max(0, element.wMm * element.hMm);
+}
+
+function isBodyLikeElement(element: Element): boolean {
+  if (element.type === "line") {
+    return false;
+  }
+
+  if (element.role === "media" || element.role === "metric" || element.role === "chip") {
+    return true;
+  }
+
+  const id = (element.id ?? "").toLowerCase();
+  if (id.includes("body") || id.includes("callout") || id.includes("table") || id.includes("flow") || id.includes("metric")) {
+    return true;
+  }
+
+  return false;
+}
+
+function collectDensityStats(page: PageLayout): DensityStats {
+  const pageArea = Math.max(1, page.widthMm * page.heightMm);
+  const groupArea = new Map<string, number>();
+  let textChars = 0;
+  let hasBodyLike = false;
+
+  page.elements.forEach((element, index) => {
+    if (element.debugOnly) {
+      return;
+    }
+
+    if (element.role === "background" || element.role === "header" || element.role === "footer" || element.role === "decorative") {
+      return;
+    }
+
+    if (element.type === "text") {
+      const normalized = element.text.replace(/\s+/g, " ").trim();
+      textChars += normalized.length;
+    }
+
+    if (isBodyLikeElement(element)) {
+      hasBodyLike = true;
+    }
+
+    const area = elementArea(element);
+    if (area <= 0) {
+      return;
+    }
+
+    const key = densityGroupKey(element, index);
+    const previous = groupArea.get(key) ?? 0;
+    if (area > previous) {
+      groupArea.set(key, area);
+    }
+  });
+
+  const usedArea = [...groupArea.values()].reduce((acc, value) => acc + value, 0);
+  return {
+    textChars,
+    coverageRatio: usedArea / pageArea,
+    contentGroups: groupArea.size,
+    hasBodyLike,
+  };
+}
+
+function checkContentDensity(page: PageLayout, issues: LayoutValidationIssue[]): void {
+  const threshold = densityThresholdForPage(page);
+  const stats = collectDensityStats(page);
+  const reasons: string[] = [];
+
+  if (stats.textChars < threshold.minChars) {
+    reasons.push(`text ${stats.textChars}/${threshold.minChars}`);
+  }
+  if (stats.coverageRatio < threshold.minCoverage) {
+    reasons.push(`coverage ${stats.coverageRatio.toFixed(2)}/${threshold.minCoverage.toFixed(2)}`);
+  }
+  if (stats.contentGroups < threshold.minGroups) {
+    reasons.push(`groups ${stats.contentGroups}/${threshold.minGroups}`);
+  }
+  if (threshold.requireBodyLike && !stats.hasBodyLike) {
+    reasons.push("body-like component missing");
+  }
+
+  if (reasons.length === 0) {
+    return;
+  }
+
+  issues.push({
+    code: "content-density",
+    message: `low content density: ${reasons.join(", ")}`,
+  });
+}
+
 function checkTextTruncation(page: PageLayout, issues: LayoutValidationIssue[]): void {
   page.elements.forEach((element, index) => {
     if (element.type !== "text" || !isKeyTextElement(element)) {
@@ -364,6 +547,7 @@ export function validatePageLayout(
   checkReservedLanes(page, options, issues);
   checkCollisions(page, issues);
   checkMinSize(page, minima, issues);
+  checkContentDensity(page, issues);
   checkTextTruncation(page, issues);
   checkLayering(page, issues);
   return {

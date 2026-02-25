@@ -36,6 +36,15 @@ type BuildParams = {
   showDebugMeta?: boolean;
 };
 
+type ResolvedTypography = {
+  titlePt: number;
+  subtitlePt: number;
+  bodyPt: number;
+  calloutPt: number;
+  captionPt: number;
+  microPt: number;
+};
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const normalized = hex.replace("#", "").trim();
   if (normalized.length < 6) {
@@ -81,6 +90,37 @@ function textColorForFill(fill: string, tokens: LayoutTokens, tone: "normal" | "
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function isPosterDocKind(docKind: PageBrief["docKind"]): boolean {
+  return docKind === "poster" || docKind === "poster_set";
+}
+
+function resolveTypography(brief: PageBrief, templateId: TemplateId, tokens: LayoutTokens): ResolvedTypography {
+  if (!isPosterDocKind(brief.docKind)) {
+    return {
+      titlePt: tokens.fontScalePt.title,
+      subtitlePt: tokens.fontScalePt.body,
+      bodyPt: tokens.fontScalePt.body,
+      calloutPt: tokens.fontScalePt.body,
+      captionPt: tokens.fontScalePt.caption,
+      microPt: tokens.fontScalePt.micro,
+    };
+  }
+
+  const isHeroTemplate =
+    templateId === "COVER_HERO_BAND" ||
+    templateId === "COVER_SPLIT_MEDIA" ||
+    templateId === "SECTION_DIVIDER";
+
+  return {
+    titlePt: clamp(isHeroTemplate ? tokens.fontScalePt.display : tokens.fontScalePt.title * 1.18, 25, 42),
+    subtitlePt: clamp(tokens.fontScalePt.lead * 1.08, 13.5, 20),
+    bodyPt: clamp(tokens.fontScalePt.lead, 13.2, 18),
+    calloutPt: clamp(tokens.fontScalePt.lead * 1.06, 13.4, 19),
+    captionPt: clamp(tokens.fontScalePt.caption * 1.12, 11, 14),
+    microPt: clamp(tokens.fontScalePt.micro * 1.08, 10.2, 13),
+  };
 }
 
 function rect(
@@ -149,7 +189,13 @@ function findReservedZone(zones: TemplateZone[], purpose: TemplateZone["purpose"
   return zones.find((zone) => zone.purpose === purpose && zone.reserved === true);
 }
 
-function renderChips(elements: Element[], zone: TemplateZone, chips: string[], tokens: LayoutTokens): void {
+function renderChips(
+  elements: Element[],
+  zone: TemplateZone,
+  chips: string[],
+  tokens: LayoutTokens,
+  chipFontPt: number,
+): void {
   if (chips.length === 0) {
     return;
   }
@@ -169,7 +215,6 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
         role: "chip",
         collisionGroup: group,
         isCollisionProtected: true,
-        debugOnly: true,
         radiusMm: tokens.radiusMm.sm,
         stroke: tokens.colors.border,
         strokeWidthMm: tokens.stroke.defaultMm,
@@ -177,13 +222,12 @@ function renderChips(elements: Element[], zone: TemplateZone, chips: string[], t
       text(
         { xMm: x + 1.2, yMm: zone.yMm + 1.2, wMm: chipW - 2.4, hMm: zone.hMm - 2.4 },
         chip,
-        tokens.fontScalePt.micro,
+        chipFontPt,
         {
           id: `${group}-text`,
           role: "chip",
           collisionGroup: group,
           isCollisionProtected: true,
-          debugOnly: true,
           bold: true,
           align: "center",
           color: textColorForFill(chipFill, tokens, "muted"),
@@ -200,6 +244,7 @@ function renderMetricCards(
   tokens: LayoutTokens,
   layoutTuning: LayoutArchetypeTuning | undefined,
   debugOnly = false,
+  metricFontPt = tokens.fontScalePt.micro,
 ): void {
   const density = layoutTuning?.cardDensity ?? 0.5;
   const maxCards = density >= 0.62 ? 4 : density <= 0.34 ? 2 : 3;
@@ -229,7 +274,7 @@ function renderMetricCards(
       text(
         { xMm: x + 1.4, yMm: zone.yMm + 1.2, wMm: cardW - 2.8, hMm: zone.hMm - 2.2 },
         `${metric.label}\n${metric.value}`,
-        tokens.fontScalePt.micro,
+        metricFontPt,
         {
           id: `${group}-text`,
           role: "metric",
@@ -251,6 +296,7 @@ function renderFlowCards(
   bullets: string[],
   tokens: LayoutTokens,
   layoutTuning: LayoutArchetypeTuning | undefined,
+  bodyFontPt = tokens.fontScalePt.body,
 ): void {
   const density = layoutTuning?.cardDensity ?? 0.5;
   const columnTarget = layoutTuning?.columns ?? 2;
@@ -276,7 +322,7 @@ function renderFlowCards(
       text(
         { xMm: x + 1.2, yMm: zone.yMm + 1.2, wMm: cardW - 2.4, hMm: zone.hMm - 2.2 },
         `${index + 1}. ${bullets[index] ?? "핵심 단계"}`,
-        tokens.fontScalePt.body,
+        bodyFontPt,
         {
           id: `${group}-text`,
           role: "text",
@@ -312,6 +358,7 @@ function renderTable(
   bullets: string[],
   tokens: LayoutTokens,
   layoutTuning: LayoutArchetypeTuning | undefined,
+  bodyFontPt = tokens.fontScalePt.body,
 ): void {
   const density = layoutTuning?.cardDensity ?? 0.5;
   const rowTarget = density >= 0.62 ? 5 : density <= 0.34 ? 3 : 4;
@@ -344,7 +391,7 @@ function renderTable(
       text(
         { xMm: zone.xMm + 1.4, yMm: y + 1.2, wMm: zone.wMm * 0.34, hMm: rowH - 2.4 },
         `항목 ${index + 1}`,
-        tokens.fontScalePt.body,
+        bodyFontPt,
         {
           id: `${rowId}-left`,
           role: "text",
@@ -357,7 +404,7 @@ function renderTable(
       text(
         { xMm: zone.xMm + zone.wMm * 0.38, yMm: y + 1.2, wMm: zone.wMm * 0.6, hMm: rowH - 2.4 },
         bullets[index] ?? "비교 메모",
-        tokens.fontScalePt.body,
+        bodyFontPt,
         {
           id: `${rowId}-right`,
           role: "text",
@@ -377,6 +424,7 @@ function renderMedia(
   brief: PageBrief,
   tokens: LayoutTokens,
   required: boolean,
+  placeholderFontPt = tokens.fontScalePt.body,
 ): void {
   const group = `media-${zone.id}`;
   if (!sourceImage && !required) {
@@ -401,7 +449,7 @@ function renderMedia(
       text(
         zoneFrame(zone, 2),
         "이미지 없음",
-        tokens.fontScalePt.body,
+        placeholderFontPt,
         {
           id: `${group}-placeholder`,
           role: "media",
@@ -428,6 +476,7 @@ function renderMedia(
 function buildElements(params: BuildParams): Element[] {
   const compactLevel = params.compactLevel ?? 0;
   const showDebugMeta = params.showDebugMeta ?? false;
+  const typography = resolveTypography(params.brief, params.templateId, params.tokens);
   const spec = getTemplateSpec(params.templateId);
   const zones = spec.buildZones({
     pageWidthMm: params.pageWidthMm,
@@ -468,7 +517,7 @@ function buildElements(params: BuildParams): Element[] {
       text(
         zoneFrame(headerZone, 1.2),
         params.brief.narrative.kicker,
-        params.tokens.fontScalePt.caption,
+        typography.captionPt,
         {
           id: "kicker",
           role: "header",
@@ -481,7 +530,7 @@ function buildElements(params: BuildParams): Element[] {
 
   if (titleZone) {
     elements.push(
-      text(zoneFrame(titleZone), params.brief.narrative.title, params.tokens.fontScalePt.title, {
+      text(zoneFrame(titleZone), params.brief.narrative.title, typography.titlePt, {
         id: "title",
         role: "text",
         collisionGroup: "title",
@@ -494,7 +543,7 @@ function buildElements(params: BuildParams): Element[] {
 
   if (subtitleZone) {
     elements.push(
-      text(zoneFrame(subtitleZone), params.brief.narrative.subtitle, params.tokens.fontScalePt.body, {
+      text(zoneFrame(subtitleZone), params.brief.narrative.subtitle, typography.subtitlePt, {
         id: "subtitle",
         role: "text",
         collisionGroup: "title",
@@ -504,8 +553,8 @@ function buildElements(params: BuildParams): Element[] {
     );
   }
 
-  if (chipsZone && compactLevel < 1 && showDebugMeta) {
-    renderChips(elements, chipsZone, params.brief.narrative.chips, params.tokens);
+  if (chipsZone && compactLevel < 1) {
+    renderChips(elements, chipsZone, params.brief.narrative.chips, params.tokens, typography.microPt);
   }
 
   if (mediaZone) {
@@ -516,6 +565,7 @@ function buildElements(params: BuildParams): Element[] {
       params.brief,
       params.tokens,
       spec.imagePolicy === "required",
+      typography.bodyPt,
     );
   }
 
@@ -529,16 +579,31 @@ function buildElements(params: BuildParams): Element[] {
         params.tokens,
         params.layoutTuning,
         isDebugMeta,
+        typography.microPt,
       );
     }
   }
 
   if (flowZone) {
-    renderFlowCards(elements, flowZone, params.brief.narrative.bullets, params.tokens, params.layoutTuning);
+    renderFlowCards(
+      elements,
+      flowZone,
+      params.brief.narrative.bullets,
+      params.tokens,
+      params.layoutTuning,
+      typography.bodyPt,
+    );
   }
 
   if (tableZone && compactLevel < 2) {
-    renderTable(elements, tableZone, params.brief.narrative.bullets, params.tokens, params.layoutTuning);
+    renderTable(
+      elements,
+      tableZone,
+      params.brief.narrative.bullets,
+      params.tokens,
+      params.layoutTuning,
+      typography.bodyPt,
+    );
   }
 
   if (bodyZone) {
@@ -558,7 +623,7 @@ function buildElements(params: BuildParams): Element[] {
         stroke: params.tokens.colors.border,
         strokeWidthMm: params.tokens.stroke.defaultMm,
       }),
-      text(zoneFrame(bodyZone, 2.2), bodyContent, params.tokens.fontScalePt.body, {
+      text(zoneFrame(bodyZone, 2.2), bodyContent, typography.bodyPt, {
         id: "body-text",
         role: "text",
         collisionGroup: "body",
@@ -579,7 +644,7 @@ function buildElements(params: BuildParams): Element[] {
         isCollisionProtected: true,
         radiusMm: params.tokens.radiusMm.md,
       }),
-      text(zoneFrame(calloutZone, 2), params.brief.narrative.callout, params.tokens.fontScalePt.body, {
+      text(zoneFrame(calloutZone, 2), params.brief.narrative.callout, typography.calloutPt, {
         id: "callout-text",
         role: "text",
         collisionGroup: "callout",
@@ -602,7 +667,7 @@ function buildElements(params: BuildParams): Element[] {
         id: "footer-divider",
         role: "footer",
       }),
-      text(zoneFrame(footerZone, 1.4), params.brief.narrative.footer, params.tokens.fontScalePt.caption, {
+      text(zoneFrame(footerZone, 1.4), params.brief.narrative.footer, typography.captionPt, {
         id: "footer-text",
         role: "footer",
         color: params.tokens.colors.mutedText,

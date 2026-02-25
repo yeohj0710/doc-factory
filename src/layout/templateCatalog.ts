@@ -247,12 +247,24 @@ function coverSplitZones(params: BuildZoneParams): TemplateZone[] {
 
 function sectionDividerZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
-  const dividerY = m.contentTop + m.contentH * 0.42;
+  const densityScale = resolveCardDensityScale(params);
+  const titleY = m.contentTop + m.contentH * 0.08;
+  const subtitleY = titleY + 18;
+  const chipsY = subtitleY + 12;
+  const bodyY = chipsY + 10;
+  const bodyH = m.contentH * clamp(0.34 * densityScale, 0.26, 0.42);
+  const calloutY = bodyY + bodyH + m.gutter;
+  const calloutH = m.contentH * clamp(0.16 * densityScale, 0.12, 0.24);
+  const metricsY = calloutY + calloutH + m.gutter;
+  const metricsH = Math.max(12, m.contentBottom - metricsY);
   return [
     frame("reserved-header", "header", { xMm: m.contentX, yMm: m.headerY, wMm: m.contentW, hMm: m.headerH }, true),
-    frame("title", "title", { xMm: m.contentX, yMm: dividerY - 12, wMm: m.contentW, hMm: 16 }),
-    frame("subtitle", "subtitle", { xMm: m.contentX, yMm: dividerY + 8, wMm: m.contentW, hMm: 10 }),
-    frame("callout", "callout", { xMm: m.contentX, yMm: dividerY + 24, wMm: m.contentW, hMm: 24 }),
+    frame("title", "title", { xMm: m.contentX, yMm: titleY, wMm: m.contentW, hMm: 16 }),
+    frame("subtitle", "subtitle", { xMm: m.contentX, yMm: subtitleY, wMm: m.contentW, hMm: 10 }),
+    frame("chips", "chips", { xMm: m.contentX, yMm: chipsY, wMm: m.contentW, hMm: 8 }),
+    frame("body", "body", { xMm: m.contentX, yMm: bodyY, wMm: m.contentW, hMm: bodyH }),
+    frame("callout", "callout", { xMm: m.contentX, yMm: calloutY, wMm: m.contentW, hMm: calloutH }),
+    frame("metrics", "metrics", { xMm: m.contentX, yMm: metricsY, wMm: m.contentW, hMm: metricsH }),
     frame("reserved-footer", "footer", { xMm: m.contentX, yMm: m.footerY, wMm: m.contentW, hMm: m.footerH }, true),
   ];
 }
@@ -599,11 +611,11 @@ export const TEMPLATE_SPECS: Record<TemplateId, TemplateSpec> = {
   SECTION_DIVIDER: {
     id: "SECTION_DIVIDER",
     label: "Section Divider",
-    intendedUse: "Section transition with short text emphasis",
+    intendedUse: "Section transition with supporting context and highlighted summary",
     acceptableAspectRatios: "all",
-    readingFlow: "title -> subtitle -> callout",
-    maxTextBudget: { ...COMMON_BUDGET, title: 22, subtitle: 36, body: 40, bullets: 2, bullet: 18, callout: 50 },
-    fallbackTemplateIds: ["QUOTE_FOCUS", "TEXT_ONLY_EDITORIAL"],
+    readingFlow: "title -> context body -> transition callout",
+    maxTextBudget: { ...COMMON_BUDGET, title: 26, subtitle: 40, body: 100, bullets: 4, bullet: 20, callout: 56 },
+    fallbackTemplateIds: ["AGENDA_EDITORIAL", "TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS"],
     isFullBleed: true,
     imagePolicy: "none",
     buildZones: sectionDividerZones,
@@ -723,7 +735,7 @@ export const TEMPLATE_SPECS: Record<TemplateId, TemplateSpec> = {
     acceptableAspectRatios: "all",
     readingFlow: "title -> checklist -> call-to-action",
     maxTextBudget: { ...COMMON_BUDGET, title: 24, subtitle: 36, body: 72, bullets: 5, bullet: 18, callout: 54 },
-    fallbackTemplateIds: ["TEXT_ONLY_EDITORIAL", "QUOTE_FOCUS"],
+    fallbackTemplateIds: ["TEXT_ONLY_EDITORIAL", "AGENDA_EDITORIAL", "QUOTE_FOCUS"],
     isFullBleed: false,
     imagePolicy: "none",
     buildZones: ctaZones,
