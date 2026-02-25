@@ -5,7 +5,7 @@
   "model": "local-rule-v1",
   "promptVersion": "copywriter.prompt.v1",
   "schemaVersion": "copywriter.schema.v1",
-  "copyDeckHash": "b82a19383172eea263eef561f3fdcc451591358b23ac1f4bfeadd7ae247723cd",
+  "copyDeckHash": "eb7f6f776835e24b2f4ab81e1297a3bb4015eff2edba07cbb6c270759c525e06",
   "copyDeck": {
     "docKind": "brochure",
     "language": "ko",

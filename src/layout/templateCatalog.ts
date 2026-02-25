@@ -154,7 +154,8 @@ function baseMeasurements(params: BuildZoneParams): {
 }
 
 function resolveHeroRatio(params: BuildZoneParams, fallback: number): number {
-  return clamp(params.layoutTuning?.heroRatio ?? fallback, 0.2, 0.78);
+  // Poster-family pages need enough text surface to satisfy density/readability gates.
+  return clamp(params.layoutTuning?.heroRatio ?? fallback, 0.2, 0.62);
 }
 
 function resolveColumnRatio(params: BuildZoneParams, fallback: number): number {
@@ -162,12 +163,12 @@ function resolveColumnRatio(params: BuildZoneParams, fallback: number): number {
     return fallback;
   }
   if (params.layoutTuning.columns >= 3) {
-    return clamp(fallback - 0.12, 0.34, 0.68);
+    return clamp(fallback - 0.12, 0.34, 0.6);
   }
   if (params.layoutTuning.columns <= 1) {
-    return clamp(fallback + 0.1, 0.4, 0.78);
+    return clamp(fallback + 0.08, 0.4, 0.62);
   }
-  return clamp(fallback, 0.36, 0.72);
+  return clamp(fallback, 0.36, 0.62);
 }
 
 function resolveColumnScale(params: BuildZoneParams): number {

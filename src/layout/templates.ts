@@ -499,6 +499,36 @@ function buildElements(params: BuildParams): Element[] {
 
   const elements: Element[] = [];
 
+  let effectiveBodyZone = bodyZone;
+  let fallbackMediaZone: TemplateZone | undefined;
+  const canInjectFallbackMedia =
+    params.templateId === "TEXT_ONLY_EDITORIAL" &&
+    isPosterDocKind(params.brief.docKind) &&
+    !mediaZone &&
+    !!bodyZone &&
+    !!params.sourceImage;
+
+  if (canInjectFallbackMedia && bodyZone) {
+    const mediaHeight = clamp(bodyZone.hMm * 0.52, 34, 62);
+    const interZoneGap = clamp(bodyZone.hMm * 0.04, 2.2, 4.2);
+    const remainingBodyHeight = bodyZone.hMm - mediaHeight - interZoneGap;
+
+    if (remainingBodyHeight >= 24) {
+      fallbackMediaZone = {
+        ...bodyZone,
+        id: `${bodyZone.id}-fallback-media`,
+        purpose: "media",
+        hMm: mediaHeight,
+      };
+      effectiveBodyZone = {
+        ...bodyZone,
+        id: `${bodyZone.id}-fallback-body`,
+        yMm: bodyZone.yMm + mediaHeight + interZoneGap,
+        hMm: remainingBodyHeight,
+      };
+    }
+  }
+
   elements.push(
     rect({ xMm: 0, yMm: 0, wMm: params.pageWidthMm, hMm: params.pageHeightMm }, params.tokens.colors.page, {
       id: "bg",
@@ -569,6 +599,18 @@ function buildElements(params: BuildParams): Element[] {
     );
   }
 
+  if (!mediaZone && fallbackMediaZone) {
+    renderMedia(
+      elements,
+      fallbackMediaZone,
+      params.sourceImage,
+      params.brief,
+      params.tokens,
+      false,
+      typography.bodyPt,
+    );
+  }
+
   if (metricsZone && compactLevel < 2) {
     const isDebugMeta = params.brief.narrative.metricsDebugOnly;
     if (!isDebugMeta || showDebugMeta) {
@@ -606,8 +648,9 @@ function buildElements(params: BuildParams): Element[] {
     );
   }
 
-  if (bodyZone) {
-    const bullets = params.brief.narrative.bullets.slice(0, compactLevel >= 1 ? 3 : 5);
+  if (effectiveBodyZone) {
+    const bulletLimit = fallbackMediaZone ? (compactLevel >= 1 ? 2 : 4) : compactLevel >= 1 ? 3 : 5;
+    const bullets = params.brief.narrative.bullets.slice(0, bulletLimit);
     const bulletLines = bullets.map((lineValue) => `- ${lineValue}`);
     const bodyContent =
       bulletLines.length > 0
@@ -616,7 +659,7 @@ function buildElements(params: BuildParams): Element[] {
 
     const bodyFill = params.tokens.colors.softAccent;
     elements.push(
-      rect(zoneFrame(bodyZone), bodyFill, {
+      rect(zoneFrame(effectiveBodyZone), bodyFill, {
         id: "body-bg",
         role: "shape",
         collisionGroup: "body",
@@ -625,7 +668,7 @@ function buildElements(params: BuildParams): Element[] {
         stroke: params.tokens.colors.border,
         strokeWidthMm: params.tokens.stroke.defaultMm,
       }),
-      text(zoneFrame(bodyZone, 2.2), bodyContent, typography.bodyPt, {
+      text(zoneFrame(effectiveBodyZone, 2.2), bodyContent, typography.bodyPt, {
         id: "body-text",
         role: "text",
         collisionGroup: "body",

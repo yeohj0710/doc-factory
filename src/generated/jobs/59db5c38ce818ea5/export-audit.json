@@ -1,0 +1,89 @@
+{
+  "passed": true,
+  "issues": [],
+  "auditHash": "54e5f2ea8f9f",
+  "referenceUsageReport": {
+    "required": true,
+    "referenceCount": 189,
+    "referenceDigest": "3f84300b4ad9af5943e7b4ee3483289d",
+    "referenceIndexStatus": "fresh",
+    "styleSource": "references",
+    "layoutSource": "references",
+    "usedStyleClusterIds": [
+      "style-c04"
+    ],
+    "usedLayoutClusterIds": [
+      "layout-c06",
+      "layout-c15",
+      "layout-c03"
+    ],
+    "minRequiredLayoutClusters": 2,
+    "selectedLayoutClusterIds": [
+      "layout-c06",
+      "layout-c15",
+      "layout-c03",
+      "layout-c12"
+    ],
+    "representativeStyleRefIds": [
+      "b6a6de5167dc",
+      "a36004f70382",
+      "c61c24022330",
+      "ed1a463006f9",
+      "dd37921fb87c",
+      "d1a37ad9a8a4",
+      "f4f674874348",
+      "caee3c724781",
+      "126e607c12ce",
+      "518900f40fe9",
+      "1bce64e99463",
+      "9ca3e0b29649",
+      "8ec8e498577e",
+      "3fffaee7ee80",
+      "b5333f0edff2",
+      "9663f09b0d09"
+    ],
+    "representativeLayoutRefIds": [
+      "79ce8ca14ded",
+      "d3bec51c4e3b",
+      "b44105cd1fb3",
+      "2311b6735449",
+      "de63b0e4854e",
+      "1b8c58bba5ea",
+      "dd52bd8015ac",
+      "b6a6de5167dc",
+      "52421616516a",
+      "05e9613586f6",
+      "3e34fc5cff05",
+      "3749f8dd2889",
+      "a85354de4211",
+      "5257394dfc28",
+      "567a009d5f9e",
+      "6ed978126b42"
+    ]
+  },
+  "gateProof": {
+    "requestHash": "59db5c38ce818ea5",
+    "referenceIndexStatus": "fresh",
+    "referenceUsageStatus": "pass",
+    "usedLayoutClusters": 3,
+    "requiredLayoutClusters": 2,
+    "themeFactoryStatus": "ran",
+    "runtimeGatesStatus": "pass",
+    "internalTermsStatus": "pass",
+    "contentCompletenessStatus": "pass",
+    "copywriterMode": "local",
+    "copyCacheKey": "f79eebafaf9ee019aaad32342fd92ba09facd575b5ff4b118a3162c895d7d288",
+    "copyDeckHash": "805f46846fbea3276ec0c8528b4e131ed370720a913d5a0724a5209774029471"
+  },
+  "copywriter": {
+    "copywriterMode": "local",
+    "requestedMode": "local",
+    "effectiveMode": "local",
+    "model": "local-rule-v1",
+    "promptVersion": "copywriter.prompt.v1",
+    "schemaVersion": "copywriter.schema.v1",
+    "cacheKey": "f79eebafaf9ee019aaad32342fd92ba09facd575b5ff4b118a3162c895d7d288",
+    "cacheHit": false,
+    "copyDeckHash": "805f46846fbea3276ec0c8528b4e131ed370720a913d5a0724a5209774029471"
+  }
+}

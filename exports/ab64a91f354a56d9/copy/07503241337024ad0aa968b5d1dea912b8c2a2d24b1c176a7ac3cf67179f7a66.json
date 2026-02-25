@@ -1,0 +1,193 @@
+{
+  "cacheKey": "07503241337024ad0aa968b5d1dea912b8c2a2d24b1c176a7ac3cf67179f7a66",
+  "requestHash": "ab64a91f354a56d9",
+  "mode": "local",
+  "model": "local-rule-v1",
+  "promptVersion": "copywriter.prompt.v1",
+  "schemaVersion": "copywriter.schema.v1",
+  "copyDeckHash": "ea07c65fb59b90297514fb24e6cf78320571f5e0cd2626f73dcdc649d2e32bed",
+  "copyDeck": {
+    "docKind": "poster_set",
+    "language": "ko",
+    "tone": "playful",
+    "pages": [
+      {
+        "pageIndex": 1,
+        "role": "cover",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 커버 1p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 194620473 / Document purpose is clear in 5 seconds.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "사실: 근용이는 펭귄 인형을 안고 잠. 대학원생이고 원자력공학과 출신으로 논문/학회 자주 다님. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "사실: 근용이는 펭귄 인형을 안고 잠. 대학원생이고 원자력공학과 출신으로 논문/학회",
+              "근용이_홍보_포스터",
+              "커버 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 1p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 2,
+        "role": "topic",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 주제 2p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 202929404 / Topic signal is clear and concise.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "KakaoTalk 20260223 202929404. 과몰입 포인트가 있어 진지한데 웃김. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "대학원생이고 원자력공학과 출신으로 논문/학회 자주 다님",
+              "A4 세로 3장 홍보 포스터. 근용이는 정말 재미있는 친구. 비하/조롱 금지,",
+              "주제 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 2p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 3,
+        "role": "cta",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 다음 단계 3p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "visual reference / Next action can be decided immediately.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "KakaoTalk 20260223 194620473. 1p: 큰 헤드라인 + 강한 사진 히어로 + 펭귄/원자력 모티프. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "A4 세로 3장 홍보 포스터. 근용이는 정말 재미있는 친구. 비하/조롱 금지,",
+              "대학원생이고 원자력공학과 출신으로 논문/학회 자주 다님",
+              "다음 단계 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "지금 필요한 결정: 담당/기한/연락처 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "cta"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 3p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

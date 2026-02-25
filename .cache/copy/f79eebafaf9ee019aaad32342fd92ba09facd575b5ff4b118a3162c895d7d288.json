@@ -1,0 +1,193 @@
+{
+  "cacheKey": "f79eebafaf9ee019aaad32342fd92ba09facd575b5ff4b118a3162c895d7d288",
+  "requestHash": "59db5c38ce818ea5",
+  "mode": "local",
+  "model": "local-rule-v1",
+  "promptVersion": "copywriter.prompt.v1",
+  "schemaVersion": "copywriter.schema.v1",
+  "copyDeckHash": "805f46846fbea3276ec0c8528b4e131ed370720a913d5a0724a5209774029471",
+  "copyDeck": {
+    "docKind": "poster_set",
+    "language": "ko",
+    "tone": "concise",
+    "pages": [
+      {
+        "pageIndex": 1,
+        "role": "cover",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "quick_curl - 커버 1p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 194620473 / Document purpose is clear in 5 seconds.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "test. quick_curl. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "KakaoTalk 20260224 172224351",
+              "KakaoTalk 20260223 202929404",
+              "커버 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "quick_curl / 1p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 2,
+        "role": "topic",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "quick_curl - 주제 2p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 202929404 / Topic signal is clear and concise.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "KakaoTalk 20260223 202929404. test. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "Facts not provided must stay as (추후 기입).",
+              "KakaoTalk 20260224 172224351",
+              "주제 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "quick_curl / 2p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 3,
+        "role": "cta",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "quick_curl - 다음 단계 3p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "visual reference / Next action can be decided immediately.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "Facts not provided must stay as (추후 기입).. test. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "KakaoTalk 20260223 202929404",
+              "KakaoTalk 20260224 172224351",
+              "다음 단계 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "지금 필요한 결정: 담당/기한/연락처 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "cta"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "quick_curl / 3p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

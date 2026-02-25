@@ -1,0 +1,193 @@
+{
+  "cacheKey": "2945b83afa556d824d1272bd3e3ac001bb12ce57828d266bb3d783e47d959cb6",
+  "requestHash": "d0894740b162e581",
+  "mode": "local",
+  "model": "local-rule-v1",
+  "promptVersion": "copywriter.prompt.v1",
+  "schemaVersion": "copywriter.schema.v1",
+  "copyDeckHash": "9bca0ce74f4629a2640a6c5a841a1c81f0fee4219d65dfecc61db0be5fc7259b",
+  "copyDeck": {
+    "docKind": "poster_set",
+    "language": "ko",
+    "tone": "playful",
+    "pages": [
+      {
+        "pageIndex": 1,
+        "role": "cover",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 커버 1p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 194620473 / Document purpose is clear in 5 seconds.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "사실: 펭귄 인형 안고 잠, 대학원생, 원자력공학 배경, 논문/학회 자주 참석, 광주과학고 -> 한양대 학부/대학원. p1 표지: 큰 헤드라인 + 근용이 히어로 사진 + 펭귄/원자력 모티프. p2 프로필: 카드/배지로 특징 4개 이상, 읽기 쉬운 짧은 카피. p3 밈 클로징: 콜아웃 + 한줄 요약 + 임팩트 엔딩. 수치/연락처는 (추후 기입).. 사실: 펭귄 인형 안고 잠, 대학원생, 원자력공학 배경, 논문/학회 자주",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "A4 세로 3장 포스터 세트. 근용이 홍보 포스터. 유쾌한 밈 톤, 사랑스러운 놀림",
+              "KakaoTalk 20260224 172224351",
+              "커버 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 1p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 2,
+        "role": "topic",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 주제 2p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "KakaoTalk 20260223 202929404 / Topic signal is clear and concise.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "KakaoTalk 20260223 194620473. A4 세로 3장 포스터 세트. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "p2 프로필: 카드/배지로 특징 4개 이상, 읽기 쉬운 짧은 카피",
+              "p1 표지: 큰 헤드라인 + 근용이 히어로 사진 + 펭귄/원자력 모티프",
+              "주제 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 2p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      },
+      {
+        "pageIndex": 3,
+        "role": "cta",
+        "blocks": [
+          {
+            "kind": "headline",
+            "text": "근용이_홍보_포스터 - 다음 단계 3p",
+            "constraints": {
+              "targetChars": 32,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "subhead",
+            "text": "visual reference / Next action can be decided immediately.",
+            "constraints": {
+              "targetChars": 68,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "text": "p2 프로필: 카드/배지로 특징 4개 이상, 읽기 쉬운 짧은 카피. 유쾌한 밈 톤, 사랑스러운 놀림 느낌, 비하 금지. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로 남기고, 사실 기반 문구만 유지합니다.",
+            "constraints": {
+              "targetChars": 180,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "bullets",
+            "items": [
+              "Keep the tone concise and actionable.",
+              "p2 프로필: 카드/배지로 특징 4개 이상, 읽기 쉬운 짧은 카피",
+              "다음 단계 실행 항목: (추후 기입)",
+              "연락/링크/수치 등 미확정 정보는 (추후 기입)"
+            ],
+            "constraints": {
+              "targetChars": 120,
+              "intent": "informative"
+            }
+          },
+          {
+            "kind": "callout",
+            "text": "지금 필요한 결정: 담당/기한/연락처 (추후 기입)",
+            "constraints": {
+              "targetChars": 60,
+              "intent": "cta"
+            }
+          },
+          {
+            "kind": "footer",
+            "text": "근용이_홍보_포스터 / 3p / 문의: (추후 기입)",
+            "constraints": {
+              "targetChars": 48,
+              "intent": "cta"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
