@@ -56,6 +56,9 @@ const UI_TEXT = {
   labelReferenceUsage: "Used Layout Clusters",
   labelThemeFactory: "ThemeFactory",
   labelRuntimeGates: "RuntimeGates",
+  labelReferenceUsageState: "ReferenceUsage",
+  labelInternalTerms: "InternalTerms",
+  labelCompleteness: "ContentCompleteness",
   labelRequestHash: "Request Hash",
   labelPassedPages: "\uD1B5\uACFC \uD398\uC774\uC9C0",
   labelAuditHash: "Audit Hash",
@@ -197,6 +200,8 @@ export default async function Home({ searchParams }: HomeProps) {
   const nextVariantIndex = result.plan.variantIndex + 1;
   const nextJobId = bumpJobId(result.plan.requestSpec.jobId);
   const pageCountLabel = requestPageCountLabel(result.plan.requestSpec.pageCount);
+  const promptValue = result.plan.requestSpec.prompt ?? "";
+  const contentBriefValue = result.plan.requestSpec.contentBrief ?? "";
 
   return (
     <main className="app-shell">
@@ -214,7 +219,10 @@ export default async function Home({ searchParams }: HomeProps) {
             {UI_TEXT.labelReferenceStatus}: {result.plan.referenceIndexStatus} / {UI_TEXT.labelReferenceUsage}:{" "}
             {result.exportAudit.gateProof.usedLayoutClusters}/{result.exportAudit.gateProof.requiredLayoutClusters} / {UI_TEXT.labelThemeFactory}:{" "}
             {result.plan.themeFactoryProof.status} / {UI_TEXT.labelRuntimeGates}: {result.runtimeGates.passed ? "pass" : "fail"} /{" "}
-            {UI_TEXT.labelRequestHash}: {result.requestHash}
+            {UI_TEXT.labelReferenceUsageState}: {result.exportAudit.gateProof.referenceUsageStatus} / {UI_TEXT.labelInternalTerms}:{" "}
+            {result.exportAudit.gateProof.internalTermsStatus} / {UI_TEXT.labelCompleteness}:{" "}
+            {result.exportAudit.gateProof.contentCompletenessStatus} / {UI_TEXT.labelRequestHash}: {result.requestHash} /{" "}
+            {UI_TEXT.labelAuditHash}: {result.exportAudit.auditHash}
           </p>
         </div>
 
@@ -227,6 +235,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="language" value={result.plan.requestSpec.language} />
             <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
+            <input type="hidden" name="prompt" value={promptValue} />
+            <input type="hidden" name="contentBrief" value={contentBriefValue} />
             <input type="hidden" name="variantIndex" value={String(result.plan.variantIndex)} />
             <input type="hidden" name="seed" value={String(result.plan.seed)} />
             <input type="hidden" name="docType" value={result.plan.docType} />
@@ -247,6 +257,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="language" value={result.plan.requestSpec.language} />
             <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
+            <input type="hidden" name="prompt" value={promptValue} />
+            <input type="hidden" name="contentBrief" value={contentBriefValue} />
             {result.plan.pageSizePreset === "CUSTOM" ? (
               <>
                 <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
@@ -268,6 +280,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="language" value={result.plan.requestSpec.language} />
             <input type="hidden" name="tone" value={result.plan.requestSpec.tone} />
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
+            <input type="hidden" name="prompt" value={promptValue} />
+            <input type="hidden" name="contentBrief" value={contentBriefValue} />
             {result.plan.pageSizePreset === "CUSTOM" ? (
               <>
                 <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
@@ -430,6 +444,15 @@ export default async function Home({ searchParams }: HomeProps) {
                   </p>
                   <p>
                     {UI_TEXT.labelRuntimeGates}: <strong>{result.runtimeGates.passed ? "pass" : "fail"}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelReferenceUsageState}: <strong>{result.exportAudit.gateProof.referenceUsageStatus}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelInternalTerms}: <strong>{result.exportAudit.gateProof.internalTermsStatus}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelCompleteness}: <strong>{result.exportAudit.gateProof.contentCompletenessStatus}</strong>
                   </p>
                   <p>
                     {UI_TEXT.labelRequestHash}: <strong>{result.requestHash}</strong>

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
 import json
@@ -10,12 +10,32 @@ from pathlib import Path
 BASE_URL = "http://127.0.0.1:3000"
 EXPORT_URL = f"{BASE_URL}/api/export/pptx"
 JOB_ROOT = Path("src/generated/jobs")
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def ensure_test_images() -> int:
+    images_dir = Path("images")
+    images_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted([path for path in images_dir.iterdir() if path.is_file() and path.suffix.lower() in IMAGE_EXTS])
+    if existing:
+        return len(existing)
+
+    references = sorted(
+        [path for path in Path("references").rglob("*") if path.is_file() and path.suffix.lower() in IMAGE_EXTS],
+        key=lambda item: item.as_posix().lower(),
+    )[:8]
+    for index, source in enumerate(references, start=1):
+        target = images_dir / f"qa-{index:03d}{source.suffix.lower()}"
+        target.write_bytes(source.read_bytes())
+
+    created = [path for path in images_dir.iterdir() if path.is_file() and path.suffix.lower() in IMAGE_EXTS]
+    return len(created)
 
 
 def trigger_regenerate(params: dict[str, str]) -> None:
     query = urllib.parse.urlencode(params)
     url = f"{BASE_URL}/?{query}"
-    with urllib.request.urlopen(url, timeout=180) as response:
+    with urllib.request.urlopen(url, timeout=600) as response:
         response.read(2048)
 
 
@@ -24,7 +44,7 @@ def post_export(payload: dict[str, str]) -> dict:
     request = urllib.request.Request(EXPORT_URL, data=data, method="POST")
 
     try:
-        with urllib.request.urlopen(request, timeout=240) as response:
+        with urllib.request.urlopen(request, timeout=600) as response:
             headers = {key.lower(): value for key, value in response.headers.items()}
             _ = response.read(64)
             return {
@@ -76,6 +96,7 @@ def job_files(request_hash: str) -> tuple[Path, Path]:
 
 
 def main() -> None:
+    ensure_test_images()
     payload_a = qa_payload("qa-job-a", "11111")
     payload_b = qa_payload("qa-job-b", "22222")
 
@@ -159,3 +180,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

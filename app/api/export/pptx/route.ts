@@ -153,10 +153,13 @@ export async function POST(request: Request): Promise<Response> {
         "X-DocFactory-Ref-Used-Style-Clusters": String(refReport?.usedStyleClusterIds.length ?? 0),
         "X-DocFactory-Ref-Used-Layout-Clusters": String(refReport?.usedLayoutClusterIds.length ?? 0),
         "X-DocFactory-Ref-Layout-Coverage-Required": String(result.exportAudit.gateProof.requiredLayoutClusters),
+        "X-DocFactory-Reference-Usage": result.exportAudit.gateProof.referenceUsageStatus,
         "X-DocFactory-Style-Preset-Id": result.plan.stylePresetId,
         "X-DocFactory-Layout-Clusters": result.plan.referenceUsageReport.usedLayoutClusterIds.join(","),
         "X-DocFactory-ThemeFactory": result.plan.themeFactoryProof.status,
         "X-DocFactory-Runtime-Gates": result.runtimeGates.passed ? "pass" : "fail",
+        "X-DocFactory-Content-Internal-Terms": result.exportAudit.gateProof.internalTermsStatus,
+        "X-DocFactory-Content-Completeness": result.exportAudit.gateProof.contentCompletenessStatus,
       },
     });
   } catch (error) {

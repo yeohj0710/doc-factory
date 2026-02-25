@@ -10,20 +10,17 @@ PATTERNS = [
     re.compile(r"NATURE_CAMPAIGN", re.IGNORECASE),
     re.compile(r"B2B_BROCHURE", re.IGNORECASE),
     re.compile(r"B2B_SERVICE", re.IGNORECASE),
-    re.compile(r"자연을\s*사랑하자"),
-    re.compile(r"자연\s*캠페인"),
-    re.compile(r"임직원\s*맞춤\s*건기식"),
-    re.compile(r"건기식\s*소분"),
+    re.compile(r"\uC790\uC5F0\uC744\s*\uC0AC\uB791\uD558\uC790"),
+    re.compile(r"\uC790\uC5F0\s*\uCEA0\uD398\uC778"),
+    re.compile(r"\uC784\uC9C1\uC6D0\s*\uB9DE\uCDA4\s*\uAC74\uAE30\uC2DD"),
+    re.compile(r"\uAC74\uAE30\uC2DD\s*\uC18C\uBD84"),
 ]
 ALLOWED_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx"}
 
 
 def scan_file(path: Path) -> list[dict]:
     hits: list[dict] = []
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        text = path.read_text(encoding="utf-8", errors="ignore")
+    text = path.read_text(encoding="utf-8", errors="ignore")
 
     lines = text.splitlines()
     for index, line in enumerate(lines, start=1):

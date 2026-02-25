@@ -37,6 +37,7 @@ export function computeRequestHash(params: {
   const normalizedRequestSpec: JsonObject = {
     jobId: params.requestSpec.jobId,
     prompt: params.requestSpec.prompt,
+    contentBrief: params.requestSpec.contentBrief ?? "",
     docKind: params.requestSpec.docKind,
     pageCount: requestPageCountLabel(params.requestSpec.pageCount),
     pageSize: `${params.requestSpec.pageSize.preset}:${params.requestSpec.pageSize.widthMm}x${params.requestSpec.pageSize.heightMm}`,

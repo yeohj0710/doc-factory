@@ -281,10 +281,29 @@ function buildRoleSequence(params: {
   seed: number;
   variantIndex: number;
 }): RoleSequencePlan {
-  if (params.docType === "poster") {
+  if (params.docType === "poster" && params.pageCount <= 1) {
     return {
       roles: ["cover"],
       rhythmId: "single-poster",
+    };
+  }
+
+  if (params.docType === "poster") {
+    const posterPool: PageRole[] = ["topic", "gallery", "section-divider", "topic", "gallery", "cta"];
+    const roles: PageRole[] = ["cover"];
+
+    while (roles.length < params.pageCount) {
+      const nextRole = posterPool[(roles.length - 1) % posterPool.length] ?? "topic";
+      roles.push(nextRole);
+    }
+
+    if (params.pageCount >= 3) {
+      roles[params.pageCount - 1] = "cta";
+    }
+
+    return {
+      roles,
+      rhythmId: "poster-series",
     };
   }
 
@@ -438,7 +457,12 @@ function takeAsset(params: {
   return tryTake(allTopics, true);
 }
 
-function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, variantIndex: number): StoryboardItem[] {
+function ensureDiversity(
+  storyboard: StoryboardItem[],
+  rng: () => number,
+  variantIndex: number,
+  docType: DocType,
+): StoryboardItem[] {
   const next = [...storyboard];
 
   for (let index = 2; index < next.length; index += 1) {
@@ -497,7 +521,7 @@ function ensureDiversity(storyboard: StoryboardItem[], rng: () => number, varian
     }
   }
 
-  if (next.length > 1 && !next.some((item) => item.isTextOnly)) {
+  if (docType !== "poster" && next.length > 1 && !next.some((item) => item.isTextOnly)) {
     const targetIndex = next.findIndex((item) => item.role !== "cover");
     if (targetIndex >= 0) {
       const spec = getTemplateSpec("TEXT_ONLY_EDITORIAL");
@@ -716,7 +740,7 @@ export async function planDocument(images: ScannedImage[], options: PlanOptions)
     };
   });
 
-  const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex);
+  const storyboard = ensureDiversity(storyboardDraft, rng, variantIndex, docType);
   const usedLayoutClusterIds = [...new Set(storyboard.map((item) => item.layoutClusterId))];
 
   const referenceUsageReport = {

@@ -1,6 +1,6 @@
-﻿import path from "node:path";
+import path from "node:path";
 import type { LayoutTokens } from "@/src/layout/tokens";
-import { getTemplateSpec, type TemplateId } from "@/src/layout/templateCatalog";
+import { getTemplateSpec, type TemplateId, type TextBudget } from "@/src/layout/templateCatalog";
 import type { ImageFit, PageBriefSummary } from "@/src/layout/types";
 import type { DocumentPlan, PageRole, StoryboardItem } from "@/src/planner/types";
 
@@ -43,6 +43,15 @@ type CopyDraft = {
   callout: string;
 };
 
+type ContentSeed = {
+  subject: string;
+  summary: string;
+  detail: string;
+  highlights: string[];
+  introMode: boolean;
+  contact: string;
+};
+
 const BANNED_VAGUE_WORDS = [
   "혁신",
   "최고",
@@ -55,12 +64,44 @@ const BANNED_VAGUE_WORDS = [
   "cutting edge",
 ];
 
+const INTERNAL_TERM_REPLACEMENTS: Array<{
+  pattern: RegExp;
+  replacement: string;
+}> = [
+  { pattern: /\brequestspec\b/giu, replacement: "요청 정보" },
+  { pattern: /\bvariantindex\b/giu, replacement: "버전 값" },
+  { pattern: /\breferencedigest\b/giu, replacement: "참조 식별값" },
+  { pattern: /\btheme-factory\b/giu, replacement: "테마 적용" },
+  { pattern: /\bwebapp-testing\b/giu, replacement: "실행 검증" },
+  { pattern: /\bvalidation\b/giu, replacement: "검토" },
+  { pattern: /\blayout\b/giu, replacement: "구성" },
+];
+
+const PLACEHOLDERS = {
+  subject: "[주제]",
+  name: "[이름]",
+  intro: "[한 줄 소개]",
+  feature1: "[특징 1]",
+  feature2: "[특징 2]",
+  feature3: "[특징 3]",
+  contact: "(추후 기입)",
+  metric: "(추후 기입)",
+};
+
 function sanitizeText(value: string): string {
   return value
     .replace(/…/g, "")
     .replace(/\.\.\.$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function stripInternalTerms(value: string): string {
+  let next = value;
+  for (const rule of INTERNAL_TERM_REPLACEMENTS) {
+    next = next.replace(rule.pattern, rule.replacement);
+  }
+  return sanitizeText(next);
 }
 
 function shortText(value: string, maxLength: number): string {
@@ -143,152 +184,273 @@ function pickImageFit(sourceImage: string | null): ImageFit {
   return "cover";
 }
 
+function splitSourceSentences(value: string): string[] {
+  return value
+    .split(/[\n.!?]+/g)
+    .map((item) => stripInternalTerms(item))
+    .filter(Boolean);
+}
+
+function isDefaultTitle(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "visual_document" || normalized === "visual document";
+}
+
+function topicHint(topicLabel: string): string {
+  if (topicLabel === "ui") return "화면 중심";
+  if (topicLabel === "photo") return "장면 중심";
+  if (topicLabel === "chart") return "지표 중심";
+  if (topicLabel === "diagram") return "구조 중심";
+  if (topicLabel === "people") return "인물 중심";
+  return "핵심 장면";
+}
+
+function uniquePreserveOrder(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const key = value.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(value);
+  }
+  return result;
+}
+
+function buildImageHints(plan: DocumentPlan): string[] {
+  const hints = plan.topicClusters
+    .flatMap((cluster) => cluster.images.slice(0, 2))
+    .map((image) => cleanCaptionFromFilename(image.filename))
+    .map((value) => stripInternalTerms(value))
+    .filter(Boolean);
+  return uniquePreserveOrder(hints).slice(0, 4);
+}
+
+function buildContentSeed(item: StoryboardItem, plan: DocumentPlan, caption: string): ContentSeed {
+  const sourcePieces = [plan.requestSpec.contentBrief, plan.requestSpec.prompt]
+    .map((value) => value?.trim() ?? "")
+    .filter(Boolean);
+  const sourceText = stripInternalTerms(sourcePieces.join(" "));
+  const sourceSentences = splitSourceSentences(sourceText);
+  const imageHints = buildImageHints(plan);
+  const topicBasedHint = topicHint(item.topicLabel);
+
+  const titleCandidate = isDefaultTitle(plan.docTitle) ? "" : stripInternalTerms(plan.docTitle);
+  const sentenceSubject = sourceSentences[0] ? shortText(sourceSentences[0], 36) : "";
+  const subject = titleCandidate || sentenceSubject || imageHints[0] || PLACEHOLDERS.subject;
+  const summary = sourceSentences[1] || sourceSentences[0] || `${topicBasedHint} 메시지를 정리합니다.`;
+  const detail = sourceSentences[2] || `${caption} 중심으로 핵심 정보만 배치합니다.`;
+  const highlights = uniquePreserveOrder(
+    [
+      sourceSentences[0],
+      sourceSentences[1],
+      imageHints[0],
+      imageHints[1],
+      topicBasedHint,
+    ]
+      .map((value) => stripInternalTerms(value ?? ""))
+      .filter(Boolean),
+  ).slice(0, 4);
+
+  const introMode = /(?:소개|프로필|profile|about|friend|친구)/iu.test(sourceText) || /(?:소개|프로필)/iu.test(plan.docTitle);
+
+  return {
+    subject: subject || PLACEHOLDERS.subject,
+    summary: summary || `${topicBasedHint} 핵심을 전달합니다.`,
+    detail: detail || `${topicBasedHint} 포인트를 짧게 제시합니다.`,
+    highlights: highlights.length > 0 ? highlights : [caption, topicBasedHint],
+    introMode,
+    contact: PLACEHOLDERS.contact,
+  };
+}
+
+function posterDraft(seed: ContentSeed, plan: DocumentPlan): CopyDraft {
+  const title = seed.introMode ? PLACEHOLDERS.name : seed.subject;
+  const subtitle = seed.introMode ? PLACEHOLDERS.intro : shortText(seed.summary, 30);
+  const bullets = seed.introMode
+    ? [PLACEHOLDERS.feature1, PLACEHOLDERS.feature2, PLACEHOLDERS.feature3]
+    : [
+        shortText(seed.highlights[0] ?? PLACEHOLDERS.feature1, 16),
+        shortText(seed.highlights[1] ?? PLACEHOLDERS.feature2, 16),
+        shortText(seed.highlights[2] ?? PLACEHOLDERS.feature3, 16),
+      ];
+
+  return {
+    kicker: `${docTypeLabel(plan.docType)} / ${plan.requestSpec.language}`,
+    title,
+    subtitle,
+    body: shortText(seed.detail, 52),
+    points: bullets,
+    callout: `연락처 ${seed.contact}`,
+  };
+}
+
 function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): CopyDraft {
-  const language = plan.requestSpec.language;
-  const tone = plan.requestSpec.tone;
-  const unknownMetricLabel = "(추후 기입)";
+  const seed = buildContentSeed(item, plan, caption);
+  const isPosterSeries = plan.requestSpec.docKind === "poster" || plan.requestSpec.docKind === "poster_set";
+
+  if (item.role === "cover" && isPosterSeries) {
+    return posterDraft(seed, plan);
+  }
 
   if (item.role === "cover") {
     return {
-      kicker: `${docTypeLabel(plan.docType)} / ${language}`,
-      title: plan.docTitle,
-      subtitle: `${tone} 톤으로 구성한 ${plan.pageCount}페이지 문서`,
-      body: `${caption} 자산을 기반으로 흐름을 먼저 정의하고 페이지별 메시지를 간결한 불릿 중심으로 정리합니다.`,
+      kicker: `${docTypeLabel(plan.docType)} / ${plan.requestSpec.language}`,
+      title: seed.subject,
+      subtitle: seed.summary,
+      body: `${seed.detail}`,
       points: [
-        "RequestSpec 기준으로 페이지 수 고정",
-        "레이아웃 게이트 통과 전 export 차단",
-        "참조 인덱스 조건을 감사 로그로 증명",
+        shortText(seed.highlights[0] ?? "핵심 메시지 정리", 24),
+        shortText(seed.highlights[1] ?? "주요 정보 요약", 24),
+        shortText(seed.highlights[2] ?? "다음 행동 제안", 24),
       ],
-      callout: "메시지는 짧게, 근거는 검증 가능한 항목만 사용합니다.",
+      callout: `문의 및 링크 ${seed.contact}`,
     };
   }
 
   if (item.role === "agenda") {
     return {
       kicker: "개요",
-      title: "문서 진행 순서",
-      subtitle: "판단 흐름이 보이도록 페이지 역할을 먼저 고정합니다",
-      body: "아젠다는 설명 순서가 아니라 의사결정 순서를 기준으로 구성합니다.",
+      title: "진행 순서",
+      subtitle: "읽는 흐름을 먼저 고정합니다",
+      body: shortText(seed.detail, 96),
       points: [
-        "목표와 제약 조건 확인",
-        "핵심 근거 및 비교 포인트 정리",
-        "실행 계획과 검증 항목 확정",
-        "다음 단계 담당/기한 정의",
+        shortText(seed.highlights[0] ?? "핵심 맥락 확인", 26),
+        shortText(seed.highlights[1] ?? "주요 근거 정리", 26),
+        "실행 항목 확정",
+        "담당과 일정 확인",
       ],
-      callout: "아젠다에서 정한 순서를 나머지 페이지가 그대로 따릅니다.",
+      callout: "중요한 항목부터 짧게 배치합니다.",
     };
   }
 
   if (item.role === "insight") {
     return {
-      kicker: "핵심 인사이트",
-      title: "현재 상태에서 가장 중요한 관찰",
-      subtitle: "문제 정의와 근거를 같은 축으로 배치합니다",
-      body: "관찰 문장은 한 문장으로 요약하고, 바로 아래에 검증 가능한 근거를 연결합니다.",
-      points: ["핵심 관찰 1개", "확인 가능한 근거 2~3개", "해석과 사실 분리"],
-      callout: "인사이트 페이지는 주장보다 근거가 먼저 보여야 합니다.",
+      kicker: "핵심 관찰",
+      title: shortText(seed.subject, 30),
+      subtitle: shortText(seed.summary, 40),
+      body: shortText(seed.detail, 104),
+      points: ["관찰 포인트", "근거 메모", "해석 메모"],
+      callout: "사실과 해석을 분리해 기록합니다.",
     };
   }
 
   if (item.role === "solution") {
     return {
-      kicker: "해결안",
-      title: "실행 가능한 구조로 정리한 제안",
-      subtitle: "복잡한 설명 대신 책임과 결과 중심으로 작성",
-      body: "제안은 기능 목록이 아니라 단계와 책임 주체로 표현합니다.",
-      points: ["단계별 책임", "필요 입력", "산출물 형태", "검토 지점"],
-      callout: "실행 단위가 보이면 문서의 설득력이 올라갑니다.",
+      kicker: "실행 제안",
+      title: "실행 구조",
+      subtitle: shortText(seed.summary, 44),
+      body: shortText(seed.detail, 102),
+      points: ["단계 1", "단계 2", "단계 3", "검토 지점"],
+      callout: "각 단계에 책임과 산출물을 명시합니다.",
     };
   }
 
   if (item.role === "process" || item.role === "timeline") {
     return {
-      kicker: "실행 흐름",
-      title: item.role === "timeline" ? "주요 일정" : "운영 프로세스",
-      subtitle: "단계 간 입력과 출력을 분리해 오류를 줄입니다",
-      body: "각 단계는 완료 조건이 있어야 다음 단계로 진행할 수 있습니다.",
-      points: ["입력 수집", "중간 점검", "실행/배포", "결과 회수", "다음 사이클 반영"],
-      callout: "프로세스 페이지는 읽는 순간 다음 행동이 떠올라야 합니다.",
+      kicker: "진행 흐름",
+      title: item.role === "timeline" ? "주요 일정" : "프로세스",
+      subtitle: "단계 간 연결을 명확히 정리합니다",
+      body: shortText(seed.detail, 98),
+      points: ["준비", "실행", "점검", "공유", "다음 사이클"],
+      callout: "완료 기준이 있는 단계만 남깁니다.",
     };
   }
 
   if (item.role === "metrics") {
     return {
       kicker: "지표",
-      title: "측정 기준과 상태",
-      subtitle: "수치가 불명확한 항목은 생성하지 않습니다",
-      body: "확정되지 않은 수치 대신 지표 정의와 측정 방식만 먼저 합의합니다.",
+      title: "측정 기준",
+      subtitle: "확정되지 않은 수치는 비워둡니다",
+      body: "수치가 없을 때는 정의와 측정 방법부터 합의합니다.",
       points: [
-        `기준값: ${unknownMetricLabel}`,
-        `현재값: ${unknownMetricLabel}`,
-        `목표값: ${unknownMetricLabel}`,
+        `기준값: ${PLACEHOLDERS.metric}`,
+        `현재값: ${PLACEHOLDERS.metric}`,
+        `목표값: ${PLACEHOLDERS.metric}`,
       ],
-      callout: "모르는 숫자는 비워두고 측정 방법을 먼저 고정합니다.",
+      callout: "숫자는 확인 후 입력합니다.",
     };
   }
 
   if (item.role === "comparison") {
     return {
       kicker: "비교",
-      title: "선택지 간 차이 정리",
+      title: "선택지 차이",
       subtitle: "같은 기준으로만 비교합니다",
-      body: "조건, 비용, 리스크를 동일한 축에서 비교해 결정을 돕습니다.",
-      points: ["필수 조건 충족 여부", "운영 난이도", "도입 비용", "리스크"],
-      callout: "비교 축이 다르면 표를 분리해서 작성합니다.",
+      body: shortText(seed.detail, 94),
+      points: ["요건 충족", "운영 난이도", "비용", "리스크"],
+      callout: "비교 기준은 페이지 상단에 고정합니다.",
     };
   }
 
   if (item.role === "gallery") {
     return {
-      kicker: "대표 자산",
-      title: "핵심 장면 하이라이트",
-      subtitle: `${caption} 중심으로 메시지를 단문으로 유지`,
-      body: "이미지 중심 페이지는 본문을 길게 쓰지 않고 핵심 해석만 남깁니다.",
-      points: ["장면 설명", "활용 맥락", "검증 메모"],
-      callout: "이미지와 본문이 서로 같은 메시지를 가리켜야 합니다.",
+      kicker: "대표 장면",
+      title: shortText(seed.subject, 28),
+      subtitle: shortText(seed.summary, 30),
+      body: shortText(`${caption} 장면의 의미를 짧게 전달합니다.`, 70),
+      points: [shortText(seed.highlights[0] ?? "장면 요약", 20), "활용 맥락", "확인 메모"],
+      callout: "이미지와 문장이 같은 메시지를 가리키게 맞춥니다.",
     };
   }
 
   if (item.role === "text-only") {
     return {
       kicker: "텍스트 정리",
-      title: "이미지 없이도 전달되는 핵심 논리",
-      subtitle: "근거-주장-행동 순서로 압축",
-      body: "텍스트 전용 페이지는 문서의 논리 축을 고정하는 용도로 사용합니다.",
-      points: ["핵심 주장", "근거 항목", "예외 조건", "실행 조건"],
-      callout: "문장이 길어지면 먼저 항목 수를 줄입니다.",
+      title: shortText(seed.subject, 28),
+      subtitle: "이미지 없이도 핵심이 전달되게 구성",
+      body: shortText(seed.detail, 106),
+      points: ["핵심 주장", "근거", "예외 조건", "실행 조건"],
+      callout: "문장은 짧게, 항목은 명확하게 유지합니다.",
     };
   }
 
   if (item.role === "cta") {
     return {
       kicker: "다음 단계",
-      title: "바로 실행할 항목 확정",
-      subtitle: "담당자와 기한을 한 페이지에서 마무리",
-      body: "회의 종료 시 즉시 실행 가능한 상태를 만드는 것이 목표입니다.",
-      points: ["담당자 지정", "기한 확정", "검토 일정", "리스크 체크"],
-      callout: "CTA는 선택지가 아니라 실행 목록이어야 합니다.",
+      title: "실행 체크리스트",
+      subtitle: "담당과 일정을 한 번에 정리",
+      body: "즉시 실행 가능한 항목만 남겨서 마무리합니다.",
+      points: ["담당자: (추후 기입)", "기한: (추후 기입)", "점검 일정", "리스크 확인"],
+      callout: `연락/링크 ${PLACEHOLDERS.contact}`,
     };
   }
 
   return {
     kicker: sectionLabel(item.role),
-    title: `${sectionLabel(item.role)} 페이지 핵심`,
-    subtitle: `${item.topicLabel} 토픽 기준 메시지 정리`,
-    body: `${caption} 자산에서 확인 가능한 정보만 사용해 페이지 목적을 명확히 유지합니다.`,
-    points: ["핵심 메시지 1개", "근거 2~3개", "다음 행동 1개"],
-    callout: "텍스트 예산을 넘기면 먼저 텍스트를 줄입니다.",
+    title: shortText(seed.subject, 30),
+    subtitle: shortText(seed.summary, 44),
+    body: shortText(seed.detail, 104),
+    points: [PLACEHOLDERS.feature1, PLACEHOLDERS.feature2, PLACEHOLDERS.feature3],
+    callout: "핵심 메시지를 한 줄로 정리합니다.",
   };
 }
 
-function applyBudget(draft: CopyDraft, budget: ReturnType<typeof getTemplateSpec>["maxTextBudget"]): CopyDraft {
+function budgetByDocKind(budget: TextBudget, docKind: DocumentPlan["requestSpec"]["docKind"]): TextBudget {
+  if (docKind !== "poster" && docKind !== "poster_set") {
+    return budget;
+  }
+
   return {
-    kicker: shortText(draft.kicker, 28),
-    title: shortText(draft.title, budget.title),
-    subtitle: shortText(draft.subtitle, budget.subtitle),
-    body: shortText(draft.body, budget.body),
-    points: draft.points.slice(0, Math.max(1, budget.bullets)).map((point) => shortText(point, budget.bullet)),
-    callout: shortText(draft.callout, budget.callout),
+    title: Math.min(budget.title, 22),
+    subtitle: Math.min(budget.subtitle, 30),
+    body: Math.min(budget.body, 66),
+    bullet: Math.min(budget.bullet, 16),
+    bullets: Math.min(budget.bullets, 3),
+    callout: Math.min(budget.callout, 34),
+  };
+}
+
+function applyBudget(copy: CopyDraft, budget: TextBudget): CopyDraft {
+  return {
+    kicker: shortText(copy.kicker, 28),
+    title: shortText(copy.title, budget.title),
+    subtitle: shortText(copy.subtitle, budget.subtitle),
+    body: shortText(copy.body, budget.body),
+    points: copy.points.slice(0, Math.max(1, budget.bullets)).map((point) => shortText(point, budget.bullet)),
+    callout: shortText(copy.callout, budget.callout),
   };
 }
 
@@ -303,18 +465,18 @@ function removeVagueWords(value: string): string {
 
 function cleanDraft(copy: CopyDraft): CopyDraft {
   return {
-    kicker: removeVagueWords(copy.kicker),
-    title: removeVagueWords(copy.title),
-    subtitle: removeVagueWords(copy.subtitle),
-    body: removeVagueWords(copy.body),
-    points: copy.points.map((item) => removeVagueWords(item)).filter(Boolean),
-    callout: removeVagueWords(copy.callout),
+    kicker: stripInternalTerms(removeVagueWords(copy.kicker)),
+    title: stripInternalTerms(removeVagueWords(copy.title)),
+    subtitle: stripInternalTerms(removeVagueWords(copy.subtitle)),
+    body: stripInternalTerms(removeVagueWords(copy.body)),
+    points: copy.points.map((item) => stripInternalTerms(removeVagueWords(item))).filter(Boolean),
+    callout: stripInternalTerms(removeVagueWords(copy.callout)),
   };
 }
 
 function bulletize(points: string[], budgetBullets: number): string[] {
   const list = points
-    .map((point) => sanitizeText(point))
+    .map((point) => stripInternalTerms(sanitizeText(point)))
     .filter(Boolean)
     .slice(0, Math.max(1, budgetBullets));
 
@@ -327,7 +489,7 @@ function bulletize(points: string[], budgetBullets: number): string[] {
 
 function fitCheck(params: {
   copy: CopyDraft;
-  budget: ReturnType<typeof getTemplateSpec>["maxTextBudget"];
+  budget: TextBudget;
   tokens: LayoutTokens;
 }): CopyDraft {
   const lineBudget = Math.max(3, Math.floor((params.budget.body / Math.max(12, params.tokens.fontScalePt.body)) * 3));
@@ -384,10 +546,11 @@ export function buildPageBrief(params: {
   tokens: LayoutTokens;
 }): PageBrief {
   const spec = getTemplateSpec(params.templateId);
+  const budget = budgetByDocKind(spec.maxTextBudget, params.plan.requestSpec.docKind);
   const maxBullets =
     params.templateId === "TEXT_ONLY_EDITORIAL" || params.templateId === "AGENDA_EDITORIAL"
-      ? Math.min(6, spec.maxTextBudget.bullets)
-      : Math.min(5, spec.maxTextBudget.bullets);
+      ? Math.min(6, budget.bullets)
+      : Math.min(5, budget.bullets);
   const sourceImage = params.item.primaryAssetFilename;
   const imageCaption = sourceImage ? cleanCaptionFromFilename(sourceImage) : "이미지 없음";
 
@@ -396,7 +559,7 @@ export function buildPageBrief(params: {
   let copy = buildDraft({ ...params.item, templateId: params.templateId }, params.plan, imageCaption);
 
   pipelineLog.push("budget-shorten");
-  copy = applyBudget(copy, spec.maxTextBudget);
+  copy = applyBudget(copy, budget);
 
   pipelineLog.push("remove-vague");
   copy = cleanDraft(copy);
@@ -410,7 +573,7 @@ export function buildPageBrief(params: {
   pipelineLog.push("fit-check");
   copy = fitCheck({
     copy,
-    budget: spec.maxTextBudget,
+    budget,
     tokens: params.tokens,
   });
 
@@ -428,10 +591,10 @@ export function buildPageBrief(params: {
     const tightenRatio = 0.72;
     copy = {
       ...copy,
-      title: shortText(copy.title, Math.floor(spec.maxTextBudget.title * tightenRatio)),
-      subtitle: shortText(copy.subtitle, Math.floor(spec.maxTextBudget.subtitle * tightenRatio)),
-      body: shortText(copy.body, Math.floor(spec.maxTextBudget.body * tightenRatio)),
-      callout: shortText(copy.callout, Math.floor(spec.maxTextBudget.callout * tightenRatio)),
+      title: shortText(copy.title, Math.floor(budget.title * tightenRatio)),
+      subtitle: shortText(copy.subtitle, Math.floor(budget.subtitle * tightenRatio)),
+      body: shortText(copy.body, Math.floor(budget.body * tightenRatio)),
+      callout: shortText(copy.callout, Math.floor(budget.callout * tightenRatio)),
     };
   }
 
@@ -442,12 +605,12 @@ export function buildPageBrief(params: {
 
   const narrative: PageNarrative = {
     kicker: shortText(copy.kicker, 28),
-    title: shortText(copy.title, spec.maxTextBudget.title),
-    subtitle: shortText(copy.subtitle, spec.maxTextBudget.subtitle),
-    body: shortText(copy.body, spec.maxTextBudget.body),
+    title: shortText(copy.title, budget.title),
+    subtitle: shortText(copy.subtitle, budget.subtitle),
+    body: shortText(copy.body, budget.body),
     bullets: bulletize(copy.points, maxBullets),
     chips,
-    callout: shortText(copy.callout, spec.maxTextBudget.callout),
+    callout: shortText(copy.callout, budget.callout),
     footer: shortText(`${params.plan.docTitle} · ${params.item.pageNumber}페이지`, 96),
     metrics: narrativeMetrics.items,
     metricsDebugOnly: narrativeMetrics.debugOnly,
@@ -465,7 +628,7 @@ export function buildPageBrief(params: {
     template: templateLabel(params.templateId),
     templateReason: `${sectionLabel(params.item.role)} 구성에 ${templateLabel(params.templateId)} 적용`,
     readingFlow: spec.readingFlow,
-    maxTextBudget: spec.maxTextBudget,
+    maxTextBudget: budget,
     copyPipelineLog: pipelineLog,
   };
 

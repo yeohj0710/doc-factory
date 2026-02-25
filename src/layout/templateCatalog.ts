@@ -170,6 +170,19 @@ function resolveColumnRatio(params: BuildZoneParams, fallback: number): number {
   return clamp(fallback, 0.36, 0.72);
 }
 
+function resolveColumnScale(params: BuildZoneParams): number {
+  if (!params.layoutTuning) {
+    return 1;
+  }
+  if (params.layoutTuning.columns >= 3) {
+    return 1.14;
+  }
+  if (params.layoutTuning.columns <= 1) {
+    return 0.9;
+  }
+  return 1;
+}
+
 function resolveCardDensityScale(params: BuildZoneParams): number {
   const density = params.layoutTuning?.cardDensity ?? 0.5;
   return clamp(0.88 + density * 0.36, 0.82, 1.24);
@@ -246,10 +259,11 @@ function sectionDividerZones(params: BuildZoneParams): TemplateZone[] {
 
 function agendaZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const titleY = m.contentTop;
   const subtitleY = titleY + 18;
   const bodyY = subtitleY + 12;
-  const calloutY = m.contentTop + m.contentH * 0.72;
+  const calloutY = m.contentTop + m.contentH * clamp(0.72 + (columnScale - 1) * 0.11, 0.62, 0.8);
   const bodyH = Math.max(16, calloutY - bodyY - m.gutter);
   const calloutH = Math.max(14, m.contentBottom - calloutY);
   return [
@@ -343,11 +357,12 @@ function twoColumnZones(params: BuildZoneParams): TemplateZone[] {
 
 function metricsZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const metricsY = m.contentTop + 28;
-  const metricsH = m.contentH * (0.2 * densityScale);
+  const metricsH = m.contentH * clamp(0.2 * densityScale * columnScale, 0.14, 0.38);
   const bodyY = metricsY + metricsH + m.gutter;
-  const bodyH = m.contentH * (0.24 * densityScale);
+  const bodyH = m.contentH * clamp(0.24 * densityScale * (2 - columnScale * 0.75), 0.14, 0.34);
   const mediaY = bodyY + bodyH + m.gutter;
   const mediaH = Math.max(12, m.contentBottom - mediaY);
   return [
@@ -373,11 +388,12 @@ function metricsZones(params: BuildZoneParams): TemplateZone[] {
 
 function flowZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const flowY = m.contentTop + 28;
-  const flowH = m.contentH * (0.2 * densityScale);
+  const flowH = m.contentH * clamp(0.2 * densityScale * columnScale, 0.15, 0.34);
   const bodyY = flowY + flowH + m.gutter;
-  const bodyH = m.contentH * (0.24 * densityScale);
+  const bodyH = m.contentH * clamp(0.24 * densityScale * (2 - columnScale * 0.7), 0.14, 0.34);
   const calloutY = bodyY + bodyH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [
@@ -403,11 +419,12 @@ function flowZones(params: BuildZoneParams): TemplateZone[] {
 
 function timelineZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const flowY = m.contentTop + 30;
-  const flowH = m.contentH * (0.16 * densityScale);
+  const flowH = m.contentH * clamp(0.16 * densityScale * columnScale, 0.1, 0.3);
   const tableY = flowY + flowH + m.gutter;
-  const tableH = m.contentH * (0.34 * densityScale);
+  const tableH = m.contentH * clamp(0.34 * densityScale * columnScale, 0.2, 0.52);
   const calloutY = tableY + tableH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [
@@ -428,11 +445,12 @@ function timelineZones(params: BuildZoneParams): TemplateZone[] {
 
 function comparisonZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const tableY = m.contentTop + 28;
-  const tableH = m.contentH * (0.4 * densityScale);
+  const tableH = m.contentH * clamp(0.4 * densityScale * columnScale, 0.24, 0.56);
   const bodyY = tableY + tableH + m.gutter;
-  const bodyH = m.contentH * (0.14 * densityScale);
+  const bodyH = m.contentH * clamp(0.14 * densityScale * (2 - columnScale * 0.75), 0.1, 0.24);
   const calloutY = bodyY + bodyH + m.gutter;
   const calloutH = Math.max(10, m.contentBottom - calloutY);
   return [
@@ -475,11 +493,12 @@ function galleryZones(params: BuildZoneParams): TemplateZone[] {
 
 function textOnlyZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const bodyY = m.contentTop + 33;
-  const bodyH = m.contentH * (0.34 * densityScale);
+  const bodyH = m.contentH * clamp(0.34 * densityScale * (2 - columnScale * 0.6), 0.18, 0.48);
   const tableY = bodyY + bodyH + m.gutter;
-  const tableH = m.contentH * (0.2 * densityScale);
+  const tableH = m.contentH * clamp(0.2 * densityScale * columnScale, 0.12, 0.34);
   const calloutY = tableY + tableH + m.gutter;
   const calloutH = Math.max(10, m.contentBottom - calloutY);
   return [
@@ -500,11 +519,12 @@ function textOnlyZones(params: BuildZoneParams): TemplateZone[] {
 
 function ctaZones(params: BuildZoneParams): TemplateZone[] {
   const m = baseMeasurements(params);
+  const columnScale = resolveColumnScale(params);
   const densityScale = resolveCardDensityScale(params);
   const bodyY = m.contentTop + 38;
-  const bodyH = m.contentH * (0.21 * densityScale);
+  const bodyH = m.contentH * clamp(0.21 * densityScale * (2 - columnScale * 0.7), 0.12, 0.3);
   const metricsY = bodyY + bodyH + m.gutter;
-  const metricsH = m.contentH * (0.16 * densityScale);
+  const metricsH = m.contentH * clamp(0.16 * densityScale * columnScale, 0.1, 0.28);
   const calloutY = metricsY + metricsH + m.gutter;
   const calloutH = Math.max(12, m.contentBottom - calloutY);
   return [

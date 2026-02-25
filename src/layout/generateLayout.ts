@@ -13,6 +13,7 @@ import type { DocumentPlan, StoryboardItem } from "@/src/planner/types";
 import { runExportAudit } from "@/src/qa/exportAudit";
 import { createRuntimeValidator } from "@/src/qa/runtimeValidation";
 import { writeExportAuditArtifact, writeGeneratedLayoutArtifact } from "@/src/qa/writeGeneratedLayout";
+import { runContentQualityGates } from "@/src/quality/contentGates";
 import type { RequestSpec } from "@/src/request/requestSpec";
 
 type GenerateIntent = "regenerate" | "export";
@@ -49,6 +50,13 @@ export type GenerateLayoutResult = {
     available: boolean;
     passed: boolean;
     failedPageCount: number;
+  };
+  contentQuality: {
+    passed: boolean;
+    internalTermsPassed: boolean;
+    completenessPassed: boolean;
+    internalTermLeakCount: number;
+    completenessIssueCount: number;
   };
   exportAudit: ReturnType<typeof runExportAudit>;
   exportMeta: {
@@ -418,6 +426,37 @@ function enforceDeterminismSignature(params: {
   };
 }
 
+function applyQualityIssuesToPages(params: {
+  pages: PageLayout[];
+  issues: ReturnType<typeof runContentQualityGates>["issues"];
+}): PageLayout[] {
+  const byPage = new Map<number, LayoutValidationIssue[]>();
+  for (const finding of params.issues) {
+    const bucket = byPage.get(finding.pageNumber) ?? [];
+    bucket.push(finding.issue);
+    byPage.set(finding.pageNumber, bucket);
+  }
+
+  return params.pages.map((page) => {
+    const extraIssues = byPage.get(page.pageNumber) ?? [];
+    if (extraIssues.length === 0 || !page.meta) {
+      return page;
+    }
+
+    return {
+      ...page,
+      meta: {
+        ...page.meta,
+        validation: {
+          ...page.meta.validation,
+          passed: false,
+          issues: [...page.meta.validation.issues, ...extraIssues],
+        },
+      },
+    };
+  });
+}
+
 function buildExportFilename(params: {
   docTitle: string;
   docKind: RequestSpec["docKind"];
@@ -622,7 +661,24 @@ export async function generateLayout(
     logs.push("[determinism] signature mismatch detected and marked as failure");
   }
 
-  const pageResults: PageValidationSummary[] = deterministic.pages.map((page) => {
+  const contentQuality = runContentQualityGates({
+    pages: deterministic.pages,
+    docKind: requestSpec.docKind,
+  });
+  const qualityAdjustedPages = applyQualityIssuesToPages({
+    pages: deterministic.pages,
+    issues: contentQuality.issues,
+  });
+
+  if (!contentQuality.passed) {
+    logs.push(
+      `[content-quality] failed internal=${contentQuality.internalTermLeakCount} completeness=${contentQuality.completenessIssueCount}`,
+    );
+  } else {
+    logs.push("[content-quality] passed");
+  }
+
+  const pageResults: PageValidationSummary[] = qualityAdjustedPages.map((page) => {
     const passed = page.meta?.validation.passed ?? false;
     return {
       pageNumber: page.pageNumber,
@@ -640,10 +696,10 @@ export async function generateLayout(
   ).length;
   const runtimeGatesPassed = runtimeGateFailedPageCount === 0;
 
-  logs.push(`[validation] static+runtime passed=${passedPageCount}/${deterministic.pages.length}`);
+  logs.push(`[validation] static+runtime+content passed=${passedPageCount}/${qualityAdjustedPages.length}`);
 
   const exportAudit = runExportAudit({
-    pages: deterministic.pages,
+    pages: qualityAdjustedPages,
     expectedPageCount: plannerResult.plan.pageCount,
     pageSize: plannerResult.plan.pageSize,
     debugEnabled: intent === "export" ? showDebugMeta : false,
@@ -652,6 +708,7 @@ export async function generateLayout(
     requestHash,
     themeFactoryStatus: plannerResult.plan.themeFactoryProof.status,
     runtimeGatesPassed,
+    contentQuality,
   });
   emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length} hash=${exportAudit.auditHash}`);
 
@@ -689,7 +746,7 @@ export async function generateLayout(
       referenceDigest: plannerResult.plan.referenceDigest,
       requestHash,
     },
-    pages: deterministic.pages,
+    pages: qualityAdjustedPages,
   };
 
   try {
@@ -716,7 +773,7 @@ export async function generateLayout(
     plan: plannerResult.plan,
     storyboard: plannerResult.storyboard,
     tokens,
-    pages: deterministic.pages,
+    pages: qualityAdjustedPages,
     logs,
     validation: {
       passed: failedPageCount === 0,
@@ -729,12 +786,19 @@ export async function generateLayout(
       passed: runtimeGatesPassed,
       failedPageCount: runtimeGateFailedPageCount,
     },
+    contentQuality: {
+      passed: contentQuality.passed,
+      internalTermsPassed: contentQuality.internalTermsPassed,
+      completenessPassed: contentQuality.completenessPassed,
+      internalTermLeakCount: contentQuality.internalTermLeakCount,
+      completenessIssueCount: contentQuality.completenessIssueCount,
+    },
     exportAudit,
     exportMeta: {
       docTitle: plannerResult.plan.docTitle,
       pageSize: plannerResult.plan.pageSizePreset,
       variantIndex,
-      pageCount: deterministic.pages.length,
+      pageCount: qualityAdjustedPages.length,
       filename,
       auditHash: exportAudit.auditHash,
       referenceDigest: plannerResult.plan.referenceDigest,

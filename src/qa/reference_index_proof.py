@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -14,7 +14,7 @@ EXPORT_URL = f"{BASE_URL}/api/export/pptx"
 
 def trigger_regenerate(variant: int) -> None:
     url = f"{BASE_URL}/?v={variant}"
-    with urllib.request.urlopen(url, timeout=180) as response:
+    with urllib.request.urlopen(url, timeout=600) as response:
         response.read(2048)
 
 
@@ -23,7 +23,7 @@ def post_export(payload: dict[str, str]) -> dict:
     request = urllib.request.Request(EXPORT_URL, data=data, method="POST")
 
     try:
-        with urllib.request.urlopen(request, timeout=240) as response:
+        with urllib.request.urlopen(request, timeout=600) as response:
             headers = {key.lower(): value for key, value in response.headers.items()}
             _ = response.read(64)
             return {
@@ -132,3 +132,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

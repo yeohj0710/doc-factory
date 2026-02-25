@@ -13,7 +13,7 @@ def post_form(payload: dict[str, str]) -> dict:
     request = urllib.request.Request(BASE, data=data, method="POST")
 
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
+        with urllib.request.urlopen(request, timeout=600) as response:
             headers = {key.lower(): value for key, value in response.headers.items()}
             return {
                 "status": response.status,
@@ -74,3 +74,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

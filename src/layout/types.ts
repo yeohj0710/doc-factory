@@ -110,6 +110,8 @@ export type LayoutValidationIssueCode =
   | "runtime-clip"
   | "runtime-overlap"
   | "runtime-truncation"
+  | "internal-term"
+  | "content-completeness"
   | "export-audit";
 
 export type LayoutValidationIssue = {

@@ -1,0 +1,400 @@
+{
+  "params": {
+    "pageSizePreset": "A4P",
+    "docType": "proposal",
+    "stylePresetId": "theme-modern-minimalist__ref_style-c06",
+    "variantIndex": 1,
+    "seed": 11111,
+    "referenceDigest": "3f84300b4ad9af5943e7b4ee3483289d",
+    "requestHash": "0a4f55b8141f83e4"
+  },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "pageRole": "cover",
+      "templateId": "TITLE_MEDIA_SAFE",
+      "widthMm": 210,
+      "heightMm": 297,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 210,
+          "hMm": 297,
+          "fill": "#FFFFFF",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 12.832,
+          "wMm": 184.336,
+          "hMm": 23.76,
+          "fill": "#c8cacc",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.1
+        },
+        {
+          "type": "text",
+          "xMm": 14.032,
+          "yMm": 14.032,
+          "wMm": 181.936,
+          "hMm": 21.360000000000003,
+          "text": "Brochure / ko",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#5D6872"
+        },
+        {
+          "type": "text",
+          "xMm": 12.832,
+          "yMm": 42.092,
+          "wMm": 184.336,
+          "hMm": 15,
+          "text": "QA_Job_Isolation",
+          "fontSizePt": 23.66,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#36454F"
+        },
+        {
+          "type": "text",
+          "xMm": 12.832,
+          "yMm": 58.092,
+          "wMm": 184.336,
+          "hMm": 9,
+          "text": "화면 중심 메시지를 정리합니다.",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#5D6872"
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 71.092,
+          "wMm": 184.336,
+          "hMm": 47.64672,
+          "fill": "#d1d2d3",
+          "id": "media-media-frame",
+          "role": "media",
+          "collisionGroup": "media-media",
+          "isCollisionProtected": true,
+          "radiusMm": 3.48,
+          "stroke": "#D4DCE3",
+          "strokeWidthMm": 0.2
+        },
+        {
+          "type": "image",
+          "xMm": 13.832,
+          "yMm": 72.092,
+          "wMm": 182.336,
+          "hMm": 45.64672,
+          "srcPublicPath": "/api/assets/images/qa-001.png",
+          "fit": "cover",
+          "intrinsicWidthPx": 3556,
+          "intrinsicHeightPx": 2000,
+          "anchorX": 0.5,
+          "anchorY": 0.5,
+          "id": "media-media-image",
+          "role": "media",
+          "collisionGroup": "media-media",
+          "isCollisionProtected": true
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 124.23872,
+          "wMm": 184.336,
+          "hMm": 42.491743395840004,
+          "fill": "#d1d2d3",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 1.624,
+          "stroke": "#D4DCE3",
+          "strokeWidthMm": 0.2
+        },
+        {
+          "type": "text",
+          "xMm": 15.032,
+          "yMm": 126.43872,
+          "wMm": 179.936,
+          "hMm": 38.091743395840005,
+          "text": "qa 001 중심으로 핵심 정보만 배치합니다.\n\n- qa 001\n- qa 002\n- 화면 중심",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#36454F"
+        },
+        {
+          "type": "line",
+          "x1Mm": 12.832,
+          "y1Mm": 264.968,
+          "x2Mm": 197.168,
+          "y2Mm": 264.968,
+          "stroke": "#D4DCE3",
+          "widthMm": 0.2,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 14.232000000000001,
+          "yMm": 265.568,
+          "wMm": 181.536,
+          "hMm": 17.2,
+          "text": "QA_Job_Isolation · 1페이지",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#5D6872"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "표지",
+          "sourceImage": "qa-001.png",
+          "imageCaption": "qa 001",
+          "topic": "ui",
+          "template": "Title Media Safe",
+          "templateReason": "표지 구성에 Title Media Safe 적용",
+          "readingFlow": "title -> media -> summary",
+          "maxTextBudget": {
+            "title": 28,
+            "subtitle": 44,
+            "body": 108,
+            "bullet": 20,
+            "bullets": 4,
+            "callout": 62
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check"
+          ]
+        },
+        "validation": {
+          "passed": true,
+          "issues": [],
+          "attemptedTemplates": [
+            "TITLE_MEDIA_SAFE"
+          ],
+          "runtimeIssues": []
+        }
+      }
+    },
+    {
+      "pageNumber": 2,
+      "pageRole": "cta",
+      "templateId": "CTA_CONTACT",
+      "widthMm": 210,
+      "heightMm": 297,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 210,
+          "hMm": 297,
+          "fill": "#FFFFFF",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 12.832,
+          "wMm": 184.336,
+          "hMm": 30,
+          "fill": "#c8cacc",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.1
+        },
+        {
+          "type": "text",
+          "xMm": 14.032,
+          "yMm": 14.032,
+          "wMm": 181.936,
+          "hMm": 27.6,
+          "text": "다음 단계",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#5D6872"
+        },
+        {
+          "type": "text",
+          "xMm": 12.832,
+          "yMm": 54.992000000000004,
+          "wMm": 184.336,
+          "hMm": 16,
+          "text": "실행 체크리스트",
+          "fontSizePt": 23.66,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#36454F"
+        },
+        {
+          "type": "text",
+          "xMm": 12.832,
+          "yMm": 72.992,
+          "wMm": 184.336,
+          "hMm": 10,
+          "text": "담당과 일정을 한 번에 정리",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#5D6872"
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 86.992,
+          "wMm": 184.336,
+          "hMm": 61.61481881330159,
+          "fill": "#d1d2d3",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 1.624,
+          "stroke": "#D4DCE3",
+          "strokeWidthMm": 0.2
+        },
+        {
+          "type": "text",
+          "xMm": 15.032,
+          "yMm": 89.19200000000001,
+          "wMm": 179.936,
+          "hMm": 57.21481881330159,
+          "text": "즉시 실행 가능한 항목만 남겨서 마무리합니다.\n\n- 담당자: (추후 기입)\n- 기한: (추후 기입)\n- 점검 일정\n- 리스크 확인",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#36454F"
+        },
+        {
+          "type": "rect",
+          "xMm": 12.832,
+          "yMm": 191.7663527344536,
+          "wMm": 184.336,
+          "hMm": 71.39164726554637,
+          "fill": "#2c3c3c",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 3.48
+        },
+        {
+          "type": "text",
+          "xMm": 14.832,
+          "yMm": 193.7663527344536,
+          "wMm": 180.336,
+          "hMm": 67.39164726554637,
+          "text": "연락/링크 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#FFFFFF"
+        },
+        {
+          "type": "line",
+          "x1Mm": 12.832,
+          "y1Mm": 270.118,
+          "x2Mm": 197.168,
+          "y2Mm": 270.118,
+          "stroke": "#D4DCE3",
+          "widthMm": 0.2,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 14.232000000000001,
+          "yMm": 270.71799999999996,
+          "wMm": 181.536,
+          "hMm": 12.05,
+          "text": "QA_Job_Isolation · 2페이지",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#5D6872"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "다음 단계",
+          "sourceImage": null,
+          "imageCaption": "이미지 없음",
+          "topic": "generic",
+          "template": "CTA Contact",
+          "templateReason": "다음 단계 구성에 CTA Contact 적용",
+          "readingFlow": "title -> checklist -> call-to-action",
+          "maxTextBudget": {
+            "title": 24,
+            "subtitle": 36,
+            "body": 72,
+            "bullet": 18,
+            "bullets": 5,
+            "callout": 54
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check"
+          ]
+        },
+        "validation": {
+          "passed": true,
+          "issues": [],
+          "attemptedTemplates": [
+            "CTA_CONTACT"
+          ],
+          "runtimeIssues": []
+        }
+      }
+    }
+  ]
+}

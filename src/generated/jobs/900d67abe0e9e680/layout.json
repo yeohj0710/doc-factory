@@ -1,0 +1,209 @@
+{
+  "params": {
+    "pageSizePreset": "A4P",
+    "docType": "poster",
+    "stylePresetId": "theme-botanical-garden__ref_style-c20",
+    "variantIndex": 1,
+    "seed": 33003,
+    "referenceDigest": "3f84300b4ad9af5943e7b4ee3483289d",
+    "requestHash": "900d67abe0e9e680"
+  },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "pageRole": "cover",
+      "templateId": "TITLE_MEDIA_SAFE",
+      "widthMm": 210,
+      "heightMm": 297,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 210,
+          "hMm": 297,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 11.726,
+          "yMm": 11.726,
+          "wMm": 186.548,
+          "hMm": 23.76,
+          "fill": "#d0d5ce",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.926,
+          "yMm": 12.926,
+          "wMm": 184.148,
+          "hMm": 21.360000000000003,
+          "text": "Poster / ko",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 11.726,
+          "yMm": 41.54744,
+          "wMm": 186.548,
+          "hMm": 15,
+          "text": "[이름]",
+          "fontSizePt": 24.55,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "text",
+          "xMm": 11.726,
+          "yMm": 57.54744,
+          "wMm": 186.548,
+          "hMm": 9,
+          "text": "[한 줄 소개]",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "rect",
+          "xMm": 11.726,
+          "yMm": 70.54744,
+          "wMm": 186.548,
+          "hMm": 86.5218852,
+          "fill": "#cdd1cc",
+          "id": "media-media-frame",
+          "role": "media",
+          "collisionGroup": "media-media",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.271
+        },
+        {
+          "type": "image",
+          "xMm": 12.726,
+          "yMm": 71.54744,
+          "wMm": 184.548,
+          "hMm": 84.5218852,
+          "srcPublicPath": "/api/assets/images/qa-001.png",
+          "fit": "cover",
+          "intrinsicWidthPx": 3556,
+          "intrinsicHeightPx": 2000,
+          "anchorX": 0.5,
+          "anchorY": 0.5,
+          "id": "media-media-image",
+          "role": "media",
+          "collisionGroup": "media-media",
+          "isCollisionProtected": true
+        },
+        {
+          "type": "rect",
+          "xMm": 11.726,
+          "yMm": 163.13076519999998,
+          "wMm": 186.548,
+          "hMm": 36.17071898112,
+          "fill": "#cdd1cc",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.271
+        },
+        {
+          "type": "text",
+          "xMm": 13.926000000000002,
+          "yMm": 165.33076519999997,
+          "wMm": 182.148,
+          "hMm": 31.770718981119998,
+          "text": "qa 001 중심으로 핵심 정보만 배치합니다.\n\n- [특징 1]\n- [특징 2]\n- [특징 3]",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 11.726,
+          "y1Mm": 266.074,
+          "x2Mm": 198.274,
+          "y2Mm": 266.074,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.271,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 13.126000000000001,
+          "yMm": 266.674,
+          "wMm": 183.748,
+          "hMm": 17.2,
+          "text": "QA_Content_Friend · 1페이지",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "표지",
+          "sourceImage": "qa-001.png",
+          "imageCaption": "qa 001",
+          "topic": "ui",
+          "template": "Title Media Safe",
+          "templateReason": "표지 구성에 Title Media Safe 적용",
+          "readingFlow": "title -> media -> summary",
+          "maxTextBudget": {
+            "title": 22,
+            "subtitle": 30,
+            "body": 66,
+            "bullet": 16,
+            "bullets": 3,
+            "callout": 34
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check"
+          ]
+        },
+        "validation": {
+          "passed": true,
+          "issues": [],
+          "attemptedTemplates": [
+            "COVER_SPLIT_MEDIA",
+            "TITLE_MEDIA_SAFE"
+          ],
+          "runtimeIssues": []
+        }
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { stableHashFromParts } from "@/src/io/hash";
 import { resolvePageSize, type PageSizePreset } from "@/src/layout/pageSize";
 import type { DocType } from "@/src/layout/types";
 
-export type RequestDocKind = "poster" | "brochure" | "onepager" | "report" | "cards";
+export type RequestDocKind = "poster" | "poster_set" | "brochure" | "onepager" | "report" | "cards";
 
 export type RequestPageCount =
   | {
@@ -18,6 +18,7 @@ export type RequestPageCount =
 export type RequestSpec = {
   jobId: string;
   prompt: string;
+  contentBrief?: string;
   docKind: RequestDocKind;
   pageCount: RequestPageCount;
   pageSize: {
@@ -47,8 +48,9 @@ const DEFAULT_CONSTRAINTS = [
 ];
 const DEFAULT_PAGE_COUNT_BY_KIND: Record<RequestDocKind, RequestPageCount> = {
   poster: { mode: "exact", value: 1 },
-  brochure: { mode: "range", min: 6, max: 10 },
-  onepager: { mode: "exact", value: 2 },
+  poster_set: { mode: "range", min: 2, max: 4 },
+  brochure: { mode: "range", min: 6, max: 12 },
+  onepager: { mode: "exact", value: 1 },
   report: { mode: "range", min: 8, max: 14 },
   cards: { mode: "range", min: 4, max: 12 },
 };
@@ -92,8 +94,11 @@ function parseDocKind(value: string | undefined): RequestDocKind | undefined {
   }
 
   const normalized = value.trim().toLowerCase();
-  if (["poster", "brochure", "onepager", "report", "cards"].includes(normalized)) {
+  if (["poster", "poster_set", "brochure", "onepager", "report", "cards"].includes(normalized)) {
     return normalized as RequestDocKind;
+  }
+  if (normalized === "poster-set" || normalized === "posterset" || normalized === "poster set") {
+    return "poster_set";
   }
   if (normalized === "one-pager") {
     return "onepager";
@@ -118,6 +123,62 @@ function parseLegacyDocType(value: string | undefined): RequestDocKind | undefin
   return undefined;
 }
 
+function parsePromptPageCount(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const patterns = [
+    /(\d+)\s*(?:장|페이지)/iu,
+    /\b(\d+)\s*(?:page|pages|p)\b/iu,
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (!match?.[1]) {
+      continue;
+    }
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function inferDocKindFromPrompt(prompt: string): RequestDocKind | undefined {
+  const normalized = prompt.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const hasPosterSignal = /(?:포스터|poster)/iu.test(normalized);
+  if (hasPosterSignal) {
+    const explicitCount = parsePromptPageCount(normalized);
+    const setSignal = /(?:세트|셋|시리즈|series|set)/iu.test(normalized);
+    if ((typeof explicitCount === "number" && explicitCount >= 2) || setSignal) {
+      return "poster_set";
+    }
+    return "poster";
+  }
+
+  if (/(?:원페이지|원 페이저|onepager|one-pager)/iu.test(normalized)) {
+    return "onepager";
+  }
+  if (/(?:보고서|리포트|report)/iu.test(normalized)) {
+    return "report";
+  }
+  if (/(?:카드|cards?)/iu.test(normalized)) {
+    return "cards";
+  }
+  if (/(?:브로슈어|소개서|brochure|proposal)/iu.test(normalized)) {
+    return "brochure";
+  }
+
+  return undefined;
+}
+
 function parsePageSizePreset(value: string | undefined): PageSizePreset | undefined {
   if (!value) {
     return undefined;
@@ -127,22 +188,6 @@ function parsePageSizePreset(value: string | undefined): PageSizePreset | undefi
     return normalized as PageSizePreset;
   }
   return undefined;
-}
-
-function parsePositiveIntFromText(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const match = value.match(/(\d+)/);
-  if (!match?.[1]) {
-    return undefined;
-  }
-  const parsed = Number.parseInt(match[1], 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return undefined;
-  }
-  return parsed;
 }
 
 function parsePageCountSpec(raw: string | undefined): RequestPageCount | undefined {
@@ -235,6 +280,7 @@ function normalizeTitle(raw: string | undefined): string {
 function seedFromRequest(parts: {
   jobId: string;
   prompt: string;
+  contentBrief?: string;
   docKind: RequestDocKind;
   title: string;
   variantIndex: number;
@@ -251,6 +297,7 @@ function seedFromRequest(parts: {
     [
       parts.jobId,
       parts.prompt,
+      parts.contentBrief ?? "",
       parts.docKind,
       parts.title,
       String(parts.variantIndex),
@@ -268,7 +315,7 @@ function parsePrompt(input: RawInputReader): string {
   return prompt.trim();
 }
 
-function parsePageCount(input: RawInputReader, docKind: RequestDocKind): RequestPageCount {
+function parsePageCount(input: RawInputReader, docKind: RequestDocKind, prompt: string): RequestPageCount {
   const direct = parsePageCountSpec(input.get("pageCount") ?? input.get("pages"));
   if (direct) {
     return normalizePageCount(direct);
@@ -284,7 +331,7 @@ function parsePageCount(input: RawInputReader, docKind: RequestDocKind): Request
     });
   }
 
-  const promptCount = parsePositiveIntFromText(input.get("prompt") ?? input.get("q"));
+  const promptCount = parsePromptPageCount(prompt);
   if (typeof promptCount === "number") {
     return normalizePageCount({
       mode: "exact",
@@ -293,6 +340,33 @@ function parsePageCount(input: RawInputReader, docKind: RequestDocKind): Request
   }
 
   return DEFAULT_PAGE_COUNT_BY_KIND[docKind];
+}
+
+function parseContentBrief(input: RawInputReader, prompt: string): string | undefined {
+  const raw = input.get("contentBrief") ?? input.get("brief") ?? input.get("content");
+  const normalized = raw?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === prompt) {
+    return normalized.slice(0, 4000);
+  }
+  return normalized.slice(0, 4000);
+}
+
+function normalizePosterSetPageCount(pageCount: RequestPageCount): RequestPageCount {
+  if (pageCount.mode === "exact") {
+    return {
+      mode: "exact",
+      value: clampInt(Math.max(2, pageCount.value), 2, 32),
+    };
+  }
+
+  return normalizePageCount({
+    mode: "range",
+    min: Math.max(2, pageCount.min),
+    max: Math.max(2, pageCount.max),
+  });
 }
 
 function parsePageSize(input: RawInputReader): {
@@ -339,15 +413,17 @@ function makeInputReaderFromFormData(formData: FormData): RawInputReader {
 }
 
 function normalizeRequestSpec(input: RawInputReader): RequestSpec {
-  const docKind =
+  const prompt = parsePrompt(input);
+  const explicitDocKind =
     parseDocKind(input.get("docKind")) ??
     parseLegacyDocType(input.get("docType")) ??
-    "brochure";
+    inferDocKindFromPrompt(prompt);
+  let docKind = explicitDocKind ?? "brochure";
 
   const variantIndex = clampInt(parseInteger(input.get("variantIndex") ?? input.get("v")) ?? 1, 1, 999);
-  const pageCount = parsePageCount(input, docKind);
+  let pageCount = parsePageCount(input, docKind, prompt);
   const pageSize = parsePageSize(input);
-  const prompt = parsePrompt(input);
+  const contentBrief = parseContentBrief(input, prompt);
   const jobId = (input.get("jobId") ?? input.get("job") ?? `job-${variantIndex}`).trim() || `job-${variantIndex}`;
   const title = normalizeTitle(input.get("title") ?? input.get("docTitle"));
   const language = (input.get("language") ?? input.get("lang") ?? DEFAULT_LANGUAGE).trim() || DEFAULT_LANGUAGE;
@@ -355,12 +431,23 @@ function normalizeRequestSpec(input: RawInputReader): RequestSpec {
   const constraints = parseConstraints(input.get("constraints"));
   const parsedSeed = parseInteger(input.get("seed"));
 
+  if (docKind === "poster" && pageCount.mode === "exact" && pageCount.value >= 2) {
+    docKind = "poster_set";
+  }
+  if (docKind === "poster" && pageCount.mode === "range" && pageCount.max >= 2) {
+    docKind = "poster_set";
+  }
+  if (docKind === "poster_set") {
+    pageCount = normalizePosterSetPageCount(pageCount);
+  }
+
   const seed =
     typeof parsedSeed === "number"
       ? parsedSeed >>> 0
       : seedFromRequest({
           jobId,
           prompt,
+          contentBrief,
           docKind,
           title,
           variantIndex,
@@ -373,6 +460,7 @@ function normalizeRequestSpec(input: RawInputReader): RequestSpec {
   return {
     jobId,
     prompt,
+    contentBrief,
     docKind,
     pageCount,
     pageSize,
@@ -399,6 +487,7 @@ export function mapRequestDocKindToDocType(docKind: RequestDocKind): DocType {
   if (docKind === "brochure") return "proposal";
   if (docKind === "onepager") return "one-pager";
   if (docKind === "cards") return "multi-card";
+  if (docKind === "poster_set") return "poster";
   return docKind;
 }
 

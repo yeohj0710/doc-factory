@@ -1,16 +1,20 @@
-﻿import type { PageSizeSpec } from "@/src/layout/pageSize";
-import { createLayoutSignature, hasForbiddenEllipsis } from "@/src/layout/validation";
-import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
-import type { ReferenceUsageReport } from "@/src/planner/types";
 import { stableHashFromParts } from "@/src/io/hash";
+import type { PageSizeSpec } from "@/src/layout/pageSize";
+import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
+import { createLayoutSignature, hasForbiddenEllipsis } from "@/src/layout/validation";
+import type { ReferenceUsageReport } from "@/src/planner/types";
+import type { ContentQualityReport } from "@/src/quality/contentGates";
 
 export type ExportGateProof = {
   requestHash: string;
   referenceIndexStatus: ReferenceUsageReport["referenceIndexStatus"];
+  referenceUsageStatus: "pass" | "fail" | "not-required";
   usedLayoutClusters: number;
   requiredLayoutClusters: number;
   themeFactoryStatus: "ran" | "skipped";
   runtimeGatesStatus: "pass" | "fail";
+  internalTermsStatus: "pass" | "fail";
+  contentCompletenessStatus: "pass" | "fail";
 };
 
 export type ExportAuditResult = {
@@ -33,7 +37,9 @@ function checkReferenceUsageGate(params: {
   issues: LayoutValidationIssue[];
   report: ReferenceUsageReport;
   expectedPageCount: number;
-}): void {
+}): boolean {
+  const beforeCount = params.issues.length;
+
   if (params.report.referenceIndexStatus !== "fresh") {
     params.issues.push({
       code: "export-audit",
@@ -78,6 +84,8 @@ function checkReferenceUsageGate(params: {
       message: "layout plan must declare selected layout clusters",
     });
   }
+
+  return params.issues.length === beforeCount;
 }
 
 export function runExportAudit(params: {
@@ -90,8 +98,10 @@ export function runExportAudit(params: {
   requestHash: string;
   themeFactoryStatus: "ran" | "skipped";
   runtimeGatesPassed: boolean;
+  contentQuality: ContentQualityReport;
 }): ExportAuditResult {
   const issues: LayoutValidationIssue[] = [];
+  let referenceUsagePassed = !params.referenceRequired;
 
   if (params.debugEnabled) {
     issues.push({
@@ -176,7 +186,7 @@ export function runExportAudit(params: {
   }
 
   if (params.referenceRequired && params.referenceUsageReport) {
-    checkReferenceUsageGate({
+    referenceUsagePassed = checkReferenceUsageGate({
       issues,
       report: params.referenceUsageReport,
       expectedPageCount: params.expectedPageCount,
@@ -190,6 +200,20 @@ export function runExportAudit(params: {
     });
   }
 
+  if (!params.contentQuality.internalTermsPassed) {
+    issues.push({
+      code: "export-audit",
+      message: "internal term leakage detected in document text",
+    });
+  }
+
+  if (!params.contentQuality.completenessPassed) {
+    issues.push({
+      code: "export-audit",
+      message: "content completeness gate failed",
+    });
+  }
+
   const requiredLayoutClusters = params.referenceUsageReport
     ? Math.max(
         params.referenceUsageReport.minRequiredLayoutClusters,
@@ -200,10 +224,13 @@ export function runExportAudit(params: {
   const gateProof: ExportGateProof = {
     requestHash: params.requestHash,
     referenceIndexStatus: params.referenceUsageReport?.referenceIndexStatus ?? "not-required",
+    referenceUsageStatus: params.referenceRequired ? (referenceUsagePassed ? "pass" : "fail") : "not-required",
     usedLayoutClusters: params.referenceUsageReport?.usedLayoutClusterIds.length ?? 0,
     requiredLayoutClusters,
     themeFactoryStatus: params.themeFactoryStatus,
     runtimeGatesStatus: params.runtimeGatesPassed ? "pass" : "fail",
+    internalTermsStatus: params.contentQuality.internalTermsPassed ? "pass" : "fail",
+    contentCompletenessStatus: params.contentQuality.completenessPassed ? "pass" : "fail",
   };
 
   const payload = {
@@ -215,6 +242,12 @@ export function runExportAudit(params: {
     },
     debugEnabled: params.debugEnabled,
     referenceUsageReport: params.referenceUsageReport ?? null,
+    contentQuality: {
+      internalTermsPassed: params.contentQuality.internalTermsPassed,
+      completenessPassed: params.contentQuality.completenessPassed,
+      internalTermLeakCount: params.contentQuality.internalTermLeakCount,
+      completenessIssueCount: params.contentQuality.completenessIssueCount,
+    },
     gateProof,
   };
 
@@ -228,3 +261,4 @@ export function runExportAudit(params: {
     gateProof,
   };
 }
+

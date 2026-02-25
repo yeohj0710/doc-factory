@@ -13,7 +13,9 @@
     "qa:determinism": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/determinism_proof.py",
     "qa:job-isolation": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/job_isolation_proof.py",
     "qa:reference-gates": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/reference_gate_proof.py",
-    "qa:no-domain-copy": "python src/qa/no_domain_copy_proof.py"
+    "qa:no-domain-copy": "python src/qa/no_domain_copy_proof.py",
+    "qa:no-internal-terms": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/no_internal_terms_proof.py",
+    "qa:content-completeness": "python .agents/skills/webapp-testing/scripts/with_server.py --server \"npm run dev\" --port 3000 -- python src/qa/content_completeness_proof.py"
   },
   "dependencies": {
     "next": "16.1.6",
