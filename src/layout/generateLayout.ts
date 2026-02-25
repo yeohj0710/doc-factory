@@ -1,5 +1,7 @@
 ﻿import { ensureReferenceIndex } from "@/src/io/referenceIndex";
 import { computeRequestHash } from "@/src/io/requestHash";
+import { resolveCopyDeck } from "@/src/copywriter";
+import type { CopyDeckPage, CopywriterAudit } from "@/src/copywriter/types";
 import { buildPageBrief } from "@/src/layout/content";
 import { getTemplateFallbackChain, type TemplateId } from "@/src/layout/templateCatalog";
 import { createLayoutTokens, type LayoutTokens } from "@/src/layout/tokens";
@@ -58,6 +60,7 @@ export type GenerateLayoutResult = {
     internalTermLeakCount: number;
     completenessIssueCount: number;
   };
+  copywriter: CopywriterAudit;
   exportAudit: ReturnType<typeof runExportAudit>;
   exportMeta: {
     docTitle: string;
@@ -102,12 +105,32 @@ type RuntimeValidatorRef = Awaited<ReturnType<typeof createRuntimeValidator>>;
 function validationOptions(plan: DocumentPlan, tokens: LayoutTokens): {
   headerBottomMm: number;
   footerTopMm: number;
+  copyDensity?: {
+    minTextChars: number;
+    minTextBlocks: number;
+    minBodyFontPt: number;
+  };
 } {
   const headerBottomMm = tokens.spacingMm.pageMargin + tokens.spacingMm.headerHeight;
   const footerTopMm = plan.pageSize.heightMm - tokens.spacingMm.pageMargin - tokens.spacingMm.footerHeight;
+  const copyDensity =
+    plan.requestSpec.docKind === "poster_set"
+      ? {
+          minTextChars: 220,
+          minTextBlocks: 4,
+          minBodyFontPt: 16,
+        }
+      : plan.requestSpec.docKind === "onepager"
+        ? {
+            minTextChars: 180,
+            minTextBlocks: 4,
+            minBodyFontPt: 12,
+          }
+        : undefined;
   return {
     headerBottomMm,
     footerTopMm,
+    copyDensity,
   };
 }
 
@@ -164,6 +187,7 @@ function clonePageWithMeta(params: {
 }
 
 function nextAttemptState(state: AttemptState, issues: LayoutValidationIssue[], chainLength: number): AttemptState {
+  const hasLowDensityIssue = issues.some((issue) => issue.code === "content-density" || issue.code === "copy-density");
   const hasOverflowLikeIssue = issues.some((issue) =>
     [
       "min-size",
@@ -175,6 +199,21 @@ function nextAttemptState(state: AttemptState, issues: LayoutValidationIssue[], 
     ].includes(issue.code),
   );
 
+  if (hasLowDensityIssue && state.templateIndex < chainLength - 1) {
+    return {
+      templateIndex: state.templateIndex + 1,
+      copyTightness: 0,
+      compactLevel: 0,
+    };
+  }
+
+  if (hasLowDensityIssue && state.copyTightness > 0) {
+    return {
+      ...state,
+      copyTightness: Math.max(0, state.copyTightness - 1),
+    };
+  }
+
   if (hasOverflowLikeIssue && state.copyTightness < 2) {
     return {
       ...state,
@@ -182,7 +221,15 @@ function nextAttemptState(state: AttemptState, issues: LayoutValidationIssue[], 
     };
   }
 
-  if (hasOverflowLikeIssue && state.compactLevel < 2) {
+  if (hasOverflowLikeIssue && state.templateIndex < chainLength - 1) {
+    return {
+      templateIndex: state.templateIndex + 1,
+      copyTightness: 0,
+      compactLevel: 0,
+    };
+  }
+
+  if (hasOverflowLikeIssue && state.compactLevel < 1) {
     return {
       ...state,
       compactLevel: state.compactLevel + 1,
@@ -213,6 +260,7 @@ async function runAttempt(params: {
   showDebugMeta: boolean;
   tokens: LayoutTokens;
   imageByFilename: Map<string, ScannedImage>;
+  copyDeckPageByNumber: Map<number, CopyDeckPage>;
   runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
 }): Promise<AttemptResult> {
   const sourceImage = params.item.primaryAssetFilename
@@ -225,6 +273,7 @@ async function runAttempt(params: {
     templateId: params.templateId,
     copyTightness: params.copyTightness,
     tokens: params.tokens,
+    copyDeckPage: params.copyDeckPageByNumber.get(params.item.pageNumber) ?? null,
   });
 
   const page = buildTemplatePage({
@@ -298,6 +347,7 @@ async function resolvePageWithAutofix(params: {
   plan: DocumentPlan;
   tokens: LayoutTokens;
   imageByFilename: Map<string, ScannedImage>;
+  copyDeckPageByNumber: Map<number, CopyDeckPage>;
   runtimeValidator: Awaited<ReturnType<typeof createRuntimeValidator>>;
   showDebugMeta: boolean;
   maxAttempts: number;
@@ -329,6 +379,7 @@ async function resolvePageWithAutofix(params: {
       showDebugMeta: params.showDebugMeta,
       tokens: params.tokens,
       imageByFilename: params.imageByFilename,
+      copyDeckPageByNumber: params.copyDeckPageByNumber,
       runtimeValidator: params.runtimeValidator,
     });
 
@@ -528,6 +579,26 @@ export async function generateLayout(
 
   logs.push(...plannerResult.logs);
 
+  const copywriterResult = await resolveCopyDeck({
+    input: {
+      requestHash,
+      plan: plannerResult.plan,
+      storyboard: plannerResult.storyboard,
+      orderedImages,
+    },
+    rootDir,
+    forceRegenerate: requestSpec.forceRegenerateCopy,
+    modeOverride: requestSpec.copywriterMode,
+  });
+  logs.push(...copywriterResult.logs);
+  emitDebug(
+    `copywriter mode=${copywriterResult.audit.effectiveMode} cacheHit=${copywriterResult.audit.cacheHit} key=${copywriterResult.audit.cacheKey.slice(0, 12)}`,
+  );
+
+  const copyDeckPageByNumber = new Map(
+    (copywriterResult.copyDeck?.pages ?? []).map((page) => [page.pageIndex, page] as const),
+  );
+
   const preset = plannerResult.plan.stylePreset;
   const tokens = createLayoutTokens(fonts, preset);
 
@@ -553,6 +624,7 @@ export async function generateLayout(
       plan: plannerResult.plan,
       tokens,
       imageByFilename,
+      copyDeckPageByNumber,
       runtimeValidator,
       showDebugMeta,
       maxAttempts: 1,
@@ -601,17 +673,24 @@ export async function generateLayout(
           continue;
         }
 
+        const previous = pagesByNumber.get(pageNumber);
+        const hasLowDensityIssue =
+          previous?.meta?.validation.issues.some((issue) => issue.code === "content-density" || issue.code === "copy-density") ??
+          false;
+        const maxAttemptsForPage = hasLowDensityIssue ? (qualityVersion === 2 ? 4 : 5) : qualityVersion === 2 ? 8 : 10;
+
         const resolved = await resolvePageWithAutofix({
           item,
           plan: plannerResult.plan,
           tokens,
           imageByFilename,
+          copyDeckPageByNumber,
           runtimeValidator,
           showDebugMeta,
-          maxAttempts: qualityVersion === 2 ? 8 : 10,
+          maxAttempts: maxAttemptsForPage,
           initialState: {
             templateIndex: 0,
-            copyTightness: 1,
+            copyTightness: hasLowDensityIssue ? 0 : 1,
             compactLevel: 0,
           },
           logs,
@@ -709,6 +788,7 @@ export async function generateLayout(
     themeFactoryStatus: plannerResult.plan.themeFactoryProof.status,
     runtimeGatesPassed,
     contentQuality,
+    copywriterAudit: copywriterResult.audit,
   });
   emitDebug(`export audit passed=${exportAudit.passed} issues=${exportAudit.issues.length} hash=${exportAudit.auditHash}`);
 
@@ -793,6 +873,7 @@ export async function generateLayout(
       internalTermLeakCount: contentQuality.internalTermLeakCount,
       completenessIssueCount: contentQuality.completenessIssueCount,
     },
+    copywriter: copywriterResult.audit,
     exportAudit,
     exportMeta: {
       docTitle: plannerResult.plan.docTitle,

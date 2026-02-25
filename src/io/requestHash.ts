@@ -47,6 +47,7 @@ export function computeRequestHash(params: {
     constraints: [...params.requestSpec.constraints],
     variantIndex: params.requestSpec.variantIndex,
     seed: params.requestSpec.seed,
+    copywriterMode: params.requestSpec.copywriterMode ?? "auto",
   };
 
   return stableHashFromParts(

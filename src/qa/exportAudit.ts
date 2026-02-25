@@ -1,3 +1,4 @@
+import type { CopywriterAudit } from "@/src/copywriter/types";
 import { stableHashFromParts } from "@/src/io/hash";
 import type { PageSizeSpec } from "@/src/layout/pageSize";
 import type { LayoutValidationIssue, PageLayout } from "@/src/layout/types";
@@ -15,6 +16,9 @@ export type ExportGateProof = {
   runtimeGatesStatus: "pass" | "fail";
   internalTermsStatus: "pass" | "fail";
   contentCompletenessStatus: "pass" | "fail";
+  copywriterMode: CopywriterAudit["copywriterMode"];
+  copyCacheKey: string;
+  copyDeckHash: string;
 };
 
 export type ExportAuditResult = {
@@ -23,6 +27,7 @@ export type ExportAuditResult = {
   auditHash: string;
   referenceUsageReport?: ReferenceUsageReport;
   gateProof: ExportGateProof;
+  copywriter: CopywriterAudit;
 };
 
 function withinBounds(page: PageLayout, x: number, y: number): boolean {
@@ -99,6 +104,7 @@ export function runExportAudit(params: {
   themeFactoryStatus: "ran" | "skipped";
   runtimeGatesPassed: boolean;
   contentQuality: ContentQualityReport;
+  copywriterAudit: CopywriterAudit;
 }): ExportAuditResult {
   const issues: LayoutValidationIssue[] = [];
   let referenceUsagePassed = !params.referenceRequired;
@@ -231,6 +237,9 @@ export function runExportAudit(params: {
     runtimeGatesStatus: params.runtimeGatesPassed ? "pass" : "fail",
     internalTermsStatus: params.contentQuality.internalTermsPassed ? "pass" : "fail",
     contentCompletenessStatus: params.contentQuality.completenessPassed ? "pass" : "fail",
+    copywriterMode: params.copywriterAudit.copywriterMode,
+    copyCacheKey: params.copywriterAudit.cacheKey,
+    copyDeckHash: params.copywriterAudit.copyDeckHash,
   };
 
   const payload = {
@@ -248,6 +257,7 @@ export function runExportAudit(params: {
       internalTermLeakCount: params.contentQuality.internalTermLeakCount,
       completenessIssueCount: params.contentQuality.completenessIssueCount,
     },
+    copywriter: params.copywriterAudit,
     gateProof,
   };
 
@@ -259,6 +269,7 @@ export function runExportAudit(params: {
     auditHash,
     referenceUsageReport: params.referenceUsageReport,
     gateProof,
+    copywriter: params.copywriterAudit,
   };
 }
 

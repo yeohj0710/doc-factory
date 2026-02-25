@@ -1,6 +1,7 @@
-import path from "node:path";
-import type { LayoutTokens } from "@/src/layout/tokens";
+﻿import path from "node:path";
+import type { CopyDeckBlock, CopyDeckPage } from "@/src/copywriter/types";
 import { getTemplateSpec, type TemplateId, type TextBudget } from "@/src/layout/templateCatalog";
+import type { LayoutTokens } from "@/src/layout/tokens";
 import type { ImageFit, PageBriefSummary } from "@/src/layout/types";
 import type { DocumentPlan, PageRole, StoryboardItem } from "@/src/planner/types";
 
@@ -49,7 +50,6 @@ type ContentSeed = {
   summary: string;
   detail: string;
   highlights: string[];
-  introMode: boolean;
   contact: string;
 };
 
@@ -57,7 +57,7 @@ const BANNED_VAGUE_WORDS = [
   "혁신",
   "최고",
   "완벽",
-  "압도",
+  "최첨단",
   "synergy",
   "best-in-class",
   "game changer",
@@ -70,11 +70,11 @@ const INTERNAL_TERM_REPLACEMENTS: Array<{
   replacement: string;
 }> = [
   { pattern: /\brequestspec\b/giu, replacement: "요청 정보" },
-  { pattern: /\bvariantindex\b/giu, replacement: "버전 값" },
-  { pattern: /\breferencedigest\b/giu, replacement: "참조 식별값" },
+  { pattern: /\bvariantindex\b/giu, replacement: "버전" },
+  { pattern: /\breferencedigest\b/giu, replacement: "참조 해시" },
   { pattern: /\btheme-factory\b/giu, replacement: "테마 적용" },
-  { pattern: /\bwebapp-testing\b/giu, replacement: "실행 검증" },
-  { pattern: /\bvalidation\b/giu, replacement: "검토" },
+  { pattern: /\bwebapp-testing\b/giu, replacement: "런타임 검증" },
+  { pattern: /\bvalidation\b/giu, replacement: "검증" },
   { pattern: /\blayout\b/giu, replacement: "구성" },
 ];
 
@@ -89,12 +89,41 @@ const PLACEHOLDERS = {
   metric: "(추후 기입)",
 };
 
+const ROLE_LABELS: Record<PageRole, string> = {
+  cover: "표지",
+  "section-divider": "섹션 전환",
+  agenda: "목차",
+  insight: "핵심 인사이트",
+  solution: "솔루션",
+  process: "프로세스",
+  timeline: "타임라인",
+  metrics: "지표",
+  comparison: "비교",
+  gallery: "갤러리",
+  "text-only": "텍스트",
+  cta: "다음 단계",
+  topic: "주제",
+};
+
+const TEMPLATE_LABELS: Record<TemplateId, string> = {
+  COVER_HERO_BAND: "Cover Hero Band",
+  COVER_SPLIT_MEDIA: "Cover Split Media",
+  SECTION_DIVIDER: "Section Divider",
+  AGENDA_EDITORIAL: "Agenda Editorial",
+  TITLE_MEDIA_SAFE: "Title Media Safe",
+  TWO_COLUMN_MEDIA_TEXT: "Two Column Media Text",
+  METRICS_GRID: "Metrics Grid",
+  PROCESS_FLOW: "Process Flow",
+  TIMELINE_STEPS: "Timeline Steps",
+  COMPARISON_TABLE: "Comparison Table",
+  GALLERY_SINGLE: "Gallery Single",
+  TEXT_ONLY_EDITORIAL: "Text Only Editorial",
+  CTA_CONTACT: "CTA Contact",
+  QUOTE_FOCUS: "Quote Focus",
+};
+
 function sanitizeText(value: string): string {
-  return value
-    .replace(/…/g, "")
-    .replace(/\.\.\.$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/\uFEFF/g, "").replace(/\.\.\.$/g, "").replace(/\s+/g, " ").trim();
 }
 
 function stripInternalTerms(value: string): string {
@@ -109,10 +138,12 @@ function shortText(value: string, maxLength: number): string {
   if (maxLength <= 0) {
     return "";
   }
+
   const normalized = sanitizeText(value);
   if (normalized.length <= maxLength) {
     return normalized;
   }
+
   const sliced = normalized.slice(0, maxLength).trimEnd();
   const byWordBoundary = sliced.replace(/\s+\S*$/u, "").trim();
   if (byWordBoundary.length >= Math.max(8, Math.floor(maxLength * 0.62))) {
@@ -128,7 +159,7 @@ function cleanCaptionFromFilename(filename: string): string {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return cleaned || "자산";
+  return cleaned || "이미지";
 }
 
 function docTypeLabel(docType: DocumentPlan["docType"]): string {
@@ -140,36 +171,11 @@ function docTypeLabel(docType: DocumentPlan["docType"]): string {
 }
 
 function templateLabel(templateId: TemplateId): string {
-  if (templateId === "COVER_HERO_BAND") return "Cover Hero Band";
-  if (templateId === "COVER_SPLIT_MEDIA") return "Cover Split Media";
-  if (templateId === "SECTION_DIVIDER") return "Section Divider";
-  if (templateId === "AGENDA_EDITORIAL") return "Agenda Editorial";
-  if (templateId === "TITLE_MEDIA_SAFE") return "Title Media Safe";
-  if (templateId === "TWO_COLUMN_MEDIA_TEXT") return "Two Column Media Text";
-  if (templateId === "METRICS_GRID") return "Metrics Grid";
-  if (templateId === "PROCESS_FLOW") return "Process Flow";
-  if (templateId === "TIMELINE_STEPS") return "Timeline Steps";
-  if (templateId === "COMPARISON_TABLE") return "Comparison Table";
-  if (templateId === "GALLERY_SINGLE") return "Gallery Single";
-  if (templateId === "TEXT_ONLY_EDITORIAL") return "Text Only Editorial";
-  if (templateId === "CTA_CONTACT") return "CTA Contact";
-  return "Quote Focus";
+  return TEMPLATE_LABELS[templateId] ?? "Template";
 }
 
 function sectionLabel(role: PageRole): string {
-  if (role === "cover") return "표지";
-  if (role === "section-divider") return "구분";
-  if (role === "agenda") return "목차";
-  if (role === "insight") return "핵심";
-  if (role === "solution") return "해결안";
-  if (role === "process") return "프로세스";
-  if (role === "timeline") return "일정";
-  if (role === "metrics") return "지표";
-  if (role === "comparison") return "비교";
-  if (role === "gallery") return "갤러리";
-  if (role === "text-only") return "텍스트";
-  if (role === "cta") return "다음 단계";
-  return "주제";
+  return ROLE_LABELS[role] ?? "주제";
 }
 
 function pickImageFit(sourceImage: string | null): ImageFit {
@@ -178,7 +184,7 @@ function pickImageFit(sourceImage: string | null): ImageFit {
   }
 
   const normalized = sourceImage.toLowerCase();
-  const containKeywords = ["ui", "screen", "dashboard", "앱", "화면", "report", "chart", "table"];
+  const containKeywords = ["ui", "screen", "dashboard", "report", "chart", "table", "화면"];
   if (containKeywords.some((keyword) => normalized.includes(keyword))) {
     return "contain";
   }
@@ -199,11 +205,11 @@ function isDefaultTitle(value: string): boolean {
 
 function topicHint(topicLabel: string): string {
   if (topicLabel === "ui") return "화면 중심";
-  if (topicLabel === "photo") return "장면 중심";
+  if (topicLabel === "photo") return "사진 중심";
   if (topicLabel === "chart") return "지표 중심";
-  if (topicLabel === "diagram") return "구조 중심";
+  if (topicLabel === "diagram") return "흐름 중심";
   if (topicLabel === "people") return "인물 중심";
-  return "핵심 장면";
+  return "핵심 메시지";
 }
 
 function topicMetricLabel(topicLabel: string): string {
@@ -229,10 +235,6 @@ function uniquePreserveOrder(values: string[]): string[] {
   return result;
 }
 
-function pickHighlightByPattern(highlights: string[], pattern: RegExp): string | undefined {
-  return highlights.find((line) => pattern.test(line));
-}
-
 function buildImageHints(plan: DocumentPlan): string[] {
   const hints = plan.topicClusters
     .flatMap((cluster) => cluster.images.slice(0, 2))
@@ -249,206 +251,77 @@ function buildContentSeed(item: StoryboardItem, plan: DocumentPlan, caption: str
   const sourceText = stripInternalTerms(sourcePieces.join(" "));
   const sourceSentences = splitSourceSentences(sourceText);
   const imageHints = buildImageHints(plan);
-  const topicBasedHint = topicHint(item.topicLabel);
 
   const titleCandidate = isDefaultTitle(plan.docTitle) ? "" : stripInternalTerms(plan.docTitle);
   const sentenceSubject = sourceSentences[0] ? shortText(sourceSentences[0], 36) : "";
   const subject = titleCandidate || sentenceSubject || imageHints[0] || PLACEHOLDERS.subject;
-  const summary = sourceSentences[1] || sourceSentences[0] || `${topicBasedHint} 메시지를 정리합니다.`;
-  const detail = sourceSentences[2] || `${caption} 중심으로 핵심 정보만 배치합니다.`;
-  const schoolSignals = sourceSentences.filter((line) => /학교|대학|대학원/iu.test(line));
-  const researchSignals = sourceSentences.filter((line) => /원자력|논문|학회|랩실|연구|학과/iu.test(line));
-  const characterSignals = sourceSentences.filter((line) => /펭귄|인형|재미|친구|만만|어이/iu.test(line));
+  const summary = sourceSentences[1] || sourceSentences[0] || `${topicHint(item.topicLabel)} 메시지를 요약합니다`;
+  const detail =
+    sourceSentences[2] ||
+    `${caption} 정보를 중심으로 필요한 문구를 채우며, 확인되지 않은 사실은 ${PLACEHOLDERS.contact}으로 표시합니다`;
 
   const highlights = uniquePreserveOrder(
     [
       sourceSentences[0] ?? "",
-      ...characterSignals,
-      ...researchSignals,
-      ...schoolSignals,
-      ...sourceSentences,
-      imageHints[0],
-      imageHints[1],
-      topicBasedHint,
+      sourceSentences[1] ?? "",
+      sourceSentences[2] ?? "",
+      imageHints[0] ?? "",
+      imageHints[1] ?? "",
+      topicHint(item.topicLabel),
     ]
       .map((value) => stripInternalTerms(value ?? ""))
       .filter(Boolean),
   ).slice(0, 8);
 
-  const introMode = /(?:소개|프로필|profile|about|friend|친구)/iu.test(sourceText) || /(?:소개|프로필)/iu.test(plan.docTitle);
-
   return {
     subject: subject || PLACEHOLDERS.subject,
-    summary: summary || `${topicBasedHint} 핵심을 전달합니다.`,
-    detail: detail || `${topicBasedHint} 포인트를 짧게 제시합니다.`,
-    highlights: highlights.length > 0 ? highlights : [caption, topicBasedHint],
-    introMode,
+    summary: summary || `${topicHint(item.topicLabel)}를 간결하게 정리합니다`,
+    detail,
+    highlights: highlights.length > 0 ? highlights : [caption, topicHint(item.topicLabel)],
     contact: PLACEHOLDERS.contact,
   };
 }
 
 function posterDraft(seed: ContentSeed, plan: DocumentPlan): CopyDraft {
-  const title = shortText(seed.subject, 20) || PLACEHOLDERS.name;
-  const subtitle = shortText(seed.summary, 28) || PLACEHOLDERS.intro;
-  const bullets = [
-    shortText(seed.highlights[0] ?? "웃김 지수 상시 최대치", 18),
-    shortText(seed.highlights[1] ?? "펭귄 인형 애착러", 18),
-    shortText(seed.highlights[2] ?? "논문 모드 장착 완료", 18),
-  ];
-
   return {
-    kicker: `FUN POSTER / ${plan.requestSpec.language}`,
-    title,
-    subtitle,
-    body: shortText(seed.detail, 52),
-    points: bullets,
-    callout: `출몰 제보 ${seed.contact}`,
+    kicker: `POSTER / ${plan.requestSpec.language}`,
+    title: shortText(seed.subject, 28) || PLACEHOLDERS.name,
+    subtitle: shortText(seed.summary, 48) || PLACEHOLDERS.intro,
+    body: shortText(
+      `${seed.detail}. 숫자/성과/연락처 등 확인이 필요한 정보는 ${PLACEHOLDERS.contact}으로 표시합니다.`,
+      220,
+    ),
+    points: [
+      shortText(seed.highlights[0] ?? PLACEHOLDERS.feature1, 52),
+      shortText(seed.highlights[1] ?? PLACEHOLDERS.feature2, 52),
+      shortText(seed.highlights[2] ?? PLACEHOLDERS.feature3, 52),
+      shortText(`다음 단계: ${PLACEHOLDERS.contact}`, 52),
+    ],
+    callout: `연락/링크: ${seed.contact}`,
   };
 }
 
 function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): CopyDraft {
   const seed = buildContentSeed(item, plan, caption);
-  const isPosterSeries = plan.requestSpec.docKind === "poster" || plan.requestSpec.docKind === "poster_set";
 
-  if (item.role === "cover" && isPosterSeries) {
-    return posterDraft(seed, plan);
-  }
-
-  if (item.role === "topic" && isPosterSeries) {
-    return {
-      kicker: "근용이 관찰 일지",
-      title: shortText(seed.subject, 24),
-      subtitle: shortText(seed.summary, 30),
-      body: shortText(seed.detail, 72),
-      points: [
-        shortText(seed.highlights[1] ?? "펭귄 인형과 취침 루틴", 20),
-        shortText(seed.highlights[2] ?? "원자력 논문 정독 모드", 20),
-        shortText(seed.highlights[3] ?? "학회 투어 상시 진행", 20),
-      ],
-      callout: "만만한데 자꾸 웃긴 타입",
-    };
-  }
-
-  if (item.role === "gallery" && isPosterSeries) {
-    return {
-      kicker: "근용이 스냅샷",
-      title: shortText(seed.subject, 24),
-      subtitle: shortText(seed.summary, 30),
-      body: shortText(`${caption} 장면에서 캐릭터가 제일 잘 드러납니다.`, 72),
-      points: [
-        shortText(seed.highlights[0] ?? "한 컷으로 캐릭터 설명 완료", 20),
-        shortText(seed.highlights[1] ?? "조용한데 은근히 웃김", 20),
-        shortText(seed.highlights[2] ?? "디테일은 후반 페이지에서 공개", 20),
-      ],
-      callout: "펭귄 인형 발견 시 즉시 제보",
-    };
-  }
-
-  if (item.role === "cta" && isPosterSeries) {
-    const schoolLine =
-      pickHighlightByPattern(seed.highlights, /고등학교|과학고|대학교|한양/iu) ??
-      pickHighlightByPattern(seed.highlights, /학교|대학|대학원/iu);
-    const researchLine = pickHighlightByPattern(seed.highlights, /원자력|논문|학회|랩실|연구|학과/iu);
-    const penguinLine = pickHighlightByPattern(seed.highlights, /펭귄|인형/iu);
-    const characterLine = pickHighlightByPattern(seed.highlights, /재미|친구|만만|어이/iu);
-    const summaryBody = uniquePreserveOrder([researchLine, schoolLine].filter((line): line is string => Boolean(line))).join(
-      " / ",
-    );
-    const calloutBase = schoolLine ? shortText(schoolLine, 12) : "프로필";
-
-    return {
-      kicker: "근용이 요약",
-      title: "어이없는데 자꾸 생각남",
-      subtitle: shortText(schoolLine ?? researchLine ?? "주요 이력은 추후 기입", 30),
-      body: shortText(
-        summaryBody || "원자력공학 베이스로 랩실-논문-학회 루프를 도는 중.",
-        72,
-      ),
-      points: [
-        shortText(characterLine ?? seed.highlights[0] ?? "재미 담당", 18),
-        shortText(penguinLine ?? seed.highlights[1] ?? "펭귄 담당", 18),
-        shortText(schoolLine ?? seed.highlights[4] ?? "연구 담당", 18),
-      ],
-      callout: `${calloutBase} · 출몰 제보 ${PLACEHOLDERS.contact}`,
-    };
+  if (plan.requestSpec.docKind === "poster" || plan.requestSpec.docKind === "poster_set") {
+    if (item.role === "cover" || item.role === "topic" || item.role === "gallery" || item.role === "cta") {
+      return posterDraft(seed, plan);
+    }
   }
 
   if (item.role === "cover") {
     return {
       kicker: `${docTypeLabel(plan.docType)} / ${plan.requestSpec.language}`,
-      title: seed.subject,
-      subtitle: seed.summary,
-      body: `${seed.detail}`,
+      title: shortText(seed.subject, 32),
+      subtitle: shortText(seed.summary, 52),
+      body: shortText(seed.detail, 180),
       points: [
-        shortText(seed.highlights[0] ?? "핵심 메시지 정리", 24),
-        shortText(seed.highlights[1] ?? "주요 정보 요약", 24),
-        shortText(seed.highlights[2] ?? "다음 행동 제안", 24),
+        shortText(seed.highlights[0] ?? "핵심 메시지", 44),
+        shortText(seed.highlights[1] ?? "근거 요약", 44),
+        shortText(seed.highlights[2] ?? "실행 포인트", 44),
       ],
-      callout: `문의 및 링크 ${seed.contact}`,
-    };
-  }
-
-  if (item.role === "section-divider") {
-    return {
-      kicker: "섹션 전환",
-      title: shortText(seed.subject, 26),
-      subtitle: shortText(seed.summary, 36),
-      body: shortText(`${seed.detail} 다음 페이지에서 근거와 실행 항목을 이어서 제시합니다.`, 102),
-      points: [
-        shortText(seed.highlights[0] ?? "핵심 질문을 먼저 확인", 24),
-        shortText(seed.highlights[1] ?? "근거와 사례를 구분해 정리", 24),
-        shortText(seed.highlights[2] ?? "다음 행동 항목으로 연결", 24),
-      ],
-      callout: "전환 페이지에서도 맥락과 다음 행동을 함께 보여줍니다.",
-    };
-  }
-
-  if (item.role === "agenda") {
-    return {
-      kicker: "개요",
-      title: "진행 순서",
-      subtitle: "읽는 흐름을 먼저 고정합니다",
-      body: shortText(seed.detail, 96),
-      points: [
-        shortText(seed.highlights[0] ?? "핵심 맥락 확인", 26),
-        shortText(seed.highlights[1] ?? "주요 근거 정리", 26),
-        "실행 항목 확정",
-        "담당과 일정 확인",
-      ],
-      callout: "중요한 항목부터 짧게 배치합니다.",
-    };
-  }
-
-  if (item.role === "insight") {
-    return {
-      kicker: "핵심 관찰",
-      title: shortText(seed.subject, 30),
-      subtitle: shortText(seed.summary, 40),
-      body: shortText(seed.detail, 104),
-      points: ["관찰 포인트", "근거 메모", "해석 메모"],
-      callout: "사실과 해석을 분리해 기록합니다.",
-    };
-  }
-
-  if (item.role === "solution") {
-    return {
-      kicker: "실행 제안",
-      title: "실행 구조",
-      subtitle: shortText(seed.summary, 44),
-      body: shortText(seed.detail, 102),
-      points: ["단계 1", "단계 2", "단계 3", "검토 지점"],
-      callout: "각 단계에 책임과 산출물을 명시합니다.",
-    };
-  }
-
-  if (item.role === "process" || item.role === "timeline") {
-    return {
-      kicker: "진행 흐름",
-      title: item.role === "timeline" ? "주요 일정" : "프로세스",
-      subtitle: "단계 간 연결을 명확히 정리합니다",
-      body: shortText(seed.detail, 98),
-      points: ["준비", "실행", "점검", "공유", "다음 사이클"],
-      callout: "완료 기준이 있는 단계만 남깁니다.",
+      callout: `문의/링크 ${seed.contact}`,
     };
   }
 
@@ -456,53 +329,15 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
     return {
       kicker: "지표",
       title: "측정 기준",
-      subtitle: "확정되지 않은 수치는 비워둡니다",
-      body: "수치가 없을 때는 정의와 측정 방법부터 합의합니다.",
+      subtitle: "확정되지 않은 수치는 (추후 기입)으로 둡니다",
+      body: "측정 정의와 입력 방식부터 정리하고, 값은 확인 후 업데이트합니다.",
       points: [
-        `기준값: ${PLACEHOLDERS.metric}`,
-        `현재값: ${PLACEHOLDERS.metric}`,
-        `목표값: ${PLACEHOLDERS.metric}`,
+        `기준값 ${PLACEHOLDERS.metric}`,
+        `현재값 ${PLACEHOLDERS.metric}`,
+        `목표값 ${PLACEHOLDERS.metric}`,
+        "측정 주기 (추후 기입)",
       ],
-      callout: "숫자는 확인 후 입력합니다.",
-    };
-  }
-
-  if (item.role === "comparison") {
-    return {
-      kicker: "비교",
-      title: "선택지 차이",
-      subtitle: "같은 기준으로만 비교합니다",
-      body: shortText(seed.detail, 94),
-      points: ["요건 충족", "운영 난이도", "비용", "리스크"],
-      callout: "비교 기준은 페이지 상단에 고정합니다.",
-    };
-  }
-
-  if (item.role === "gallery") {
-    return {
-      kicker: "대표 장면",
-      title: shortText(seed.subject, 28),
-      subtitle: shortText(seed.summary, 30),
-      body: shortText(`${caption} 장면의 의미를 짧게 전달합니다.`, 70),
-      points: [shortText(seed.highlights[0] ?? "장면 요약", 20), "활용 맥락", "확인 메모"],
-      callout: "이미지와 문장이 같은 메시지를 가리키게 맞춥니다.",
-    };
-  }
-
-  if (item.role === "text-only") {
-    return {
-      kicker: "텍스트 정리",
-      title: shortText(seed.subject, 28),
-      subtitle: "이미지 없이도 핵심이 전달되게 구성",
-      body: shortText(seed.detail, 106),
-      points: [
-        shortText(seed.highlights[0] ?? "핵심 주장", 22),
-        shortText(seed.highlights[1] ?? "근거", 22),
-        shortText(seed.highlights[2] ?? "예외 조건", 22),
-        shortText(seed.highlights[3] ?? "실행 조건", 22),
-        shortText(seed.highlights[4] ?? "다음 점검 항목", 22),
-      ],
-      callout: "문장은 짧게, 항목은 명확하게 유지합니다.",
+      callout: "측정 책임자: (추후 기입)",
     };
   }
 
@@ -510,20 +345,29 @@ function buildDraft(item: StoryboardItem, plan: DocumentPlan, caption: string): 
     return {
       kicker: "다음 단계",
       title: "실행 체크리스트",
-      subtitle: "담당과 일정을 한 번에 정리",
-      body: "즉시 실행 가능한 항목만 남겨서 마무리합니다.",
-      points: ["담당자: (추후 기입)", "기한: (추후 기입)", "점검 일정", "리스크 확인"],
-      callout: `연락/링크 ${PLACEHOLDERS.contact}`,
+      subtitle: "담당/기한/의사결정 항목을 한 번에 정리",
+      body: "바로 실행 가능한 항목부터 확정하고, 불확실한 정보는 (추후 기입)으로 표시합니다.",
+      points: [
+        "담당자: (추후 기입)",
+        "기한: (추후 기입)",
+        "필요 자원: (추후 기입)",
+        "리스크 대응: (추후 기입)",
+      ],
+      callout: `연락/링크 ${seed.contact}`,
     };
   }
 
   return {
     kicker: sectionLabel(item.role),
-    title: shortText(seed.subject, 30),
-    subtitle: shortText(seed.summary, 44),
-    body: shortText(seed.detail, 104),
-    points: [PLACEHOLDERS.feature1, PLACEHOLDERS.feature2, PLACEHOLDERS.feature3],
-    callout: "핵심 메시지를 한 줄로 정리합니다.",
+    title: shortText(seed.subject, 32),
+    subtitle: shortText(seed.summary, 52),
+    body: shortText(seed.detail, 180),
+    points: [
+      shortText(seed.highlights[0] ?? PLACEHOLDERS.feature1, 44),
+      shortText(seed.highlights[1] ?? PLACEHOLDERS.feature2, 44),
+      shortText(seed.highlights[2] ?? PLACEHOLDERS.feature3, 44),
+    ],
+    callout: "핵심 메시지를 짧은 문장과 불릿으로 정리합니다",
   };
 }
 
@@ -533,12 +377,12 @@ function budgetByDocKind(budget: TextBudget, docKind: DocumentPlan["requestSpec"
   }
 
   return {
-    title: Math.min(budget.title, 18),
-    subtitle: Math.min(budget.subtitle, 26),
-    body: Math.min(budget.body, 56),
-    bullet: Math.min(budget.bullet, 15),
-    bullets: Math.min(budget.bullets, 3),
-    callout: Math.min(budget.callout, 30),
+    title: Math.min(budget.title, 24),
+    subtitle: Math.min(budget.subtitle, 42),
+    body: Math.min(budget.body, 86),
+    bullet: Math.min(budget.bullet, 28),
+    bullets: Math.min(budget.bullets, 5),
+    callout: Math.min(budget.callout, 64),
   };
 }
 
@@ -573,9 +417,9 @@ function cleanDraft(copy: CopyDraft): CopyDraft {
   };
 }
 
-function bulletize(points: string[], budgetBullets: number): string[] {
+function bulletize(points: string[], budgetBullets: number, maxChars = 38): string[] {
   const list = points
-    .map((point) => stripInternalTerms(sanitizeText(point)))
+    .map((point) => shortText(stripInternalTerms(sanitizeText(point)), Math.max(12, maxChars)))
     .filter(Boolean)
     .slice(0, Math.max(1, budgetBullets));
 
@@ -583,7 +427,7 @@ function bulletize(points: string[], budgetBullets: number): string[] {
     return list;
   }
 
-  return ["핵심 항목을 짧게 정리합니다."];
+  return ["핵심 항목을 추후 입력합니다"];
 }
 
 function fitCheck(params: {
@@ -631,35 +475,114 @@ function buildMetrics(item: StoryboardItem, plan: DocumentPlan): NarrativeMetric
     };
   }
 
-  if (item.role === "section-divider") {
-    return {
-      items: [
-        { label: "섹션", value: roleLabel },
-        { label: "주제 축", value: topicLabel },
-        { label: "진행", value: progress },
-      ],
-      debugOnly: false,
-    };
-  }
-
-  if (item.role === "cta") {
-    return {
-      items: [
-        { label: "마감 상태", value: "실행 항목 정리" },
-        { label: "다음 점검", value: "담당/기한 확정" },
-        { label: "진행", value: progress },
-      ],
-      debugOnly: false,
-    };
-  }
-
   return {
     items: [
       { label: "섹션", value: roleLabel },
-      { label: "주제 축", value: topicLabel },
+      { label: "토픽", value: topicLabel },
       { label: "진행", value: progress },
     ],
     debugOnly: false,
+  };
+}
+
+function blockText(block: CopyDeckBlock): string {
+  return sanitizeText(block.text ?? "");
+}
+
+function blockItems(block: CopyDeckBlock): string[] {
+  if (!Array.isArray(block.items)) {
+    return [];
+  }
+  return block.items.map((item) => sanitizeText(String(item))).filter(Boolean);
+}
+
+function pickFirstBlockText(blocks: CopyDeckBlock[], kind: CopyDeckBlock["kind"]): string {
+  for (const block of blocks) {
+    if (block.kind !== kind) {
+      continue;
+    }
+    const value = blockText(block);
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function pickParagraphText(blocks: CopyDeckBlock[]): string {
+  const paragraphs = blocks
+    .filter((block) => block.kind === "paragraph")
+    .map((block) => blockText(block))
+    .filter(Boolean);
+  return paragraphs.join("\n\n");
+}
+
+function pickBullets(blocks: CopyDeckBlock[], limit: number, bulletMaxChars: number): string[] {
+  const values: string[] = [];
+  for (const block of blocks) {
+    if (block.kind !== "bullets") {
+      continue;
+    }
+    values.push(...blockItems(block));
+  }
+  return bulletize(values, Math.max(1, limit), bulletMaxChars);
+}
+
+function parseMetricsFromCopyDeck(blocks: CopyDeckBlock[]): NarrativeMetric[] {
+  const items = blocks
+    .filter((block) => block.kind === "metrics")
+    .flatMap((block) => blockItems(block))
+    .slice(0, 4);
+
+  if (items.length === 0) {
+    return [];
+  }
+
+  return items.map((item, index) => {
+    const [left, right] = item.split(/[:|-]/, 2).map((value) => sanitizeText(value));
+    if (right) {
+      return {
+        label: shortText(left || `Metric ${index + 1}`, 20),
+        value: shortText(right, 30),
+      };
+    }
+    return {
+      label: `Metric ${index + 1}`,
+      value: shortText(item, 30),
+    };
+  });
+}
+
+function mergeNarrativeWithCopyDeck(params: {
+  narrative: PageNarrative;
+  copyDeckPage: CopyDeckPage;
+  maxBullets: number;
+  bulletMaxChars: number;
+}): PageNarrative {
+  const blocks = params.copyDeckPage.blocks;
+  const headline = pickFirstBlockText(blocks, "headline");
+  const subhead = pickFirstBlockText(blocks, "subhead");
+  const paragraph = pickParagraphText(blocks);
+  const callout = pickFirstBlockText(blocks, "callout");
+  const footer = pickFirstBlockText(blocks, "footer");
+  const chips = blocks
+    .filter((block) => block.kind === "chips")
+    .flatMap((block) => blockItems(block))
+    .slice(0, 3);
+  const bullets = pickBullets(blocks, params.maxBullets, params.bulletMaxChars);
+  const metrics = parseMetricsFromCopyDeck(blocks);
+
+  return {
+    ...params.narrative,
+    title: headline || params.narrative.title,
+    subtitle: subhead || params.narrative.subtitle,
+    body: paragraph || params.narrative.body,
+    bullets: bullets.length > 0 ? bullets : params.narrative.bullets,
+    callout: callout || params.narrative.callout,
+    footer: footer || params.narrative.footer,
+    chips: chips.length > 0 ? chips : params.narrative.chips,
+    metrics: metrics.length > 0 ? metrics : params.narrative.metrics,
+    metricsDebugOnly: false,
   };
 }
 
@@ -669,6 +592,7 @@ export function buildPageBrief(params: {
   templateId: TemplateId;
   copyTightness: number;
   tokens: LayoutTokens;
+  copyDeckPage?: CopyDeckPage | null;
 }): PageBrief {
   const spec = getTemplateSpec(params.templateId);
   const budget = budgetByDocKind(spec.maxTextBudget, params.plan.requestSpec.docKind);
@@ -692,7 +616,7 @@ export function buildPageBrief(params: {
   pipelineLog.push("bulletize");
   copy = {
     ...copy,
-    points: bulletize(copy.points, maxBullets),
+    points: bulletize(copy.points, maxBullets, budget.bullet),
   };
 
   pipelineLog.push("fit-check");
@@ -728,21 +652,67 @@ export function buildPageBrief(params: {
     .filter(Boolean);
   const narrativeMetrics = buildMetrics(params.item, params.plan);
 
-  const narrative: PageNarrative = {
+  let narrative: PageNarrative = {
     kicker: shortText(copy.kicker, 28),
     title: shortText(copy.title, budget.title),
     subtitle: shortText(copy.subtitle, budget.subtitle),
     body: shortText(copy.body, budget.body),
-    bullets: bulletize(copy.points, maxBullets),
+    bullets: bulletize(copy.points, maxBullets, budget.bullet),
     chips,
     callout: shortText(copy.callout, budget.callout),
-    footer: shortText(`${params.plan.docTitle} · ${params.item.pageNumber}페이지`, 96),
+    footer: shortText(`${params.plan.docTitle} / page ${params.item.pageNumber}`, 96),
     metrics: narrativeMetrics.items,
     metricsDebugOnly: narrativeMetrics.debugOnly,
   };
 
+  if (params.copyDeckPage) {
+    pipelineLog.push("copydeck-override");
+    narrative = mergeNarrativeWithCopyDeck({
+      narrative,
+      copyDeckPage: params.copyDeckPage,
+      maxBullets,
+      bulletMaxChars: budget.bullet,
+    });
+
+    narrative = {
+      ...narrative,
+      kicker: shortText(narrative.kicker, 28),
+      title: shortText(narrative.title, budget.title),
+      subtitle: shortText(narrative.subtitle, budget.subtitle),
+      body: shortText(narrative.body, budget.body),
+      bullets: bulletize(narrative.bullets, maxBullets, budget.bullet),
+      chips: narrative.chips.map((value) => shortText(value, 16)).filter(Boolean).slice(0, 3),
+      callout: shortText(narrative.callout, budget.callout),
+      footer: shortText(narrative.footer, 96),
+      metrics: narrative.metrics.slice(0, 4).map((metric, index) => ({
+        label: shortText(metric.label || `Metric ${index + 1}`, 20),
+        value: shortText(metric.value, 30),
+      })),
+    };
+  }
+
+  if (params.copyDeckPage && params.copyTightness > 0) {
+    pipelineLog.push(`copydeck-tighten-x${params.copyTightness}`);
+    const reducedBulletTarget = Math.max(1, narrative.bullets.length - params.copyTightness);
+    narrative = {
+      ...narrative,
+      bullets: narrative.bullets.slice(0, reducedBulletTarget),
+    };
+  }
+
+  if (params.copyDeckPage && params.copyTightness > 1) {
+    pipelineLog.push("copydeck-sentence-shorten");
+    const tightenRatio = 0.78;
+    narrative = {
+      ...narrative,
+      subtitle: shortText(narrative.subtitle, Math.floor(budget.subtitle * tightenRatio)),
+      body: shortText(narrative.body, Math.floor(budget.body * tightenRatio)),
+      callout: shortText(narrative.callout, Math.floor(budget.callout * tightenRatio)),
+    };
+  }
+
   if (!sourceImage && params.item.role === "gallery") {
-    narrative.body = "대표 이미지가 없어 텍스트 설명으로 대체했습니다.";
+    narrative.body = "대표 이미지가 없어 텍스트 중심 설명으로 대체했습니다";
   }
 
   const summary: PageBriefSummary = {
@@ -751,7 +721,7 @@ export function buildPageBrief(params: {
     imageCaption,
     topic: params.item.topicLabel,
     template: templateLabel(params.templateId),
-    templateReason: `${sectionLabel(params.item.role)} 구성에 ${templateLabel(params.templateId)} 적용`,
+    templateReason: `${sectionLabel(params.item.role)} 구성에 ${templateLabel(params.templateId)} 템플릿을 적용`,
     readingFlow: spec.readingFlow,
     maxTextBudget: budget,
     copyPipelineLog: pipelineLog,

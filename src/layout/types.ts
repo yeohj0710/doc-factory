@@ -104,6 +104,7 @@ export type LayoutValidationIssueCode =
   | "collision"
   | "min-size"
   | "content-density"
+  | "copy-density"
   | "text-truncation"
   | "layering"
   | "determinism"

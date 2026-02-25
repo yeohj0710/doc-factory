@@ -59,6 +59,10 @@ const UI_TEXT = {
   labelReferenceUsageState: "ReferenceUsage",
   labelInternalTerms: "InternalTerms",
   labelCompleteness: "ContentCompleteness",
+  labelCopywriter: "Copywriter",
+  labelCopywriterCache: "CopyCache",
+  labelCopywriterModel: "CopyModel",
+  labelCopywriterSchema: "CopySchema",
   labelRequestHash: "Request Hash",
   labelPassedPages: "\uD1B5\uACFC \uD398\uC774\uC9C0",
   labelAuditHash: "Audit Hash",
@@ -202,6 +206,8 @@ export default async function Home({ searchParams }: HomeProps) {
   const pageCountLabel = requestPageCountLabel(result.plan.requestSpec.pageCount);
   const promptValue = result.plan.requestSpec.prompt ?? "";
   const contentBriefValue = result.plan.requestSpec.contentBrief ?? "";
+  const copywriterModeValue = result.plan.requestSpec.copywriterMode ?? "";
+  const forceRegenerateCopyValue = result.plan.requestSpec.forceRegenerateCopy ? "1" : "0";
 
   return (
     <main className="app-shell">
@@ -221,7 +227,9 @@ export default async function Home({ searchParams }: HomeProps) {
             {result.plan.themeFactoryProof.status} / {UI_TEXT.labelRuntimeGates}: {result.runtimeGates.passed ? "pass" : "fail"} /{" "}
             {UI_TEXT.labelReferenceUsageState}: {result.exportAudit.gateProof.referenceUsageStatus} / {UI_TEXT.labelInternalTerms}:{" "}
             {result.exportAudit.gateProof.internalTermsStatus} / {UI_TEXT.labelCompleteness}:{" "}
-            {result.exportAudit.gateProof.contentCompletenessStatus} / {UI_TEXT.labelRequestHash}: {result.requestHash} /{" "}
+            {result.exportAudit.gateProof.contentCompletenessStatus} / {UI_TEXT.labelCopywriter}:{" "}
+            {result.copywriter.effectiveMode} ({result.copywriter.requestedMode}) / {UI_TEXT.labelCopywriterCache}:{" "}
+            {result.copywriter.cacheHit ? "hit" : "miss"} / {UI_TEXT.labelRequestHash}: {result.requestHash} /{" "}
             {UI_TEXT.labelAuditHash}: {result.exportAudit.auditHash}
           </p>
         </div>
@@ -237,6 +245,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
             <input type="hidden" name="prompt" value={promptValue} />
             <input type="hidden" name="contentBrief" value={contentBriefValue} />
+            {copywriterModeValue ? <input type="hidden" name="copywriterMode" value={copywriterModeValue} /> : null}
+            <input type="hidden" name="forceRegenerateCopy" value={forceRegenerateCopyValue} />
             <input type="hidden" name="variantIndex" value={String(result.plan.variantIndex)} />
             <input type="hidden" name="seed" value={String(result.plan.seed)} />
             <input type="hidden" name="docType" value={result.plan.docType} />
@@ -259,6 +269,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
             <input type="hidden" name="prompt" value={promptValue} />
             <input type="hidden" name="contentBrief" value={contentBriefValue} />
+            {copywriterModeValue ? <input type="hidden" name="copywriterMode" value={copywriterModeValue} /> : null}
+            <input type="hidden" name="forceRegenerateCopy" value={forceRegenerateCopyValue} />
             {result.plan.pageSizePreset === "CUSTOM" ? (
               <>
                 <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
@@ -282,6 +294,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <input type="hidden" name="constraints" value={result.plan.requestSpec.constraints.join(",")} />
             <input type="hidden" name="prompt" value={promptValue} />
             <input type="hidden" name="contentBrief" value={contentBriefValue} />
+            {copywriterModeValue ? <input type="hidden" name="copywriterMode" value={copywriterModeValue} /> : null}
+            <input type="hidden" name="forceRegenerateCopy" value={forceRegenerateCopyValue} />
             {result.plan.pageSizePreset === "CUSTOM" ? (
               <>
                 <input type="hidden" name="w" value={String(result.plan.pageSize.widthMm)} />
@@ -453,6 +467,27 @@ export default async function Home({ searchParams }: HomeProps) {
                   </p>
                   <p>
                     {UI_TEXT.labelCompleteness}: <strong>{result.exportAudit.gateProof.contentCompletenessStatus}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelCopywriter}:{" "}
+                    <strong>
+                      {result.copywriter.effectiveMode} ({result.copywriter.requestedMode})
+                    </strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelCopywriterCache}:{" "}
+                    <strong>
+                      {result.copywriter.cacheHit ? "hit" : "miss"} / {result.copywriter.cacheKey.slice(0, 12)}
+                    </strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelCopywriterModel}: <strong>{result.copywriter.model}</strong>
+                  </p>
+                  <p>
+                    {UI_TEXT.labelCopywriterSchema}:{" "}
+                    <strong>
+                      {result.copywriter.promptVersion} / {result.copywriter.schemaVersion}
+                    </strong>
                   </p>
                   <p>
                     {UI_TEXT.labelRequestHash}: <strong>{result.requestHash}</strong>

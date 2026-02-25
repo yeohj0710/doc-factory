@@ -32,6 +32,8 @@ export type RequestSpec = {
   constraints: string[];
   variantIndex: number;
   seed: number;
+  copywriterMode?: "off" | "local" | "openai";
+  forceRegenerateCopy: boolean;
 };
 
 type RawInputReader = {
@@ -75,6 +77,31 @@ function parseInteger(value: string | undefined): number | undefined {
     return undefined;
   }
   return parsed;
+}
+
+function parseBoolean(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function parseCopywriterMode(value: string | undefined): "off" | "local" | "openai" | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "off" || normalized === "local" || normalized === "openai") {
+    return normalized;
+  }
+  return undefined;
 }
 
 function parseNumber(value: string | undefined): number | undefined {
@@ -430,6 +457,14 @@ function normalizeRequestSpec(input: RawInputReader): RequestSpec {
   const tone = (input.get("tone") ?? DEFAULT_TONE).trim() || DEFAULT_TONE;
   const constraints = parseConstraints(input.get("constraints"));
   const parsedSeed = parseInteger(input.get("seed"));
+  const copywriterMode =
+    parseCopywriterMode(input.get("copywriterMode")) ??
+    parseCopywriterMode(input.get("copyMode")) ??
+    undefined;
+  const forceRegenerateCopy =
+    parseBoolean(input.get("forceRegenerate")) ??
+    parseBoolean(input.get("forceRegenerateCopy")) ??
+    false;
 
   if (docKind === "poster" && pageCount.mode === "exact" && pageCount.value >= 2) {
     docKind = "poster_set";
@@ -470,6 +505,8 @@ function normalizeRequestSpec(input: RawInputReader): RequestSpec {
     constraints,
     variantIndex,
     seed,
+    copywriterMode,
+    forceRegenerateCopy,
   };
 }
 

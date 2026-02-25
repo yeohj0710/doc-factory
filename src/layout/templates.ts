@@ -115,9 +115,9 @@ function resolveTypography(brief: PageBrief, templateId: TemplateId, tokens: Lay
 
   return {
     titlePt: clamp(isHeroTemplate ? tokens.fontScalePt.display : tokens.fontScalePt.title * 1.18, 25, 42),
-    subtitlePt: clamp(tokens.fontScalePt.lead * 1.08, 13.5, 20),
-    bodyPt: clamp(tokens.fontScalePt.lead, 13.2, 18),
-    calloutPt: clamp(tokens.fontScalePt.lead * 1.06, 13.4, 19),
+    subtitlePt: clamp(tokens.fontScalePt.lead * 1.08, 15.2, 20),
+    bodyPt: clamp(tokens.fontScalePt.lead * 1.1, 16, 19),
+    calloutPt: clamp(tokens.fontScalePt.lead * 1.12, 16, 20),
     captionPt: clamp(tokens.fontScalePt.caption * 1.12, 11, 14),
     microPt: clamp(tokens.fontScalePt.micro * 1.08, 10.2, 13),
   };
@@ -608,9 +608,11 @@ function buildElements(params: BuildParams): Element[] {
 
   if (bodyZone) {
     const bullets = params.brief.narrative.bullets.slice(0, compactLevel >= 1 ? 3 : 5);
-    const bodyContent = `${params.brief.narrative.body}\n\n${bullets
-      .map((lineValue) => `- ${lineValue}`)
-      .join("\n")}`;
+    const bulletLines = bullets.map((lineValue) => `- ${lineValue}`);
+    const bodyContent =
+      bulletLines.length > 0
+        ? `${params.brief.narrative.body}\n${bulletLines.join("\n")}`
+        : params.brief.narrative.body;
 
     const bodyFill = params.tokens.colors.softAccent;
     elements.push(

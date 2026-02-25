@@ -1,0 +1,1883 @@
+{
+  "params": {
+    "pageSizePreset": "CUSTOM",
+    "customPageSize": {
+      "widthMm": 80,
+      "heightMm": 80
+    },
+    "docType": "proposal",
+    "stylePresetId": "theme-botanical-garden__ref_style-c18",
+    "variantIndex": 1,
+    "seed": 3862920156,
+    "referenceDigest": "3f84300b4ad9af5943e7b4ee3483289d",
+    "requestHash": "48f2bd2035d82888"
+  },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "pageRole": "cover",
+      "templateId": "TEXT_ONLY_EDITORIAL",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 12,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 9.6,
+          "text": "Brochure / ko",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 28.5648,
+          "wMm": 58.16,
+          "hMm": 16,
+          "text": "Visual_Document - 커버 1p",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 46.564800000000005,
+          "wMm": 58.16,
+          "hMm": 11,
+          "text": "KakaoTalk 20260223 194620473 /",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 61.564800000000005,
+          "wMm": 58.16,
+          "hMm": 9.825791999999996,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 63.76480000000001,
+          "wMm": 53.76,
+          "hMm": 5.425791999999996,
+          "text": "Visual_Document. KakaoTalk 20260223 194620473. 확정되지 않은 수치/성과/연락처는 (추후 기입)으로\n- Facts not provided\n- Keep the tone",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 86.584219893504,
+          "wMm": 58.16,
+          "hMm": 10,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 88.584219893504,
+          "wMm": 54.16,
+          "hMm": 6,
+          "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 55.48,
+          "x2Mm": 69.08,
+          "y2Mm": 55.48,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 56.08,
+          "wMm": 55.36,
+          "hMm": 11.599999999999998,
+          "text": "Visual_Document / 1p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "표지",
+          "sourceImage": "KakaoTalk_20260223_194620473.jpg",
+          "imageCaption": "KakaoTalk 20260223 194620473",
+          "topic": "generic",
+          "template": "Text Only Editorial",
+          "templateReason": "표지 구성에 Text Only Editorial 템플릿을 적용",
+          "readingFlow": "title -> body -> highlighted takeaways",
+          "maxTextBudget": {
+            "title": 24,
+            "subtitle": 40,
+            "body": 104,
+            "bullet": 19,
+            "bullets": 6,
+            "callout": 56
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (subtitle)",
+              "elementId": "subtitle",
+              "elementIndex": 4
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-bg)",
+              "elementId": "body-bg",
+              "elementIndex": 5
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (6/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ],
+          "attemptedTemplates": [
+            "COVER_SPLIT_MEDIA",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "pageNumber": 2,
+      "pageRole": "gallery",
+      "templateId": "TEXT_ONLY_EDITORIAL",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 19.2,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 16.8,
+          "text": "갤러리",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 34.5552,
+          "wMm": 58.16,
+          "hMm": 16,
+          "text": "Visual_Document - 갤러리 2p",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 52.5552,
+          "wMm": 58.16,
+          "hMm": 11,
+          "text": "KakaoTalk 20260223 202929404",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 67.5552,
+          "wMm": 58.16,
+          "hMm": 7.531007999999999,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 69.7552,
+          "wMm": 53.76,
+          "hMm": 3.1310079999999987,
+          "text": "KakaoTalk 20260223 194620473. KakaoTalk 20260224 172224351. 확정되지 않은 수치/성과/연락처는\n- KakaoTalk 20260223\n- Keep the tone",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 87.3771918336,
+          "wMm": 58.16,
+          "hMm": 10,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 89.3771918336,
+          "wMm": 54.16,
+          "hMm": 6,
+          "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 55.48,
+          "x2Mm": 69.08,
+          "y2Mm": 55.48,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 56.08,
+          "wMm": 55.36,
+          "hMm": 11.599999999999998,
+          "text": "Visual_Document / 2p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "갤러리",
+          "sourceImage": "KakaoTalk_20260223_202929404.jpg",
+          "imageCaption": "KakaoTalk 20260223 202929404",
+          "topic": "generic",
+          "template": "Text Only Editorial",
+          "templateReason": "갤러리 구성에 Text Only Editorial 템플릿을 적용",
+          "readingFlow": "title -> body -> highlighted takeaways",
+          "maxTextBudget": {
+            "title": 24,
+            "subtitle": 40,
+            "body": 104,
+            "bullet": 19,
+            "bullets": 6,
+            "callout": 56
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (subtitle)",
+              "elementId": "subtitle",
+              "elementIndex": 4
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-bg)",
+              "elementId": "body-bg",
+              "elementIndex": 5
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (6/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ],
+          "attemptedTemplates": [
+            "GALLERY_SINGLE",
+            "GALLERY_SINGLE",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "pageNumber": 3,
+      "pageRole": "solution",
+      "templateId": "TEXT_ONLY_EDITORIAL",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 12,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 9.6,
+          "text": "솔루션",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 28.5648,
+          "wMm": 58.16,
+          "hMm": 16,
+          "text": "Visual_Document - 솔루션 3p",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 46.564800000000005,
+          "wMm": 58.16,
+          "hMm": 11,
+          "text": "KakaoTalk 20260224 172224351 /",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 61.564800000000005,
+          "wMm": 58.16,
+          "hMm": 11.397519368191999,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 63.76480000000001,
+          "wMm": 53.76,
+          "hMm": 6.997519368191998,
+          "text": "Visual_Document. Facts not provided must stay as (추후 기입).. 확정되지 않은 수치/성과/연락처는\n- Keep the tone\n- KakaoTalk 20260223",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 88.38478295859201,
+          "wMm": 58.16,
+          "hMm": 10,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 90.38478295859201,
+          "wMm": 54.16,
+          "hMm": 6,
+          "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 59.879999999999995,
+          "x2Mm": 69.08,
+          "y2Mm": 59.879999999999995,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 60.48,
+          "wMm": 55.36,
+          "hMm": 7.2,
+          "text": "Visual_Document / 3p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "솔루션",
+          "sourceImage": "KakaoTalk_20260224_172224351.jpg",
+          "imageCaption": "KakaoTalk 20260224 172224351",
+          "topic": "generic",
+          "template": "Text Only Editorial",
+          "templateReason": "솔루션 구성에 Text Only Editorial 템플릿을 적용",
+          "readingFlow": "title -> body -> highlighted takeaways",
+          "maxTextBudget": {
+            "title": 24,
+            "subtitle": 40,
+            "body": 104,
+            "bullet": 19,
+            "bullets": 6,
+            "callout": 56
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (subtitle)",
+              "elementId": "subtitle",
+              "elementIndex": 4
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-bg)",
+              "elementId": "body-bg",
+              "elementIndex": 5
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (6/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (footer-text)",
+              "elementId": "footer-text",
+              "elementIndex": 10
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ],
+          "attemptedTemplates": [
+            "TWO_COLUMN_MEDIA_TEXT",
+            "TWO_COLUMN_MEDIA_TEXT",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TITLE_MEDIA_SAFE",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "pageNumber": 4,
+      "pageRole": "process",
+      "templateId": "TEXT_ONLY_EDITORIAL",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 12,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 9.6,
+          "text": "프로세스",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 28.5648,
+          "wMm": 58.16,
+          "hMm": 16,
+          "text": "Visual_Document - 프로세스",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 46.564800000000005,
+          "wMm": 58.16,
+          "hMm": 11,
+          "text": "visual reference / Process",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "subtitle",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 61.564800000000005,
+          "wMm": 58.16,
+          "hMm": 11.397519368191999,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 63.76480000000001,
+          "wMm": 53.76,
+          "hMm": 6.997519368191998,
+          "text": "Facts not provided must stay as (추후 기입).. KakaoTalk 20260223 194620473. 확정되지 않은\n- KakaoTalk 20260224\n- Facts not provided",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 88.38478295859201,
+          "wMm": 58.16,
+          "hMm": 10,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 90.38478295859201,
+          "wMm": 54.16,
+          "hMm": 6,
+          "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 59.879999999999995,
+          "x2Mm": 69.08,
+          "y2Mm": 59.879999999999995,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 60.48,
+          "wMm": 55.36,
+          "hMm": 7.2,
+          "text": "Visual_Document / 4p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "프로세스",
+          "sourceImage": null,
+          "imageCaption": "이미지 없음",
+          "topic": "generic",
+          "template": "Text Only Editorial",
+          "templateReason": "프로세스 구성에 Text Only Editorial 템플릿을 적용",
+          "readingFlow": "title -> body -> highlighted takeaways",
+          "maxTextBudget": {
+            "title": 24,
+            "subtitle": 40,
+            "body": 104,
+            "bullet": 19,
+            "bullets": 6,
+            "callout": 56
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "boundary",
+              "message": "Element exceeds page bounds (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (subtitle)",
+              "elementId": "subtitle",
+              "elementIndex": 4
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-bg)",
+              "elementId": "body-bg",
+              "elementIndex": 5
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 7
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (6/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 6
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 8
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (footer-text)",
+              "elementId": "footer-text",
+              "elementIndex": 10
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ],
+          "attemptedTemplates": [
+            "TIMELINE_STEPS",
+            "TIMELINE_STEPS",
+            "PROCESS_FLOW",
+            "PROCESS_FLOW",
+            "PROCESS_FLOW",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-bg"
+            },
+            {
+              "code": "runtime-clip",
+              "message": "Element clipped outside page container",
+              "elementId": "callout-text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "pageNumber": 5,
+      "pageRole": "comparison",
+      "templateId": "QUOTE_FOCUS",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 12,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 9.6,
+          "text": "비교",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 34.564800000000005,
+          "wMm": 58.16,
+          "hMm": 14,
+          "text": "Visual_Document -",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 39.107126418175994,
+          "wMm": 58.16,
+          "hMm": 5.6391514017279984,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 41.307126418176,
+          "wMm": 53.76,
+          "hMm": 1.239151401727998,
+          "text": "Keep the tone concise and actionable.. KakaoTalk 20260223\n- KakaoTalk 20260224\n- KakaoTalk 20260223",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 52.564800000000005,
+          "wMm": 58.16,
+          "hMm": 7.808055787007997,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 54.564800000000005,
+          "wMm": 54.16,
+          "hMm": 3.808055787007997,
+          "text": "다음 검토 항목: generic 관련 확인 사항 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 55.48,
+          "x2Mm": 69.08,
+          "y2Mm": 55.48,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 56.08,
+          "wMm": 55.36,
+          "hMm": 11.599999999999998,
+          "text": "Visual_Document / 5p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "비교",
+          "sourceImage": null,
+          "imageCaption": "이미지 없음",
+          "topic": "generic",
+          "template": "Quote Focus",
+          "templateReason": "비교 구성에 Quote Focus 템플릿을 적용",
+          "readingFlow": "title -> quote -> support",
+          "maxTextBudget": {
+            "title": 20,
+            "subtitle": 20,
+            "body": 82,
+            "bullet": 18,
+            "bullets": 4,
+            "callout": 64
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 7
+            },
+            {
+              "code": "collision",
+              "message": "Collision detected (title vs body-bg)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "collision",
+              "message": "Collision detected (title vs body-text)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (5/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 5
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 7
+            },
+            {
+              "code": "layering",
+              "message": "Text occluded by later opaque element (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            }
+          ],
+          "attemptedTemplates": [
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "pageNumber": 6,
+      "pageRole": "cta",
+      "templateId": "QUOTE_FOCUS",
+      "widthMm": 80,
+      "heightMm": 80,
+      "elements": [
+        {
+          "type": "rect",
+          "xMm": 0,
+          "yMm": 0,
+          "wMm": 80,
+          "hMm": 80,
+          "fill": "#FFFDF8",
+          "id": "bg",
+          "role": "background"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 10.92,
+          "wMm": 58.16,
+          "hMm": 19.2,
+          "fill": "#c3c9c3",
+          "id": "header-band",
+          "role": "header",
+          "fillOpacity": 0.3
+        },
+        {
+          "type": "text",
+          "xMm": 12.12,
+          "yMm": 12.12,
+          "wMm": 55.76,
+          "hMm": 16.8,
+          "text": "다음 단계",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "kicker",
+          "role": "header",
+          "bold": true,
+          "color": "#566A5E"
+        },
+        {
+          "type": "text",
+          "xMm": 10.92,
+          "yMm": 40.5552,
+          "wMm": 58.16,
+          "hMm": 14,
+          "text": "Visual_Document -",
+          "fontSizePt": 23,
+          "lineHeight": 1.25,
+          "id": "title",
+          "role": "text",
+          "collisionGroup": "title",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 43.6348342784,
+          "wMm": 58.16,
+          "hMm": 4.9408433151999995,
+          "fill": "#d3d7d1",
+          "id": "body-bg",
+          "role": "shape",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "radiusMm": 2.32,
+          "stroke": "#CBD8CF",
+          "strokeWidthMm": 0.207
+        },
+        {
+          "type": "text",
+          "xMm": 13.120000000000001,
+          "yMm": 45.8348342784,
+          "wMm": 53.76,
+          "hMm": 0.5408433151999992,
+          "text": "KakaoTalk 20260223 194620473. Keep the tone concise and\n- KakaoTalk 20260223\n- Facts not provided",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "body-text",
+          "role": "text",
+          "collisionGroup": "body",
+          "isCollisionProtected": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "rect",
+          "xMm": 10.92,
+          "yMm": 58.5552,
+          "wMm": 58.16,
+          "hMm": 6.8411676672,
+          "fill": "#dbd4c7",
+          "id": "callout-bg",
+          "role": "shape",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "radiusMm": 5.336
+        },
+        {
+          "type": "text",
+          "xMm": 12.92,
+          "yMm": 60.5552,
+          "wMm": 54.16,
+          "hMm": 2.8411676671999997,
+          "text": "지금 필요한 결정: 담당/기한/연락처 (추후 기입)",
+          "fontSizePt": 12,
+          "lineHeight": 1.25,
+          "id": "callout-text",
+          "role": "text",
+          "collisionGroup": "callout",
+          "isCollisionProtected": true,
+          "bold": true,
+          "color": "#2F4A3A"
+        },
+        {
+          "type": "line",
+          "x1Mm": 10.92,
+          "y1Mm": 55.48,
+          "x2Mm": 69.08,
+          "y2Mm": 55.48,
+          "stroke": "#CBD8CF",
+          "widthMm": 0.207,
+          "id": "footer-divider",
+          "role": "footer"
+        },
+        {
+          "type": "text",
+          "xMm": 12.32,
+          "yMm": 56.08,
+          "wMm": 55.36,
+          "hMm": 11.599999999999998,
+          "text": "Visual_Document / 6p / 문의: (추후 기입)",
+          "fontSizePt": 10,
+          "lineHeight": 1.25,
+          "id": "footer-text",
+          "role": "footer",
+          "color": "#566A5E"
+        }
+      ],
+      "meta": {
+        "brief": {
+          "pageRole": "다음 단계",
+          "sourceImage": null,
+          "imageCaption": "이미지 없음",
+          "topic": "generic",
+          "template": "Quote Focus",
+          "templateReason": "다음 단계 구성에 Quote Focus 템플릿을 적용",
+          "readingFlow": "title -> quote -> support",
+          "maxTextBudget": {
+            "title": 20,
+            "subtitle": 20,
+            "body": 82,
+            "bullet": 18,
+            "bullets": 4,
+            "callout": 64
+          },
+          "copyPipelineLog": [
+            "draft",
+            "budget-shorten",
+            "remove-vague",
+            "bulletize",
+            "fit-check",
+            "tighten-x2",
+            "sentence-shorten",
+            "copydeck-override",
+            "copydeck-tighten-x2",
+            "copydeck-sentence-shorten"
+          ]
+        },
+        "validation": {
+          "passed": false,
+          "issues": [
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-bg)",
+              "elementId": "callout-bg",
+              "elementIndex": 6
+            },
+            {
+              "code": "reserved-lane",
+              "message": "Element invades reserved footer lane (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 7
+            },
+            {
+              "code": "collision",
+              "message": "Collision detected (title vs body-bg)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "collision",
+              "message": "Collision detected (title vs body-text)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (5/1) (body-text)",
+              "elementId": "body-text",
+              "elementIndex": 5
+            },
+            {
+              "code": "min-size",
+              "message": "Text overflow estimated (2/1) (callout-text)",
+              "elementId": "callout-text",
+              "elementIndex": 7
+            },
+            {
+              "code": "layering",
+              "message": "Text occluded by later opaque element (title)",
+              "elementId": "title",
+              "elementIndex": 3
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            }
+          ],
+          "attemptedTemplates": [
+            "TEXT_ONLY_EDITORIAL",
+            "TEXT_ONLY_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "AGENDA_EDITORIAL",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS",
+            "QUOTE_FOCUS"
+          ],
+          "runtimeIssues": [
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "body-text"
+            },
+            {
+              "code": "runtime-overflow",
+              "message": "Text overflow detected",
+              "elementId": "callout-text"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            },
+            {
+              "code": "runtime-overlap",
+              "message": "Protected elements overlap",
+              "elementId": "title"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

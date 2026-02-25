@@ -15,6 +15,11 @@ type ValidationOptions = {
   minBodyFontPt?: number;
   minCaptionFontPt?: number;
   minMicroFontPt?: number;
+  copyDensity?: {
+    minTextChars: number;
+    minTextBlocks: number;
+    minBodyFontPt: number;
+  };
 };
 
 const MM_PER_PT = 25.4 / 72;
@@ -39,6 +44,12 @@ type DensityStats = {
   coverageRatio: number;
   contentGroups: number;
   hasBodyLike: boolean;
+};
+
+type CopyDensityStats = {
+  textChars: number;
+  textBlocks: number;
+  bodyFontMinPt: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -449,6 +460,87 @@ function checkContentDensity(page: PageLayout, issues: LayoutValidationIssue[]):
   });
 }
 
+function isCopyDensityText(element: TextElement): boolean {
+  if (element.debugOnly) {
+    return false;
+  }
+  return element.role !== "header";
+}
+
+function isBodyLikeTextForDensity(element: TextElement): boolean {
+  if (!isCopyDensityText(element)) {
+    return false;
+  }
+  const id = (element.id ?? "").toLowerCase();
+  return id.includes("body") || id.includes("callout") || id.includes("table") || id.includes("flow");
+}
+
+function collectCopyDensityStats(page: PageLayout): CopyDensityStats {
+  let textChars = 0;
+  let textBlocks = 0;
+  let bodyFontMinPt = Number.POSITIVE_INFINITY;
+
+  for (const element of page.elements) {
+    if (element.type !== "text") {
+      continue;
+    }
+    if (!isCopyDensityText(element)) {
+      continue;
+    }
+
+    const normalized = element.text.replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      continue;
+    }
+
+    textChars += normalized.length;
+    textBlocks += 1;
+
+    if (isBodyLikeTextForDensity(element)) {
+      bodyFontMinPt = Math.min(bodyFontMinPt, element.fontSizePt);
+    }
+  }
+
+  return {
+    textChars,
+    textBlocks,
+    bodyFontMinPt: Number.isFinite(bodyFontMinPt) ? bodyFontMinPt : 0,
+  };
+}
+
+function checkCopyDensity(
+  page: PageLayout,
+  options: ValidationOptions,
+  issues: LayoutValidationIssue[],
+): void {
+  const threshold = options.copyDensity;
+  if (!threshold) {
+    return;
+  }
+
+  const stats = collectCopyDensityStats(page);
+  const reasons: string[] = [];
+
+  if (stats.textChars < threshold.minTextChars) {
+    reasons.push(`text_chars ${stats.textChars}/${threshold.minTextChars}`);
+  }
+  if (stats.textBlocks < threshold.minTextBlocks) {
+    reasons.push(`text_blocks ${stats.textBlocks}/${threshold.minTextBlocks}`);
+  }
+  if (stats.bodyFontMinPt < threshold.minBodyFontPt) {
+    reasons.push(`body_font_min_pt ${stats.bodyFontMinPt.toFixed(1)}/${threshold.minBodyFontPt.toFixed(1)}`);
+  }
+
+  if (reasons.length === 0) {
+    return;
+  }
+
+  issues.push({
+    code: "copy-density",
+    message: `copy density gate failed: ${reasons.join(", ")}`,
+  });
+}
+
 function checkTextTruncation(page: PageLayout, issues: LayoutValidationIssue[]): void {
   page.elements.forEach((element, index) => {
     if (element.type !== "text" || !isKeyTextElement(element)) {
@@ -548,6 +640,7 @@ export function validatePageLayout(
   checkCollisions(page, issues);
   checkMinSize(page, minima, issues);
   checkContentDensity(page, issues);
+  checkCopyDensity(page, options, issues);
   checkTextTruncation(page, issues);
   checkLayering(page, issues);
   return {

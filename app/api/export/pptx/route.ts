@@ -69,7 +69,7 @@ export async function POST(request: Request): Promise<Response> {
     const qaDisableReferenceUsage = parseBoolean(formData.get("qaDisableReferenceUsage")) ?? false;
     logger.log(
       "request parsed",
-      `job=${requestSpec.jobId} docKind=${requestSpec.docKind} pageCount=${requestSpec.pageCount.mode} variant=${requestSpec.variantIndex} seed=${requestSpec.seed} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"} qaDisableReferenceUsage=${qaDisableReferenceUsage ? "1" : "0"}`,
+      `job=${requestSpec.jobId} docKind=${requestSpec.docKind} pageCount=${requestSpec.pageCount.mode} variant=${requestSpec.variantIndex} seed=${requestSpec.seed} copyMode=${requestSpec.copywriterMode ?? "env-default"} forceRegenerateCopy=${requestSpec.forceRegenerateCopy ? "1" : "0"} debug=${typeof requestedDebug === "string" ? requestedDebug : "0"} qaDisableReferenceUsage=${qaDisableReferenceUsage ? "1" : "0"}`,
     );
 
     logger.log("asset scan start");
@@ -111,6 +111,7 @@ export async function POST(request: Request): Promise<Response> {
           exportAuditHash: result.exportAudit.auditHash,
           exportGateProof: result.exportAudit.gateProof,
           referenceUsageReport: result.exportAudit.referenceUsageReport,
+          copywriter: result.copywriter,
           requestHash: result.requestHash,
         },
         { status: 400 },
@@ -160,6 +161,14 @@ export async function POST(request: Request): Promise<Response> {
         "X-DocFactory-Runtime-Gates": result.runtimeGates.passed ? "pass" : "fail",
         "X-DocFactory-Content-Internal-Terms": result.exportAudit.gateProof.internalTermsStatus,
         "X-DocFactory-Content-Completeness": result.exportAudit.gateProof.contentCompletenessStatus,
+        "X-DocFactory-Copywriter-Requested-Mode": result.copywriter.requestedMode,
+        "X-DocFactory-Copywriter-Mode": result.copywriter.effectiveMode,
+        "X-DocFactory-Copywriter-Model": result.copywriter.model,
+        "X-DocFactory-Copywriter-Cache-Key": result.copywriter.cacheKey,
+        "X-DocFactory-Copywriter-Cache-Hit": result.copywriter.cacheHit ? "1" : "0",
+        "X-DocFactory-Copywriter-Prompt-Version": result.copywriter.promptVersion,
+        "X-DocFactory-Copywriter-Schema-Version": result.copywriter.schemaVersion,
+        "X-DocFactory-CopyDeck-Hash": result.copywriter.copyDeckHash,
       },
     });
   } catch (error) {

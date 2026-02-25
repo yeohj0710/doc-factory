@@ -1,0 +1,94 @@
+{
+  "passed": false,
+  "issues": [
+    {
+      "code": "export-audit",
+      "message": "content completeness gate failed"
+    }
+  ],
+  "auditHash": "3d53b7c6be96",
+  "referenceUsageReport": {
+    "required": true,
+    "referenceCount": 189,
+    "referenceDigest": "3f84300b4ad9af5943e7b4ee3483289d",
+    "referenceIndexStatus": "fresh",
+    "styleSource": "references",
+    "layoutSource": "references",
+    "usedStyleClusterIds": [
+      "style-c17"
+    ],
+    "usedLayoutClusterIds": [
+      "layout-c16",
+      "layout-c04",
+      "layout-c13"
+    ],
+    "minRequiredLayoutClusters": 2,
+    "selectedLayoutClusterIds": [
+      "layout-c16",
+      "layout-c04",
+      "layout-c13",
+      "layout-c01"
+    ],
+    "representativeStyleRefIds": [
+      "b6a6de5167dc",
+      "a36004f70382",
+      "c61c24022330",
+      "ed1a463006f9",
+      "dd37921fb87c",
+      "d1a37ad9a8a4",
+      "f4f674874348",
+      "caee3c724781",
+      "126e607c12ce",
+      "518900f40fe9",
+      "1bce64e99463",
+      "9ca3e0b29649",
+      "8ec8e498577e",
+      "3fffaee7ee80",
+      "b5333f0edff2",
+      "9663f09b0d09"
+    ],
+    "representativeLayoutRefIds": [
+      "79ce8ca14ded",
+      "d3bec51c4e3b",
+      "b44105cd1fb3",
+      "2311b6735449",
+      "de63b0e4854e",
+      "1b8c58bba5ea",
+      "dd52bd8015ac",
+      "b6a6de5167dc",
+      "52421616516a",
+      "05e9613586f6",
+      "3e34fc5cff05",
+      "3749f8dd2889",
+      "a85354de4211",
+      "5257394dfc28",
+      "567a009d5f9e",
+      "6ed978126b42"
+    ]
+  },
+  "gateProof": {
+    "requestHash": "3d4c39b801280878",
+    "referenceIndexStatus": "fresh",
+    "referenceUsageStatus": "pass",
+    "usedLayoutClusters": 3,
+    "requiredLayoutClusters": 2,
+    "themeFactoryStatus": "ran",
+    "runtimeGatesStatus": "pass",
+    "internalTermsStatus": "pass",
+    "contentCompletenessStatus": "fail",
+    "copywriterMode": "local",
+    "copyCacheKey": "edd6ebb35b9c6be248579739b0cd30d6ac3559df7c4279453aedac686bcb13da",
+    "copyDeckHash": "0d0e1a71a206920fb1a567488c7588c05617bd8b34a521738b07cf37ac3fcb2d"
+  },
+  "copywriter": {
+    "copywriterMode": "local",
+    "requestedMode": "local",
+    "effectiveMode": "local",
+    "model": "local-rule-v1",
+    "promptVersion": "copywriter.prompt.v1",
+    "schemaVersion": "copywriter.schema.v1",
+    "cacheKey": "edd6ebb35b9c6be248579739b0cd30d6ac3559df7c4279453aedac686bcb13da",
+    "cacheHit": true,
+    "copyDeckHash": "0d0e1a71a206920fb1a567488c7588c05617bd8b34a521738b07cf37ac3fcb2d"
+  }
+}

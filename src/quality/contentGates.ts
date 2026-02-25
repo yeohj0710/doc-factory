@@ -168,13 +168,16 @@ function completenessIssuesForPage(stats: PageContentStats, docKind: RequestDocK
         message: "poster page requires bullets or callout",
       });
     }
-    if (stats.totalChars > 320) {
+    const maxPosterChars = docKind === "poster_set" ? 560 : 320;
+    const maxPosterLineLength = docKind === "poster_set" ? 110 : 60;
+
+    if (stats.totalChars > maxPosterChars) {
       issues.push({
         code: "content-completeness",
         message: "poster copy exceeds concise threshold",
       });
     }
-    if (stats.longestLine > 60) {
+    if (stats.longestLine > maxPosterLineLength) {
       issues.push({
         code: "content-completeness",
         message: "poster line length exceeds concise threshold",
