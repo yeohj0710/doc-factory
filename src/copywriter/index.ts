@@ -18,7 +18,7 @@ function parseMode(rawMode: string | undefined): CopywriterMode {
 }
 
 function openAiModelFromEnv(): string {
-  return process.env.COPYWRITER_OPENAI_MODEL?.trim() || "gpt-4.1-mini";
+  return process.env.COPYWRITER_OPENAI_MODEL?.trim() || "gpt-5.6-luna";
 }
 
 export async function resolveCopyDeck(params: {
