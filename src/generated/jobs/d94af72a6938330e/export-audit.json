@@ -1,7 +1,7 @@
 {
   "passed": true,
   "issues": [],
-  "auditHash": "5ff054d84b67",
+  "auditHash": "f6e16995b4ae",
   "referenceUsageReport": {
     "required": true,
     "referenceCount": 189,
@@ -84,7 +84,7 @@
     "promptVersion": "copywriter.prompt.v1",
     "schemaVersion": "copywriter.schema.v1",
     "cacheKey": "129d4d5127c55e410aba8f349440c299f91c8846ba511450273e476f4e411c01",
-    "cacheHit": false,
+    "cacheHit": true,
     "copyDeckHash": "eb7f6f776835e24b2f4ab81e1297a3bb4015eff2edba07cbb6c270759c525e06"
   }
 }

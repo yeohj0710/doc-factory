@@ -780,9 +780,15 @@ function layoutClusterSignature(cluster: ReferenceLayoutCluster): string {
   ].join(":");
 }
 
+// 참고 자료 묶음이 그대로인지 보는 지문이다. 파일 이름과 크기면 충분하다.
+//
+// 여기에 mtime 을 넣었더니 배포된 사이트가 죽었다. git 은 수정 시각을 안 남겨서
+// 배포할 때마다 모든 파일의 mtime 이 새로 찍힌다. 그래서 커밋해둔 색인이 있어도
+// 지문이 항상 어긋났고, 요청마다 116MB짜리 189개 파일을 전부 읽어 해시했다.
+// 내용이 바뀐 것은 파일 내용 해시(fileIdDigest)가 따로 잡으니 mtime 은 쓸 데가 없다.
 function computeStructureDigest(files: readonly ReferenceFile[]): string {
   return stableHashFromParts(
-    files.map((file) => `${file.relPath}:${file.sizeBytes}:${Math.round(file.mtimeMs)}`),
+    files.map((file) => `${file.relPath}:${file.sizeBytes}`),
     24,
   );
 }
@@ -862,11 +868,27 @@ async function readReferenceIndexFile(rootDir: string): Promise<ReferenceIndex |
   }
 }
 
+// 색인 파일은 다음 실행을 빠르게 하려고 남기는 사본이다. 방금 만든 색인은 이미
+// 메모리에 있어서, 못 남겨도 화면은 그대로 그려진다.
+//
+// 그런데 이걸 그냥 던지게 뒀더니 배포된 사이트가 통째로 죽었다. 서버리스 함수의
+// 파일시스템은 읽기 전용이라 요청마다 EROFS 가 났다. 로컬에서는 잘 돌아서 11일 동안
+// 아무도 몰랐다. 못 쓰는 자리에서는 조용히 넘어가고, 그 밖의 오류는 그대로 올린다.
+const READ_ONLY_CODES = new Set(["EROFS", "EACCES", "EPERM"]);
+
 async function writeReferenceIndexFile(rootDir: string, index: ReferenceIndex): Promise<void> {
   const targetDir = path.join(rootDir, "src", "generated");
   const targetFile = path.join(targetDir, "reference-index.json");
-  await fs.mkdir(targetDir, { recursive: true });
-  await fs.writeFile(targetFile, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+  try {
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(targetFile, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? "";
+    if (!READ_ONLY_CODES.has(code)) {
+      throw error;
+    }
+    console.warn(`[referenceIndex] 색인 사본을 못 남겼습니다 (${code}). 메모리 색인으로 계속합니다.`);
+  }
 }
 
 async function computeFileIds(files: readonly ReferenceFile[]): Promise<{
